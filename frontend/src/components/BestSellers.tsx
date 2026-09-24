@@ -5,19 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, Star } from 'lucide-react';
 import { Product } from '@/types';
+import { resolveBackendImageUrl } from '@/lib/api';
 
 interface BestSellersProps {
   products: Product[];
 }
 
-
 function resolveProductImage(url?: string | null): string {
-  if (!url) return '/images/herbal-detox-tea.jpg';
-  const trimmed = url.trim();
-  if (trimmed.startsWith('/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return '/images/herbal-detox-tea.jpg';
+  return resolveBackendImageUrl(url, '/images/herbal-detox-tea.jpg');
 }
 
 export default function BestSellers({ products }: BestSellersProps) {

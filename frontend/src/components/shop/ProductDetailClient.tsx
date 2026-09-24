@@ -26,7 +26,7 @@ import { Product, ProductReview } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { submitPublicReview } from '@/lib/api';
+import { submitPublicReview, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 
 // Customer reviews loaded directly from database
 
@@ -112,7 +112,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
   useEffect(() => {
     const fetchProductReviews = async () => {
       try {
-        const res = await fetch(`http://localhost:5287/api/products/${product.id}/reviews`, { cache: 'no-store' });
+        const res = await fetch(`${API_BASE_URL}/products/${product.id}/reviews`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -183,7 +183,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
         '/images/ashwagandha-capsules.jpg'
       );
     }
-    return images;
+    return images.map(img => resolveBackendImageUrl(img, '/images/moringa-capsules.jpg'));
   }, [product]);
 
   // Dynamic key benefits (bullet points with checkmarks)
@@ -1035,7 +1035,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                   <div className="relative w-full aspect-[4/5] rounded-xl overflow-hidden bg-[#f4f7f4] border border-[#e4ece4] mb-3 group-hover:border-[#24492d]/40 transition-all">
                     {rel.imageUrl ? (
                       <Image
-                        src={rel.imageUrl}
+                        src={resolveBackendImageUrl(rel.imageUrl, '/images/herbal-detox-tea.jpg')}
                         alt={rel.name}
                         fill
                         sizes="250px"

@@ -35,7 +35,8 @@ import {
   approveProduct, 
   createProduct, 
   updateProduct, 
-  deleteProduct 
+  deleteProduct,
+  resolveBackendImageUrl
 } from '@/lib/api';
 import AdminHeader from '@/components/admin/AdminHeader';
 import ProductModal from '@/components/admin/ProductModal';
@@ -399,7 +400,7 @@ export default function AdminProductsPage() {
                               <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-[#cfe0d1] bg-[#f0f5f1] flex-shrink-0">
                                 {isValidImageUrl(prod.imageUrl) ? (
                                   <Image
-                                    src={prod.imageUrl}
+                                    src={resolveBackendImageUrl(prod.imageUrl)}
                                     alt={prod.name}
                                     fill
                                     sizes="56px"
@@ -630,7 +631,7 @@ export default function AdminProductsPage() {
                                 <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#cfe0d1] bg-[#f0f5f1] flex-shrink-0">
                                   {isValidImageUrl(prod.imageUrl) ? (
                                     <Image
-                                      src={prod.imageUrl}
+                                      src={resolveBackendImageUrl(prod.imageUrl)}
                                       alt={prod.name}
                                       fill
                                       sizes="48px"
@@ -762,7 +763,7 @@ export default function AdminProductsPage() {
                       <div className="relative w-full aspect-square bg-[#f6f9f6] overflow-hidden">
                         {isValidImageUrl(prod.imageUrl) ? (
                           <Image
-                            src={prod.imageUrl}
+                            src={resolveBackendImageUrl(prod.imageUrl)}
                             alt={prod.name}
                             fill
                             sizes="(max-width: 768px) 100vw, 300px"

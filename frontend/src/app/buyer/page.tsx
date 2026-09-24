@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { BlogPost } from '@/types';
-import { API_BASE_URL, uploadBlogImage } from '@/lib/api';
+import { API_BASE_URL, uploadBlogImage, resolveBackendImageUrl } from '@/lib/api';
 import { 
   Package, 
   ShoppingBag,
@@ -1249,7 +1249,7 @@ export default function BuyerDashboardPage() {
                     <div className="flex items-center gap-4">
                       <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0">
                         <Image
-                          src={blog.imageUrl || '/images/blog-moringa.jpg'}
+                          src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
                           alt={blog.title}
                           fill
                           className="object-cover"
@@ -1370,7 +1370,7 @@ export default function BuyerDashboardPage() {
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-100">
                               <Image
-                                src={item.product.imageUrl || '/images/gotu-kola-tea.jpg'}
+                                src={resolveBackendImageUrl(item.product.imageUrl, '/images/gotu-kola-tea.jpg')}
                                 alt={item.product.name}
                                 fill
                                 className="object-cover"
@@ -1983,7 +1983,7 @@ export default function BuyerDashboardPage() {
                   {formImageUrl && (
                     <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
                       <Image
-                        src={formImageUrl}
+                        src={resolveBackendImageUrl(formImageUrl, '/images/blog-moringa.jpg')}
                         alt="Blog preview"
                         fill
                         className="object-cover"
@@ -2112,7 +2112,7 @@ export default function BuyerDashboardPage() {
             {/* Top Featured Hero Image */}
             <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
               <Image
-                src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
+                src={resolveBackendImageUrl(readingBlog.imageUrl, '/images/blog-moringa.jpg')}
                 alt={readingBlog.title}
                 fill
                 priority

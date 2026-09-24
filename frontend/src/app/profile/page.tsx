@@ -47,6 +47,8 @@ interface Order {
   items?: OrderItem[];
 }
 
+import { API_BASE_URL } from '@/lib/api';
+
 export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, loading } = useAuth();
@@ -67,7 +69,7 @@ export default function ProfilePage() {
     const fetchOrders = async () => {
       try {
         const emailQuery = user?.email ? `?email=${encodeURIComponent(user.email)}` : '';
-        const res = await fetch(`http://localhost:5287/api/orders/my-orders${emailQuery}`, {
+        const res = await fetch(`${API_BASE_URL}/orders/my-orders${emailQuery}`, {
           cache: 'no-store'
         });
         if (res.ok) {

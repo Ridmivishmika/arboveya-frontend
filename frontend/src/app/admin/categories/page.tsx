@@ -8,7 +8,7 @@ import {
   FolderTree, CheckCircle2, ArrowLeft, Tag, Image as ImageIcon
 } from 'lucide-react';
 import { Category, CreateCategoryInput, UpdateCategoryInput } from '@/types';
-import { getCategories, createCategory, updateCategory, deleteCategory, getAdminToken } from '@/lib/api';
+import { getCategories, createCategory, updateCategory, deleteCategory, getAdminToken, resolveBackendImageUrl } from '@/lib/api';
 import CategoryModal from '@/components/admin/CategoryModal';
 import DeleteConfirmModal from '@/components/admin/DeleteConfirmModal';
 import AdminHeader from '@/components/admin/AdminHeader';
@@ -250,7 +250,7 @@ export default function CategoryAdminPage() {
                         <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#cce0ce] bg-[#f0f5f1] flex items-center justify-center shadow-xs">
                           {cat.imageUrl ? (
                             <Image
-                              src={cat.imageUrl}
+                              src={resolveBackendImageUrl(cat.imageUrl)}
                               alt={cat.name}
                               fill
                               sizes="40px"
@@ -317,7 +317,7 @@ export default function CategoryAdminPage() {
                     <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#24492d]/30 bg-[#edf4ee] flex items-center justify-center flex-shrink-0 shadow-sm">
                       {cat.imageUrl ? (
                         <Image
-                          src={cat.imageUrl}
+                          src={resolveBackendImageUrl(cat.imageUrl)}
                           alt={cat.name}
                           fill
                           sizes="48px"

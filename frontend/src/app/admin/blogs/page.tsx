@@ -6,6 +6,7 @@ import AdminHeader from '@/components/admin/AdminHeader';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { BlogPost } from '@/types';
+import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 import { 
   BookOpen, 
   CheckCircle2, 
@@ -39,7 +40,7 @@ export default function AdminBlogsPage() {
     setLoading(true);
     const authToken = token || localStorage.getItem('arboveya_token') || '';
     try {
-      let url = 'http://localhost:5287/api/blogs/moderation';
+      let url = `${API_BASE_URL}/blogs/moderation`;
       if (filter === 'pending') url += '?isApproved=false';
       if (filter === 'approved') url += '?isApproved=true';
 
@@ -52,7 +53,7 @@ export default function AdminBlogsPage() {
         const data = await res.json();
         setBlogs(data);
       } else {
-        const pubRes = await fetch('http://localhost:5287/api/blogs');
+        const pubRes = await fetch(`${API_BASE_URL}/blogs`);
         if (pubRes.ok) {
           const pubData = await pubRes.json();
           setBlogs(pubData);
@@ -76,7 +77,7 @@ export default function AdminBlogsPage() {
     const authToken = token || localStorage.getItem('arboveya_token') || '';
 
     try {
-      const res = await fetch('http://localhost:5287/api/blogs/' + id + '/moderation', {
+      const res = await fetch(`${API_BASE_URL}/blogs/${id}/moderation`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +118,7 @@ export default function AdminBlogsPage() {
     const authToken = token || localStorage.getItem('arboveya_token') || '';
 
     try {
-      const res = await fetch(`http://localhost:5287/api/admin/sellers/${authorId}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/admin/sellers/${authorId}/approve`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +157,7 @@ export default function AdminBlogsPage() {
     const authToken = token || localStorage.getItem('arboveya_token') || '';
 
     try {
-      const res = await fetch('http://localhost:5287/api/blogs/' + id, {
+      const res = await fetch(`${API_BASE_URL}/blogs/${id}`, {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + authToken },
       });
@@ -335,7 +336,7 @@ export default function AdminBlogsPage() {
                           <div className="flex items-center gap-3">
                             <div className="relative w-12 h-12 rounded-xl bg-stone-100 overflow-hidden flex-shrink-0 border border-stone-200">
                               <Image
-                                src={blog.imageUrl || '/images/blog-moringa.jpg'}
+                                src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
                                 alt={blog.title}
                                 fill
                                 className="object-cover"
@@ -492,7 +493,7 @@ export default function AdminBlogsPage() {
             {/* Top Featured Hero Image (Display from top) */}
             <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
               <Image
-                src={selectedBlog.imageUrl || '/images/blog-moringa.jpg'}
+                src={resolveBackendImageUrl(selectedBlog.imageUrl, '/images/blog-moringa.jpg')}
                 alt={selectedBlog.title}
                 fill
                 priority

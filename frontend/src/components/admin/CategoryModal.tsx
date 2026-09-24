@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X, Sparkles, AlertCircle, Image as ImageIcon, Check, Upload, Trash2, Loader2, Link as LinkIcon } from 'lucide-react';
 import { Category, CreateCategoryInput, UpdateCategoryInput } from '@/types';
-import { uploadCategoryImage } from '@/lib/api';
+import { uploadCategoryImage, resolveBackendImageUrl } from '@/lib/api';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -199,7 +199,7 @@ export default function CategoryModal({
                   {/* Circular Badge Preview */}
                   <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#24492d] bg-[#edf4ee] shadow-sm flex items-center justify-center flex-shrink-0">
                     <Image
-                      src={imageUrl.trim()}
+                      src={resolveBackendImageUrl(imageUrl.trim())}
                       alt="Category Round Preview"
                       fill
                       sizes="64px"

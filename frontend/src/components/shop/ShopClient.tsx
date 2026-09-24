@@ -20,6 +20,7 @@ import {
 import { Product, Category, WellnessNeed } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { resolveBackendImageUrl } from '@/lib/api';
 
 interface ShopClientProps {
   initialProducts: Product[];
@@ -605,7 +606,7 @@ export default function ShopClient({
                         <Link href={`/shop/${product.id}`} className="block w-full h-full relative">
                           {product.imageUrl ? (
                             <Image
-                              src={product.imageUrl}
+                              src={resolveBackendImageUrl(product.imageUrl, '/images/gotu-kola-tea.jpg')}
                               alt={product.name}
                               fill
                               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"

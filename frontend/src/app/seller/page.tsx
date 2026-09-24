@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { BlogPost, Category, WellnessNeed, CreateProductInput, UpdateProductInput } from '@/types';
-import { getCategories, getWellnessNeeds, uploadBlogImage } from '@/lib/api';
+import { getCategories, getWellnessNeeds, uploadBlogImage, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 import ProductModal from '@/components/admin/ProductModal';
 import {
   Package,
@@ -183,7 +183,7 @@ export default function SellerDashboardPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5287/api/products/seller/my-products?sellerId=${user?.id || ''}`);
+      const res = await fetch(`${API_BASE_URL}/products/seller/my-products?sellerId=${user?.id || ''}`);
       if (res.ok) {
         const data = await res.json();
         setProducts(Array.isArray(data) ? data : []);
@@ -202,7 +202,7 @@ export default function SellerDashboardPage() {
     setLoadingOrders(true);
     const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
     try {
-      const res = await fetch(`http://localhost:5287/api/orders/seller-orders?sellerId=${user?.id || ''}`, {
+      const res = await fetch(`${API_BASE_URL}/orders/seller-orders?sellerId=${user?.id || ''}`, {
         headers: authToken ? { Authorization: 'Bearer ' + authToken } : {},
         cache: 'no-store'
       });
@@ -228,7 +228,7 @@ export default function SellerDashboardPage() {
     }
     setLoadingBlogs(true);
     try {
-      const res = await fetch('http://localhost:5287/api/blogs/my-blogs', {
+      const res = await fetch(`${API_BASE_URL}/blogs/my-blogs`, {
         headers: { Authorization: 'Bearer ' + authToken },
         cache: 'no-store',
       });
@@ -247,7 +247,7 @@ export default function SellerDashboardPage() {
     if (!user) return;
     try {
       await refreshUser?.();
-      const res = await fetch('http://localhost:5287/api/admin/sellers');
+      const res = await fetch(`${API_BASE_URL}/admin/sellers`);
       if (res.ok) {
         const sellers = await res.json();
         const me = sellers.find((s: any) =>
@@ -394,7 +394,7 @@ export default function SellerDashboardPage() {
 
     try {
       if (editingProduct) {
-        const res = await fetch(`http://localhost:5287/api/products/seller/${editingProduct.id}`, {
+        const res = await fetch(`${API_BASE_URL}/products/seller/${editingProduct.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -409,7 +409,7 @@ export default function SellerDashboardPage() {
         setSuccessMsg(`Product "${input.name}" updated successfully! It has been submitted for Admin re-approval.`);
         setEditingProduct(null);
       } else {
-        const res = await fetch(`http://localhost:5287/api/products/seller?sellerId=${user?.id || ''}`, {
+        const res = await fetch(`${API_BASE_URL}/products/seller?sellerId=${user?.id || ''}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -462,7 +462,7 @@ export default function SellerDashboardPage() {
     setSavingTracking(true);
     setTrackingSuccessMsg(null);
     try {
-      const res = await fetch(`http://localhost:5287/api/orders/${orderId}/tracking`, {
+      const res = await fetch(`${API_BASE_URL}/orders/${orderId}/tracking`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -513,7 +513,7 @@ export default function SellerDashboardPage() {
   const handleDeleteProduct = async (p: Product) => {
     if (!confirm(`Are you sure you want to delete "${p.name}"?`)) return;
     try {
-      await fetch(`http://localhost:5287/api/products/seller/${p.id}`, {
+      await fetch(`${API_BASE_URL}/products/seller/${p.id}`, {
         method: 'DELETE'
       });
       setProducts(prev => prev.filter(prod => prod.id !== p.id));
@@ -555,7 +555,7 @@ export default function SellerDashboardPage() {
 
     try {
       if (editingBlog) {
-        const res = await fetch('http://localhost:5287/api/blogs/' + editingBlog.id, {
+        const res = await fetch(`${API_BASE_URL}/blogs/${editingBlog.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -579,7 +579,7 @@ export default function SellerDashboardPage() {
           alert(err.message || 'Failed to update blog.');
         }
       } else {
-        const res = await fetch('http://localhost:5287/api/blogs', {
+        const res = await fetch(`${API_BASE_URL}/blogs`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -614,7 +614,7 @@ export default function SellerDashboardPage() {
     const authToken = token || localStorage.getItem('arboveya_token') || '';
 
     try {
-      const res = await fetch('http://localhost:5287/api/blogs/' + blog.id, {
+      const res = await fetch(`${API_BASE_URL}/blogs/${blog.id}`, {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + authToken },
       });
@@ -867,7 +867,7 @@ export default function SellerDashboardPage() {
                             <div className="flex items-center gap-3">
                               <div className="relative w-12 h-12 rounded-xl bg-stone-100 overflow-hidden border border-stone-200 flex-shrink-0">
                                 <Image
-                                  src={p.imageUrl || '/images/gotu-kola-tea.jpg'}
+                                  src={resolveBackendImageUrl(p.imageUrl, '/images/gotu-kola-tea.jpg')}
                                   alt={p.name}
                                   fill
                                   className="object-cover"
@@ -1047,7 +1047,7 @@ export default function SellerDashboardPage() {
                         <div className="flex items-center gap-4">
                           <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0">
                             <Image
-                              src={blog.imageUrl || '/images/blog-moringa.jpg'}
+                              src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
                               alt={blog.title}
                               fill
                               className="object-cover"
@@ -1524,7 +1524,7 @@ export default function SellerDashboardPage() {
                   {blogImageUrl && (
                     <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
                       <Image
-                        src={blogImageUrl}
+                        src={resolveBackendImageUrl(blogImageUrl, '/images/blog-moringa.jpg')}
                         alt="Blog preview"
                         fill
                         className="object-cover"
@@ -1651,7 +1651,7 @@ export default function SellerDashboardPage() {
               {/* Top Featured Hero Image */}
               <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
                 <Image
-                  src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
+                  src={resolveBackendImageUrl(readingBlog.imageUrl, '/images/blog-moringa.jpg')}
                   alt={readingBlog.title}
                   fill
                   priority
@@ -1777,7 +1777,7 @@ export default function SellerDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
               <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-xs border border-stone-200/80 bg-stone-100">
                 <Image
-                  src={viewingProduct.imageUrl || '/images/gotu-kola-tea.jpg'}
+                  src={resolveBackendImageUrl(viewingProduct.imageUrl, '/images/gotu-kola-tea.jpg')}
                   alt={viewingProduct.name}
                   fill
                   className="object-cover"

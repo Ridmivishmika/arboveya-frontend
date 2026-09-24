@@ -23,6 +23,50 @@ import { fallbackSettings } from "./mockData";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api";
 
+export function getBackendOrigin(): string {
+  return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api").replace(/\/api\/?$/, "");
+}
+
+/**
+ * Resolves any image URL (relative /uploads/..., legacy localhost:5287, or remote)
+ * to an accessible URL in both local development and hosted production environments.
+ */
+export function resolveBackendImageUrl(url?: string | null, fallback = "/images/botanical-sprig.jpg"): string {
+  if (!url || typeof url !== "string") return fallback;
+  const trimmed = url.trim();
+  if (!trimmed) return fallback;
+
+  const backendOrigin = getBackendOrigin();
+
+  // Handle legacy/local uploads saved in DB with localhost:5287 or 127.0.0.1:5287
+  if (trimmed.includes("localhost:5287/uploads/")) {
+    const rel = trimmed.substring(trimmed.indexOf("/uploads/"));
+    return `${backendOrigin}${rel}`;
+  }
+  if (trimmed.includes("127.0.0.1:5287/uploads/")) {
+    const rel = trimmed.substring(trimmed.indexOf("/uploads/"));
+    return `${backendOrigin}${rel}`;
+  }
+
+  // Backend static uploads path
+  if (trimmed.startsWith("/uploads/")) {
+    return `${backendOrigin}${trimmed}`;
+  }
+
+  // Frontend public assets
+  if (trimmed.startsWith("/images/")) {
+    return trimmed;
+  }
+
+  // Protocol-relative URLs
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  // Full remote URLs or other relative assets
+  return trimmed;
+}
+
 export async function getSiteSettings(): Promise<SiteSettings> {
   try {
     const res = await fetch(`${API_BASE_URL}/sitesettings`, {

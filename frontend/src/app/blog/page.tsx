@@ -33,7 +33,7 @@ import {
   ImageIcon,
   Loader2
 } from 'lucide-react';
-import { uploadBlogImage } from '@/lib/api';
+import { uploadBlogImage, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 
 const CATEGORIES = ['All', 'Wellness', 'Herbal Tea', 'Skincare', 'Nutrition', 'Mindfulness'];
 
@@ -95,7 +95,7 @@ function BlogContent() {
   const fetchBlogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5287/api/blogs', { cache: 'no-store' });
+      const res = await fetch(`${API_BASE_URL}/blogs`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setBlogs(data);
@@ -113,7 +113,7 @@ function BlogContent() {
     if (!authToken) return;
     setMyBlogsLoading(true);
     try {
-      const res = await fetch('http://localhost:5287/api/blogs/my-blogs', {
+      const res = await fetch(`${API_BASE_URL}/blogs/my-blogs`, {
         headers: { Authorization: 'Bearer ' + authToken },
         cache: 'no-store',
       });
@@ -218,7 +218,7 @@ function BlogContent() {
     try {
       if (editingBlog) {
         // Update Blog
-        const res = await fetch('http://localhost:5287/api/blogs/' + editingBlog.id, {
+        const res = await fetch(`${API_BASE_URL}/blogs/${editingBlog.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ function BlogContent() {
         }
       } else {
         // Create Blog
-        const res = await fetch('http://localhost:5287/api/blogs', {
+        const res = await fetch(`${API_BASE_URL}/blogs`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ function BlogContent() {
 
     const authToken = token || localStorage.getItem('arboveya_token') || '';
     try {
-      const res = await fetch('http://localhost:5287/api/blogs/' + blog.id, {
+      const res = await fetch(`${API_BASE_URL}/blogs/${blog.id}`, {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + authToken },
       });
@@ -525,7 +525,7 @@ function BlogContent() {
                   <div className="flex items-center gap-4">
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0">
                       <Image
-                        src={blog.imageUrl || '/images/blog-moringa.jpg'}
+                        src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
                         alt={blog.title}
                         fill
                         className="object-cover"
@@ -619,7 +619,7 @@ function BlogContent() {
                     {/* Card Thumbnail */}
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
                       <Image
-                        src={blog.imageUrl || '/images/blog-moringa.jpg'}
+                        src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
                         alt={blog.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
@@ -825,7 +825,7 @@ function BlogContent() {
                   {formImageUrl && (
                     <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
                       <Image
-                        src={formImageUrl}
+                        src={resolveBackendImageUrl(formImageUrl, '/images/blog-moringa.jpg')}
                         alt="Blog cover preview"
                         fill
                         className="object-cover"
@@ -953,7 +953,7 @@ function BlogContent() {
             {/* Top Featured Hero Image */}
             <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
               <Image
-                src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
+                src={resolveBackendImageUrl(readingBlog.imageUrl, '/images/blog-moringa.jpg')}
                 alt={readingBlog.title}
                 fill
                 priority

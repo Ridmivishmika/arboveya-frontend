@@ -16,7 +16,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Product, Category, WellnessNeed } from '@/types';
-import { createCategory, createWellnessNeed } from '@/lib/api';
+import { createCategory, createWellnessNeed, resolveBackendImageUrl } from '@/lib/api';
 
 interface ApproveProductModalProps {
   product: Product | null;
@@ -214,7 +214,7 @@ export default function ApproveProductModal({
             <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#cfe0d1] bg-white flex-shrink-0 shadow-2xs">
               {isValidImg ? (
                 <Image
-                  src={product.imageUrl!}
+                  src={resolveBackendImageUrl(product.imageUrl)}
                   alt={product.name}
                   fill
                   sizes="80px"

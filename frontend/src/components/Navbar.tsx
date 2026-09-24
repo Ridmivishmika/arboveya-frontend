@@ -180,12 +180,12 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
     const isApproved = user?.isSellerApproved ?? false;
 
     return (
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
           
           {/* Brand Emblem & Seller Dashboard Title */}
-          <Link href="/" className="flex items-center gap-3 flex-shrink-0">
-            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#2a4d31]/20 shadow-sm">
+          <Link href="/" className="flex items-center gap-3 flex-shrink-0 group">
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#2a4d31]/20 shadow-xs group-hover:scale-105 transition-transform">
               <Image
                 src="/images/logo-badge.png"
                 alt="Arboveya Logo"
@@ -205,13 +205,13 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             </div>
           </Link>
 
-          {/* Single Storefront Nav Button & Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+          {/* Desktop Navigation Tabs & Actions (Large screens) */}
+          <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 justify-end">
             
             {/* Single button navigating back to main store & main navbar */}
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition-all shadow-2xs cursor-pointer"
               title="Return to main Arboveya store and main navigation bar"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -260,9 +260,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               <span>Orders</span>
             </button>
 
-            
-
-            {/* Profile Dropdown Trigger (Herbal Merchant, Status, Name, Email) */}
+            {/* Profile Dropdown Trigger */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen((prev) => !prev)}
@@ -272,7 +270,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 <div className="w-7 h-7 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   {sellerInitial}
                 </div>
-                <span className="max-w-[110px] truncate hidden lg:inline">{sellerDisplayName}</span>
+                <span className="max-w-[110px] truncate hidden xl:inline">{sellerDisplayName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-stone-500 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -280,8 +278,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               {profileDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-stone-200 p-5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="space-y-3">
-                    
-                    {/* Role & Live Status Badges */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-[#2E4D38] bg-[#edf5ee] px-2.5 py-0.5 rounded-full">
                         Herbal Merchant
@@ -299,7 +295,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                       )}
                     </div>
 
-                    {/* Name & Email */}
                     <div>
                       <h4 className="font-serif text-lg font-bold text-stone-900 leading-tight">
                         {sellerDisplayName}
@@ -309,7 +304,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                       </p>
                     </div>
 
-                    {/* Sign Out Button */}
                     <div className="pt-2 border-t border-stone-100">
                       <button
                         onClick={handleSignOut}
@@ -331,10 +325,10 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden xl:inline">Sign Out</span>
             </button>
 
-            {/* Cart Icon in Far Right Corner */}
+            {/* Cart Icon */}
             <button
               onClick={handleBuyerCartClick}
               className={`relative p-2 rounded-xl transition-all duration-300 cursor-pointer ${
@@ -357,7 +351,142 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               )}
             </button>
           </div>
+
+          {/* Mobile & Tablet Controls (Below lg breakpoint) */}
+          <div className="flex items-center gap-2 lg:hidden">
+            {/* Quick Cart button */}
+            <button
+              onClick={handleBuyerCartClick}
+              className="relative p-2 rounded-xl border border-stone-200 bg-stone-50 text-[#1c3f24] transition-all cursor-pointer"
+              aria-label="Cart"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#24492d] text-white text-[10px] font-bold min-w-[16px] h-[16px] px-0.5 rounded-full flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-[#1c3f24] transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#2E4D38]"
+              aria-label="Toggle seller navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 text-stone-700" /> : <Menu className="w-5 h-5 text-stone-700" />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile & Tablet Dropdown Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-white/98 backdrop-blur-xl border-b border-stone-200 shadow-xl transition-all duration-200 animate-in slide-in-from-top-2">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+              
+              {/* Merchant Identity Card */}
+              <div className="p-3.5 rounded-2xl bg-[#f4f8f4] border border-[#d5e5d7] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                    {sellerInitial}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-stone-900">{sellerDisplayName}</span>
+                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-[#edf5ee] text-[#1c3f24]">
+                        Merchant
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-stone-500 block truncate">{user?.email}</span>
+                  </div>
+                </div>
+
+                <div>
+                  {isApproved ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Approved</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      <Clock className="w-3 h-3" />
+                      <span>Pending</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Navigation Tabs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    handleSellerProductsClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    sellerTab === 'products'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <Package className="w-4 h-4" />
+                  <span>Products</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleSellerArticlesClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    sellerTab === 'articles'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Blogs</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleSellerOrdersClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    sellerTab === 'orders'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Orders</span>
+                </button>
+              </div>
+
+              {/* Additional Actions */}
+              <div className="pt-2 border-t border-stone-100 flex flex-col sm:flex-row items-center gap-2">
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Arboveya Store</span>
+                </Link>
+
+                <button
+                  onClick={handleSignOut}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-600" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
     );
   }
@@ -370,12 +499,12 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
     const buyerDisplayName = user?.fullName || `${user?.firstName || 'Valued'} ${user?.lastName || 'Customer'}`.trim();
 
     return (
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
           
           {/* Brand Emblem & Buyer Dashboard Title */}
-          <Link href="/buyer" className="flex items-center gap-3 flex-shrink-0">
-            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#2a4d31]/20 shadow-sm">
+          <Link href="/buyer" className="flex items-center gap-3 flex-shrink-0 group">
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#2a4d31]/20 shadow-xs group-hover:scale-105 transition-transform">
               <Image
                 src="/images/logo-badge.png"
                 alt="Arboveya Logo"
@@ -395,13 +524,13 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             </div>
           </Link>
 
-          {/* Single Storefront Nav Button & Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+          {/* Desktop Navigation (Large screens) */}
+          <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 justify-end">
             
             {/* Single Store button */}
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition-all shadow-2xs cursor-pointer"
               title="Return to main Arboveya store"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -465,7 +594,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 <div className="w-7 h-7 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   {buyerInitial}
                 </div>
-                <span className="max-w-[110px] truncate hidden lg:inline">{buyerDisplayName}</span>
+                <span className="max-w-[110px] truncate hidden xl:inline">{buyerDisplayName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-stone-500 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -509,10 +638,131 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden xl:inline">Sign Out</span>
+            </button>
+          </div>
+
+          {/* Mobile & Tablet Controls (Below lg breakpoint) */}
+          <div className="flex items-center gap-2 lg:hidden">
+            {/* Quick Cart button */}
+            <button
+              onClick={handleBuyerCartClick}
+              className="relative p-2 rounded-xl border border-stone-200 bg-stone-50 text-[#1c3f24] transition-all cursor-pointer"
+              aria-label="Cart"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#24492d] text-white text-[10px] font-bold min-w-[16px] h-[16px] px-0.5 rounded-full flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-[#1c3f24] transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#2E4D38]"
+              aria-label="Toggle buyer navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 text-stone-700" /> : <Menu className="w-5 h-5 text-stone-700" />}
             </button>
           </div>
         </div>
+
+        {/* Mobile & Tablet Dropdown Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-white/98 backdrop-blur-xl border-b border-stone-200 shadow-xl transition-all duration-200 animate-in slide-in-from-top-2">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+              
+              {/* Buyer Profile Card */}
+              <div className="p-3.5 rounded-2xl bg-[#f4f8f4] border border-[#d5e5d7] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                    {buyerInitial}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-stone-900">{buyerDisplayName}</span>
+                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                        Buyer
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-stone-500 block truncate">{user?.email}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 font-bold text-xs hover:bg-red-100 transition cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-600" />
+                  <span>Exit</span>
+                </button>
+              </div>
+
+              {/* Navigation Tabs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    handleBuyerOrdersClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    buyerTab === 'orders'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <Package className="w-4 h-4" />
+                  <span>Orders</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleBuyerArticlesClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    buyerTab === 'articles'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Blogs</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleBuyerCartClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    buyerTab === 'cart'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Cart ({cartCount})</span>
+                </button>
+              </div>
+
+              {/* Return to store link */}
+              <div className="pt-2 border-t border-stone-100">
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Arboveya Store</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
     );
   }

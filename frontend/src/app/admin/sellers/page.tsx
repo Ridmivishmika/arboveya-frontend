@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminHeader from '@/components/admin/AdminHeader';
+import { API_BASE_URL } from '@/lib/api';
 import { 
   Store, 
   CheckCircle2, 
@@ -39,7 +40,7 @@ export default function AdminSellersPage() {
   const fetchSellers = async () => {
     setLoading(true);
     try {
-      let url = 'http://localhost:5287/api/admin/sellers';
+      let url = `${API_BASE_URL}/admin/sellers`;
       if (filter === 'pending') url += '?isApproved=false';
       if (filter === 'approved') url += '?isApproved=true';
 
@@ -91,7 +92,7 @@ export default function AdminSellersPage() {
     setActionLoading(id);
     const newStatus = !currentStatus;
     try {
-      const res = await fetch(`http://localhost:5287/api/admin/sellers/${id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/admin/sellers/${id}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isApproved: newStatus })

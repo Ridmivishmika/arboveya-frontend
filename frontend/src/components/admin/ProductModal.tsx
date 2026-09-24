@@ -27,7 +27,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { Product, Category, WellnessNeed, CreateProductInput, UpdateProductInput, ProductVariant } from '@/types';
-import { uploadProductImage, uploadMultipleProductImages } from '@/lib/api';
+import { uploadProductImage, uploadMultipleProductImages, resolveBackendImageUrl } from '@/lib/api';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -524,7 +524,7 @@ export default function ProductModal({
                     >
                       <div className="relative aspect-square w-full">
                         <Image
-                          src={photoUrl}
+                          src={resolveBackendImageUrl(photoUrl)}
                           alt={`Product photo ${idx + 1}`}
                           fill
                           sizes="140px"
@@ -1033,7 +1033,7 @@ export default function ProductModal({
             <div className="relative w-12 h-12 rounded-lg bg-white overflow-hidden border border-[#d2e0d4] flex-shrink-0">
               {photos[0] ? (
                 <Image
-                  src={photos[0]}
+                  src={resolveBackendImageUrl(photos[0])}
                   alt={name || 'Preview'}
                   fill
                   sizes="48px"

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { resolveBackendImageUrl } from '@/lib/api';
 
 export default function CartClient() {
   const router = useRouter();
@@ -153,7 +154,7 @@ export default function CartClient() {
                           <div className="flex items-center gap-3 sm:gap-4">
                             <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-[#edf3ed] flex-shrink-0 border border-[#ccdacc]">
                               <Image
-                                src={item.product.imageUrl || '/images/gotu-kola-tea.jpg'}
+                                src={resolveBackendImageUrl(item.product.imageUrl, '/images/gotu-kola-tea.jpg')}
                                 alt={item.product.name}
                                 fill
                                 sizes="64px"

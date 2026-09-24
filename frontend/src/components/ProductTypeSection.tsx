@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Category } from '@/types';
 import { Tag, Sparkles } from 'lucide-react';
+import { resolveBackendImageUrl } from '@/lib/api';
 
 interface ProductTypeSectionProps {
   categories?: Category[];
@@ -49,7 +50,7 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
                   <div className="relative w-18 h-18 sm:w-22 sm:h-22 rounded-full bg-[#edf4ee] border-2 border-[#ccdccd] group-hover:border-[#24492d] group-hover:scale-108 transition-all duration-300 shadow-xs overflow-hidden flex items-center justify-center">
                     {hasValidImage ? (
                       <Image
-                        src={category.imageUrl!}
+                        src={resolveBackendImageUrl(category.imageUrl, '/images/herbal-detox-tea.jpg')}
                         alt={category.name}
                         fill
                         sizes="88px"
