@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { BlogPost } from '@/types';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, uploadBlogImage } from '@/lib/api';
 import { 
   Package, 
   ShoppingBag,
@@ -31,7 +31,10 @@ import {
   MapPin,
   Truck,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Upload,
+  RefreshCw,
+  LogIn
 } from 'lucide-react';
 
 interface OrderItem {
@@ -57,10 +60,15 @@ interface Order {
   payHereOrderId?: string;
   customerName?: string;
   shippingAddress?: string;
+  shippingMethod?: string;
+  shippingCost?: number;
   totalAmount: number;
   orderStatus: string;
   paymentStatus: string;
   createdAt: string;
+  trackingNumber?: string;
+  shippingCarrier?: string;
+  shippedAt?: string;
   items?: OrderItem[];
   orderItems?: OrderItem[];
 }
@@ -108,6 +116,32 @@ export default function BuyerDashboardPage() {
   const [formCategory, setFormCategory] = useState('Wellness');
   const [formImageUrl, setFormImageUrl] = useState('/images/blog-moringa.jpg');
   const [formContent, setFormContent] = useState('');
+  const [uploadingBlogImage, setUploadingBlogImage] = useState(false);
+  const [blogUploadError, setBlogUploadError] = useState<string | null>(null);
+  const blogFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleBlogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setBlogUploadError('Image size exceeds 10MB limit.');
+      return;
+    }
+
+    try {
+      setUploadingBlogImage(true);
+      setBlogUploadError(null);
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+      const url = await uploadBlogImage(file, authToken);
+      setFormImageUrl(url);
+    } catch (err: any) {
+      setBlogUploadError(err.message || 'Failed to upload blog image.');
+    } finally {
+      setUploadingBlogImage(false);
+      if (blogFileInputRef.current) blogFileInputRef.current.value = '';
+    }
+  };
 
   // Review Modal State
   const [reviewModalProduct, setReviewModalProduct] = useState<{ id: string; name: string } | null>(null);
@@ -702,14 +736,60 @@ export default function BuyerDashboardPage() {
     }
   };
 
-  useEffect(() => {
-    if (!loading && !user) {
-      window.location.replace('/');
-    }
-  }, [loading, user]);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FBFBFA] flex items-center justify-center py-20">
+        <div className="text-center text-xs font-medium text-stone-500 flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin text-[#2E4D38]" />
+          <span>Loading Buyer Portal...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-[#FBFBFA] py-16 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-8 sm:p-10 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-[#24492d] flex items-center justify-center mx-auto shadow-xs">
+            <User className="w-8 h-8" />
+          </div>
+
+          <div>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
+              Buyer Portal Access
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
+              Please sign in to track your orders, check shipment deliveries, manage your wishlist, and post product reviews.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Link
+              href="/login?role=Customer&redirect=/buyer"
+              className="w-full py-3 px-5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-sm transition flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Your Account</span>
+            </Link>
+
+            <Link
+              href="/register?role=Customer&redirect=/buyer"
+              className="w-full py-3 px-5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold tracking-wider uppercase transition flex items-center justify-center gap-2"
+            >
+              <User className="w-4 h-4" />
+              <span>Create Customer Account</span>
+            </Link>
+
+            <div>
+              <Link href="/" className="text-xs text-stone-500 hover:text-stone-900 underline">
+                Return to Store Home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -826,6 +906,65 @@ export default function BuyerDashboardPage() {
                         <div className="text-[11px] text-stone-400">Total Paid</div>
                       </div>
                     </div>
+
+                    {/* Shipping Method and Delivery Address Summary */}
+                    <div className="p-3 bg-stone-50/80 rounded-xl border border-stone-200/60 text-xs grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Shipping Method</span>
+                        <div className="flex items-center gap-1.5 mt-0.5 font-semibold text-[#2E4D38]">
+                          <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span>{order.shippingMethod || 'Standard Shipping'}</span>
+                          <span className="text-[11px] font-normal text-stone-500">
+                            ({order.shippingCost === 0 || !order.shippingCost ? 'Free' : `$${order.shippingCost.toFixed(2)}`})
+                          </span>
+                        </div>
+                      </div>
+                      {order.shippingAddress && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Delivery Address</span>
+                          <span className="text-stone-700 mt-0.5 block">{order.shippingAddress}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Shipment Tracking Information Banner if Shipped */}
+                    {order.trackingNumber && (
+                      <div className="p-3.5 bg-[#edf5ee] border border-[#bcd6be] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#24492d] text-white flex items-center justify-center flex-shrink-0 shadow-2xs">
+                            <Truck className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-[#1c3f24] text-xs">
+                                Shipment Dispatched ({order.shippingCarrier || 'Courier Express'})
+                              </span>
+                              <span className="px-1.5 py-0.2 bg-[#24492d] text-white text-[9px] font-bold rounded">
+                                {order.orderStatus || 'Shipped'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-stone-600 text-[11px]">Tracking Number:</span>
+                              <span className="font-mono font-bold text-[#1c3f24] bg-white px-2 py-0.5 rounded border border-[#c5dec7]">
+                                {order.trackingNumber}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (order.trackingNumber) {
+                              navigator.clipboard.writeText(order.trackingNumber);
+                              alert('Tracking number copied to clipboard: ' + order.trackingNumber);
+                            }
+                          }}
+                          className="text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] bg-white border border-[#24492d]/30 px-2.5 py-1 rounded-lg hover:bg-[#e4f0e5] transition shadow-2xs self-start sm:self-auto cursor-pointer"
+                        >
+                          Copy Tracking #
+                        </button>
+                      </div>
+                    )}
 
                     {/* Order Items & Review Action */}
                     <div className="space-y-3 pt-1">
@@ -1471,6 +1610,38 @@ export default function BuyerDashboardPage() {
                       </div>
                     </div>
 
+                    {/* Terms Agreement Notice */}
+                    <p className="text-[11px] text-stone-500 leading-relaxed text-center px-1">
+                      By placing this order, you confirm that you have read and agree to Arboveya&apos;s{' '}
+                      <Link
+                        href="/terms-and-conditions"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#1c3f24] underline hover:text-[#2d5c36]"
+                      >
+                        Terms &amp; Conditions
+                      </Link>
+                      ,{' '}
+                      <Link
+                        href="/privacy-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#1c3f24] underline hover:text-[#2d5c36]"
+                      >
+                        Privacy Policy
+                      </Link>
+                      , and{' '}
+                      <Link
+                        href="/refund-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#1c3f24] underline hover:text-[#2d5c36]"
+                      >
+                        Refund Policy
+                      </Link>
+                      .
+                    </p>
+
                     {/* Place Order Button */}
                     <button
                       type="submit"
@@ -1800,75 +1971,169 @@ export default function BuyerDashboardPage() {
                   </select>
                 </div>
 
+                </div>
+
+                {/* Featured Cover Image Section */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Featured Image / Cover *
+                  </label>
+
+                  {/* Live Top Preview */}
+                  {formImageUrl && (
+                    <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
+                      <Image
+                        src={formImageUrl}
+                        alt="Blog preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => blogFileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-lg bg-white/95 text-stone-800 text-xs font-semibold hover:bg-white shadow-xs transition"
+                        >
+                          Change Image
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload & URL Controls */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="file"
+                      ref={blogFileInputRef}
+                      onChange={handleBlogImageUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={uploadingBlogImage}
+                      onClick={() => blogFileInputRef.current?.click()}
+                      className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 text-xs font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                    >
+                      {uploadingBlogImage ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#2E4D38]" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span>Upload From Device</span>
+                        </>
+                      )}
+                    </button>
+
+                    <input
+                      type="text"
+                      value={formImageUrl}
+                      onChange={(e) => setFormImageUrl(e.target.value)}
+                      placeholder="Or paste image URL (https://...)"
+                      className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  {blogUploadError && (
+                    <p className="text-[11px] text-rose-600 font-medium">{blogUploadError}</p>
+                  )}
+
+                  {/* Botanical Presets */}
+                  <div className="pt-1">
+                    <span className="text-[11px] text-stone-400 block mb-1.5">Or select botanical preset:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Moringa', url: '/images/blog-moringa.jpg' },
+                        { label: 'Gotu Kola', url: '/images/gotu-kola-tea.jpg' },
+                        { label: 'Chamomile Brew', url: '/images/blog-herbal-tea.jpg' },
+                        { label: 'Skincare Cream', url: '/images/blog-skincare.jpg' },
+                        { label: 'Detox Tea', url: '/images/herbal-detox-tea.jpg' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.url}
+                          type="button"
+                          onClick={() => setFormImageUrl(preset.url)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] border transition cursor-pointer ${
+                            formImageUrl === preset.url
+                              ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Cover Image
+                    Blog Content *
                   </label>
-                  <select
-                    value={formImageUrl}
-                    onChange={(e) => setFormImageUrl(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] bg-white"
-                  >
-                    <option value="/images/blog-moringa.jpg">Moringa Botanical Leaf</option>
-                    <option value="/images/gotu-kola-tea.jpg">Gotu Kola Herbal Infusion</option>
-                    <option value="/images/herbal-detox-tea.jpg">Spiced Detox Brew</option>
-                    <option value="/images/turmeric-curcumin.jpg">Organic Golden Turmeric</option>
-                  </select>
+                  <textarea
+                    required
+                    rows={8}
+                    value={formContent}
+                    onChange={(e) => setFormContent(e.target.value)}
+                    placeholder="Share your botanical recipes, health benefits, personal transformation journey, or herbal brewing techniques..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Blog Content *
-                </label>
-                <textarea
-                  required
-                  rows={8}
-                  value={formContent}
-                  onChange={(e) => setFormContent(e.target.value)}
-                  placeholder="Share your botanical recipes, health benefits, personal transformation journey, or herbal brewing techniques..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingBlog}
-                  className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#243f2e] transition shadow-2xs cursor-pointer disabled:opacity-50"
-                >
-                  {submittingBlog ? 'Publishing...' : editingBlog ? 'Save Changes' : 'Publish Blog Live'}
-                </button>
-              </div>
-            </form>
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingBlog}
+                    className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#243f2e] transition shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    {submittingBlog ? 'Publishing...' : editingBlog ? 'Save Changes' : 'Publish Blog Live'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* MODAL: READ FULL BLOG */}
+      {/* MODAL: READ FULL BLOG (IMAGE DISPLAYED FROM THE TOP) */}
       {readingBlog && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-5">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                {readingBlog.category || 'Wellness'}
-              </span>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto overflow-hidden">
+            {/* Top Featured Hero Image */}
+            <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
+              <Image
+                src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
+                alt={readingBlog.title}
+                fill
+                priority
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
+              <div className="absolute top-4 left-4">
+                <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                  {readingBlog.category || 'Wellness'}
+                </span>
+              </div>
               <button
                 onClick={() => setReadingBlog(null)}
-                className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition cursor-pointer"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="p-6 sm:p-8 space-y-4">
               <h2 className="font-serif text-2xl font-bold text-stone-900 leading-snug">
                 {readingBlog.title}
               </h2>
@@ -1876,16 +2141,7 @@ export default function BuyerDashboardPage() {
                 Authored by {readingBlog.authorName} · Published {new Date(readingBlog.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
 
-              <div className="relative w-full h-56 rounded-2xl overflow-hidden bg-stone-100 my-4">
-                <Image
-                  src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
-                  alt={readingBlog.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              <div className="text-stone-700 text-sm leading-relaxed whitespace-pre-line pt-2">
+              <div className="text-stone-700 text-sm leading-relaxed whitespace-pre-line pt-2 font-serif sm:font-sans">
                 {readingBlog.content}
               </div>
 

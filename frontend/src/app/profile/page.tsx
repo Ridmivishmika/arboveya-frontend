@@ -17,7 +17,10 @@ import {
   Sparkles,
   ArrowRight,
   LogOut,
-  PenTool
+  PenTool,
+  Truck,
+  UserCheck,
+  LogIn
 } from 'lucide-react';
 
 interface OrderItem {
@@ -36,6 +39,11 @@ interface Order {
   orderStatus: string;
   paymentStatus: string;
   createdAt: string;
+  trackingNumber?: string;
+  shippingCarrier?: string;
+  shippingMethod?: string;
+  shippingCost?: number;
+  shippedAt?: string;
   items?: OrderItem[];
 }
 
@@ -49,12 +57,6 @@ export default function ProfilePage() {
     logout();
     window.location.replace('/');
   };
-
-  useEffect(() => {
-    if (!loading && !user) {
-      window.location.replace('/');
-    }
-  }, [loading, user]);
 
   useEffect(() => {
     if (!user) {
@@ -85,8 +87,58 @@ export default function ProfilePage() {
     fetchOrders();
   }, [user]);
 
-  if (!loading && !user) {
-    return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FBFBFA] flex items-center justify-center py-20">
+        <div className="text-center text-xs font-medium text-stone-500">
+          Loading Account Profile...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#FBFBFA] py-16 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-8 sm:p-10 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center mx-auto shadow-xs">
+            <UserCheck className="w-8 h-8" />
+          </div>
+
+          <div>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
+              Account Profile
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
+              Please sign in to view your profile details, past orders, and account settings.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Link
+              href="/login?redirect=/profile"
+              className="w-full py-3 px-5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-sm transition flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Profile</span>
+            </Link>
+
+            <Link
+              href="/register?redirect=/profile"
+              className="w-full py-3 px-5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold tracking-wider uppercase transition flex items-center justify-center gap-2"
+            >
+              <span>Register Account</span>
+            </Link>
+
+            <div>
+              <Link href="/" className="text-xs text-stone-500 hover:text-stone-900 underline">
+                Return to Store Home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -192,6 +244,23 @@ export default function ProfilePage() {
                             })}
                           </span>
                         </p>
+
+                        <div className="mt-1.5 flex items-center gap-1 text-xs text-stone-600">
+                          <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span className="font-semibold text-[#2E4D38]">{order.shippingMethod || 'Standard Shipping'}</span>
+                          <span className="text-[11px] text-stone-500">
+                            ({order.shippingCost === 0 || !order.shippingCost ? 'Free Shipping' : `$${order.shippingCost.toFixed(2)}`})
+                          </span>
+                        </div>
+
+                        {order.trackingNumber && (
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-[#1c3f24] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                            <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>
+                              <strong>{order.shippingCarrier || 'Courier'}:</strong> {order.trackingNumber}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between sm:justify-end gap-4">

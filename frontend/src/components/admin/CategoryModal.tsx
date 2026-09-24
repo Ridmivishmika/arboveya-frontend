@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Sparkles, AlertCircle, Image as ImageIcon, Check } from 'lucide-react';
+import { X, Sparkles, AlertCircle, Image as ImageIcon, Check, Upload, Trash2, Loader2, Link as LinkIcon } from 'lucide-react';
 import { Category, CreateCategoryInput, UpdateCategoryInput } from '@/types';
+import { uploadCategoryImage } from '@/lib/api';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -34,6 +35,9 @@ export default function CategoryModal({
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialData && mode === 'edit') {
@@ -46,7 +50,51 @@ export default function CategoryModal({
       setImageUrl('');
     }
     setError(null);
+    setShowUrlInput(false);
   }, [initialData, mode, isOpen]);
+
+  const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (.png, .jpg, .webp, .svg, .avif).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image file size exceeds the 10MB limit.');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setError(null);
+      const uploadedUrl = await uploadCategoryImage(file);
+      setImageUrl(uploadedUrl);
+    } catch (err: any) {
+      console.error('Failed to upload category image:', err);
+      // Fallback to local blob object url if backend endpoint fails
+      try {
+        const localPreview = URL.createObjectURL(file);
+        setImageUrl(localPreview);
+      } catch (_) {
+        setError(err.message || 'Failed to upload category image from device.');
+      }
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -95,7 +143,7 @@ export default function CategoryModal({
               </h2>
               <p className="text-xs text-[#c2d6c6]">
                 {mode === 'create' 
-                  ? 'Add a new wellness product classification with circular icon' 
+                  ? 'Add a new wellness product classification with circular badge icon' 
                   : `Updating "${initialData?.name}"`}
               </p>
             </div>
@@ -121,64 +169,146 @@ export default function CategoryModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           
-          {/* Round Image Preview & URL Input */}
-          <div className="space-y-3 p-4 rounded-xl bg-[#f7faf7] border border-[#e2ede3]">
-            <label className="block text-xs font-semibold text-[#1c3f24]">
-              Category Image <span className="text-gray-400 font-normal">(Displays in round badge on store)</span>
-            </label>
-
-            <div className="flex items-center gap-4">
-              {/* Circular Preview */}
-              <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#24492d] bg-white shadow-sm flex items-center justify-center flex-shrink-0">
-                {imageUrl.trim() ? (
-                  <Image
-                    src={imageUrl.trim()}
-                    alt="Category Round Preview"
-                    fill
-                    sizes="64px"
-                    className="object-cover"
-                    onError={() => {}}
-                  />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-[#9eb6a2]" />
-                )}
-              </div>
-
-              {/* URL Input */}
-              <div className="flex-1 space-y-1">
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="Paste image URL (https://... or /images/...)"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d] focus:border-[#24492d]"
-                />
-                <p className="text-[10px] text-[#6b8270]">
-                  Enter a URL or pick one of the quick presets below:
+          {/* Device Image Upload & Circular Preview */}
+          <div className="space-y-3 p-4 rounded-xl bg-[#f7faf7] border border-[#d8e8dc]">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#24492d]" />
+                  Category Image
+                </label>
+                <p className="text-[11px] text-[#55735c] mt-0.5">
+                  Upload an image from your device to display in circular badges across the store.
                 </p>
               </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleDeviceUpload}
+                className="hidden"
+              />
             </div>
 
-            {/* Quick Preset Buttons */}
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {PRESET_IMAGES.map((preset) => {
-                const isSelected = imageUrl === preset.url;
-                return (
+            {/* Upload Zone / Active Preview */}
+            {imageUrl.trim() ? (
+              <div className="p-3.5 bg-white rounded-xl border border-[#ccdacc] flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  {/* Circular Badge Preview */}
+                  <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#24492d] bg-[#edf4ee] shadow-sm flex items-center justify-center flex-shrink-0">
+                    <Image
+                      src={imageUrl.trim()}
+                      alt="Category Round Preview"
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                      onError={() => {}}
+                    />
+                  </div>
+
+                  <div>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <Check className="w-3 h-3" /> Image Selected
+                    </span>
+                    <p className="text-[10px] text-[#637d68] mt-1 max-w-[200px] truncate" title={imageUrl}>
+                      {imageUrl.startsWith('data:') ? 'Local preview' : imageUrl}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
-                    key={preset.url}
                     type="button"
-                    onClick={() => setImageUrl(preset.url)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1 ${
-                      isSelected
-                        ? 'bg-[#24492d] text-white'
-                        : 'bg-white text-[#39563d] border border-[#ccdacc] hover:bg-[#edf5ee]'
-                    }`}
+                    disabled={uploadingImage}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-lg bg-[#edf5ee] hover:bg-[#deede0] text-[#24492d] text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    {isSelected && <Check className="w-3 h-3" />}
-                    <span>{preset.label}</span>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Change</span>
                   </button>
-                );
-              })}
+
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    title="Remove image"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => !uploadingImage && fileInputRef.current?.click()}
+                className="p-5 border-2 border-dashed border-[#b8dabf] rounded-xl bg-white text-center cursor-pointer hover:bg-[#f2f8f3] hover:border-[#24492d] transition-all group"
+              >
+                {uploadingImage ? (
+                  <div className="py-2 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-7 h-7 text-[#24492d] animate-spin" />
+                    <p className="text-xs font-semibold text-[#1c3f24]">Uploading from device...</p>
+                    <p className="text-[10px] text-stone-500">Please wait while the image is being processed</p>
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-[#edf5ee] text-[#24492d] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-[#1c3f24]">Click to upload photo from your device</p>
+                    <p className="text-[11px] text-[#698870] mt-0.5">PNG, JPG, WebP, AVIF, SVG up to 10MB</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick Presets & Optional URL Toggle */}
+            <div className="pt-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[#6b8270] font-medium">Or pick from standard presets:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowUrlInput(prev => !prev)}
+                  className="text-[10px] text-[#24492d] hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <LinkIcon className="w-2.5 h-2.5" />
+                  {showUrlInput ? 'Hide URL input' : 'Enter image URL'}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_IMAGES.map((preset) => {
+                  const isSelected = imageUrl === preset.url;
+                  return (
+                    <button
+                      key={preset.url}
+                      type="button"
+                      onClick={() => setImageUrl(preset.url)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#24492d] text-white shadow-2xs'
+                          : 'bg-white text-[#39563d] border border-[#ccdacc] hover:bg-[#edf5ee]'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3" />}
+                      <span>{preset.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Collapsible custom URL input for flexibility */}
+              {showUrlInput && (
+                <div className="pt-1.5 animate-fadeIn">
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://... or /images/..."
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

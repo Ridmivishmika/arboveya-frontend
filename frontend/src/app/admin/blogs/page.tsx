@@ -488,52 +488,56 @@ export default function AdminBlogsPage() {
       {/* Preview Full Article Modal */}
       {selectedBlog && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
-              <span className="text-xs font-bold text-[#2E4D38] uppercase tracking-wider">
-                {selectedBlog.category || 'Wellness'}
-              </span>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto overflow-hidden">
+            {/* Top Featured Hero Image (Display from top) */}
+            <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
+              <Image
+                src={selectedBlog.imageUrl || '/images/blog-moringa.jpg'}
+                alt={selectedBlog.title}
+                fill
+                priority
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
+              <div className="absolute top-4 left-4">
+                <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                  {selectedBlog.category || 'Wellness'}
+                </span>
+              </div>
               <button
                 onClick={() => setSelectedBlog(null)}
-                className="text-stone-400 hover:text-stone-700 font-bold p-1"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
-              {selectedBlog.title}
-            </h2>
+            <div className="p-6 sm:p-8">
+              <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+                {selectedBlog.title}
+              </h2>
 
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-100 flex-wrap gap-2 text-xs">
-              <div className="text-stone-500">
-                <span className="font-semibold text-stone-800">
-                  Author: {selectedBlog.authorName || 'User'} ({selectedBlog.authorEmail || 'N/A'})
-                </span>
-                <span className="mx-2">•</span>
-                <span>
-                  {new Date(selectedBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </span>
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-100 flex-wrap gap-2 text-xs">
+                <div className="text-stone-500">
+                  <span className="font-semibold text-stone-800">
+                    Author: {selectedBlog.authorName || 'User'} ({selectedBlog.authorEmail || 'N/A'})
+                  </span>
+                  <span className="mx-2">•</span>
+                  <span>
+                    {new Date(selectedBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+
+                {selectedBlog.authorRole === 'Seller' && !selectedBlog.authorIsSellerApproved && (
+                  <button
+                    onClick={() => handleApproveSeller(selectedBlog.authorId, selectedBlog.authorName)}
+                    className="px-3 py-1 bg-[#2E4D38] text-white text-xs font-bold rounded-lg hover:bg-[#243f2e] transition"
+                  >
+                    Approve Seller Profile Now
+                  </button>
+                )}
               </div>
-
-              {selectedBlog.authorRole === 'Seller' && !selectedBlog.authorIsSellerApproved && (
-                <button
-                  onClick={() => handleApproveSeller(selectedBlog.authorId, selectedBlog.authorName)}
-                  className="px-3 py-1 bg-[#2E4D38] text-white text-xs font-bold rounded-lg hover:bg-[#243f2e] transition"
-                >
-                  Approve Seller Profile Now
-                </button>
-              )}
-            </div>
-
-            <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden mb-6 bg-stone-100 border border-stone-200">
-              <Image
-                src={selectedBlog.imageUrl || '/images/blog-moringa.jpg'}
-                alt={selectedBlog.title}
-                fill
-                className="object-cover"
-              />
-            </div>
 
             <div className="text-stone-700 text-sm leading-relaxed space-y-4 whitespace-pre-line font-serif sm:font-sans">
               {selectedBlog.content}
@@ -583,6 +587,7 @@ export default function AdminBlogsPage() {
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

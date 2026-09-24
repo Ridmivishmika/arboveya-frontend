@@ -2,9 +2,32 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Sparkles, AlertCircle, Upload, Check, ImageIcon, Package, DollarSign, ListChecks, FlaskConical, BookOpen, Star, Layers, PlusCircle, Trash2, Weight } from 'lucide-react';
+import { 
+  X, 
+  Sparkles, 
+  AlertCircle, 
+  Upload, 
+  Check, 
+  ImageIcon, 
+  Package, 
+  DollarSign, 
+  ListChecks, 
+  FlaskConical, 
+  BookOpen, 
+  Star, 
+  Layers, 
+  PlusCircle, 
+  Plus,
+  Trash2, 
+  Weight,
+  Globe,
+  Calendar,
+  Truck,
+  FileText,
+  RotateCcw
+} from 'lucide-react';
 import { Product, Category, WellnessNeed, CreateProductInput, UpdateProductInput, ProductVariant } from '@/types';
-import { uploadProductImage } from '@/lib/api';
+import { uploadProductImage, uploadMultipleProductImages } from '@/lib/api';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -21,21 +44,6 @@ interface ProductModalProps {
   isSeller?: boolean;
 }
 
-const PRESET_IMAGES = [
-  { label: 'Moringa Capsules', url: '/images/moringa-capsules.jpg' },
-  { label: 'Herbal Detox Tea', url: '/images/herbal-detox-tea.jpg' },
-  { label: 'Turmeric Curcumin', url: '/images/turmeric-curcumin.jpg' },
-  { label: 'Ashwagandha', url: '/images/ashwagandha-capsules.jpg' },
-  { label: 'Herbal Hair Oil', url: '/images/herbal-hair-oil.jpg' },
-  { label: 'Wellness Kit', url: '/images/wellness-immunity-kit.jpg' },
-  { label: 'Neem Face Wash', url: '/images/neem-skin-face.jpg' },
-  { label: 'Lavender Oil', url: '/images/lavender-oil.jpg' },
-  { label: 'Aloe Vera Gel', url: '/images/aloe-vera-gel.jpg' },
-  { label: 'Gotu Kola Tea', url: '/images/gotu-kola-tea.jpg' },
-  { label: 'Multivitamin', url: '/images/multivitamin-capsules.jpg' },
-  { label: 'Stress Relief Tea', url: '/images/stress-relief-tea.jpg' },
-];
-
 export default function ProductModal({
   isOpen,
   onClose,
@@ -50,17 +58,39 @@ export default function ProductModal({
   hideBestSeller = false,
   isSeller = false
 }: ProductModalProps) {
+  // Base fields
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [wellnessNeedId, setWellnessNeedId] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [galleryImages, setGalleryImages] = useState('');
   const [keyBenefits, setKeyBenefits] = useState('');
   const [ingredients, setIngredients] = useState('');
   const [howToUse, setHowToUse] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+
+  // Photos state (up to 10 photos uploaded from device)
+  const [photos, setPhotos] = useState<string[]>([]);
+
+  // New Botanical & Commercial Attributes
+  const [countryOfOrigin, setCountryOfOrigin] = useState('Sri Lanka');
+  const [condition, setCondition] = useState('Brand New / Fresh Harvest');
+  const [manufactureDate, setManufactureDate] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [specifications, setSpecifications] = useState('');
+
+  // Shipping & Schedule Options
+  const [shippingOptions, setShippingOptions] = useState<Array<{
+    name: string;
+    estimatedDeliveryTime: string;
+    cost: number;
+  }>>([
+    { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
+    { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 },
+    { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 }
+  ]);
+  const [handlingTime, setHandlingTime] = useState('1 business day');
+  const [returnPolicy, setReturnPolicy] = useState('30-Day Return Window. Buyer pays return shipping for change of mind. Items must be unopened.');
 
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -74,12 +104,64 @@ export default function ProductModal({
       setCategoryId(initialData.categoryId || (categories[0]?.id ?? ''));
       setWellnessNeedId(initialData.wellnessNeedId || '');
       setDescription(initialData.description || '');
-      setImageUrl(initialData.imageUrl || '');
-      setGalleryImages(initialData.galleryImages || '');
       setKeyBenefits(initialData.keyBenefits || '');
       setIngredients(initialData.ingredients || '');
       setHowToUse(initialData.howToUse || '');
       setIsBestSeller(Boolean(initialData.isBestSeller));
+
+      // Photos
+      const loadedPhotos: string[] = [];
+      if (initialData.imageUrl) {
+        loadedPhotos.push(initialData.imageUrl);
+      }
+      if (initialData.galleryImages) {
+        const extra = initialData.galleryImages.split(',').map(s => s.trim()).filter(Boolean);
+        extra.forEach(url => {
+          if (!loadedPhotos.includes(url)) loadedPhotos.push(url);
+        });
+      }
+      setPhotos(loadedPhotos);
+
+      // New Attributes
+      setCountryOfOrigin(initialData.countryOfOrigin || 'Sri Lanka');
+      setCondition(initialData.condition || 'Brand New / Fresh Harvest');
+      setManufactureDate(initialData.manufactureDate ? initialData.manufactureDate.split('T')[0] : '');
+      setExpiryDate(initialData.expiryDate ? initialData.expiryDate.split('T')[0] : '');
+      setSpecifications(initialData.specifications || '');
+      setHandlingTime(initialData.handlingTime || '1 business day');
+      setReturnPolicy(initialData.returnPolicy || '30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
+
+      // Parse multi-shipping methods
+      let parsedOptions: any[] = [];
+      if (initialData.shippingOptions) {
+        try {
+          parsedOptions = typeof initialData.shippingOptions === 'string'
+            ? JSON.parse(initialData.shippingOptions)
+            : initialData.shippingOptions;
+        } catch {
+          parsedOptions = [];
+        }
+      }
+      if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+        setShippingOptions(parsedOptions.map((o: any) => ({
+          name: o.name || 'Standard Shipping',
+          estimatedDeliveryTime: o.estimatedDeliveryTime || '3-5 business days',
+          cost: o.name === 'Free Shipping' ? 0 : (Number(o.cost) || 0)
+        })));
+      } else {
+        const defaultList: any[] = [];
+        const isFree = initialData.isFreeShipping || Number(initialData.shippingCost || 0) === 0;
+        const methodName = initialData.shippingMethod || (isFree ? 'Free Shipping' : 'Standard Shipping');
+        const costVal = isFree ? 0 : (Number(initialData.shippingCost) || 0);
+        defaultList.push({
+          name: methodName,
+          estimatedDeliveryTime: initialData.estimatedDeliveryTime || (costVal === 0 ? '5-7 business days' : '3-5 business days'),
+          cost: costVal
+        });
+        setShippingOptions(defaultList);
+      }
+
+      // Variants
       if (initialData.variants && initialData.variants.length > 0) {
         setVariants(initialData.variants.map(v => ({ ...v })));
       } else {
@@ -94,12 +176,23 @@ export default function ProductModal({
       setCategoryId(categories[0]?.id || '');
       setWellnessNeedId('');
       setDescription('');
-      setImageUrl('');
-      setGalleryImages('');
       setKeyBenefits('');
       setIngredients('');
       setHowToUse('');
       setIsBestSeller(false);
+      setPhotos([]);
+      setCountryOfOrigin('Sri Lanka');
+      setCondition('Brand New / Fresh Harvest');
+      setManufactureDate('');
+      setExpiryDate('');
+      setSpecifications('');
+      setShippingOptions([
+        { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
+        { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 },
+        { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 }
+      ]);
+      setHandlingTime('1 business day');
+      setReturnPolicy('30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
       setVariants([{ weight: '100g', price: 24.99, stockQuantity: 50 }]);
     }
     setError(null);
@@ -107,23 +200,60 @@ export default function ProductModal({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Handle Multi-photo upload from device (up to 10 photos)
+  const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
+
+    if (photos.length + files.length > 10) {
+      setError(`You can upload a maximum of 10 photos. You already have ${photos.length} photo(s).`);
+      return;
+    }
 
     try {
       setUploadingImage(true);
       setError(null);
-      const uploadedUrl = await uploadProductImage(file);
-      setImageUrl(uploadedUrl);
+
+      // Attempt multiple upload via backend API
+      let newUrls: string[] = [];
+      try {
+        newUrls = await uploadMultipleProductImages(files);
+      } catch {
+        // Fallback to sequential single uploads
+        for (const file of files) {
+          try {
+            const url = await uploadProductImage(file);
+            newUrls.push(url);
+          } catch {
+            const localPreview = URL.createObjectURL(file);
+            newUrls.push(localPreview);
+          }
+        }
+      }
+
+      setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
     } catch (err: any) {
       console.error('Upload failed:', err);
-      const localUrl = URL.createObjectURL(file);
-      setImageUrl(localUrl);
-      setError('Backend upload unavailable, using preview image.');
+      setError('Could not complete image upload. Please try again.');
     } finally {
       setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
+  };
+
+  const handleSetPrimaryPhoto = (index: number) => {
+    if (index === 0) return;
+    setPhotos(prev => {
+      const copy = [...prev];
+      const selected = copy.splice(index, 1)[0];
+      return [selected, ...copy];
+    });
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,6 +292,17 @@ export default function ProductModal({
     const lowest = sortedVariants[0];
     const totalStock = validVariants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0);
 
+    const primaryImage = photos[0] || undefined;
+    const galleryString = photos.length > 1 ? photos.slice(1).join(',') : undefined;
+
+    if (shippingOptions.length === 0) {
+      setError('Please add at least one shipping method for this product.');
+      return;
+    }
+
+    const primaryShipping = shippingOptions[0];
+    const hasFree = shippingOptions.some(o => o.name === 'Free Shipping' || Number(o.cost) === 0);
+
     try {
       setSubmitting(true);
       setError(null);
@@ -174,12 +315,24 @@ export default function ProductModal({
         stockQuantity: totalStock,
         weight: lowest.weight.trim(),
         description: description.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
-        galleryImages: galleryImages.trim() || undefined,
+        imageUrl: primaryImage,
+        galleryImages: galleryString,
         keyBenefits: keyBenefits.trim() || undefined,
         ingredients: ingredients.trim() || undefined,
         howToUse: howToUse.trim() || undefined,
         isBestSeller: isSeller ? false : isBestSeller,
+        countryOfOrigin: countryOfOrigin.trim() || undefined,
+        condition: condition.trim() || undefined,
+        manufactureDate: manufactureDate ? new Date(manufactureDate).toISOString() : undefined,
+        expiryDate: expiryDate ? new Date(expiryDate).toISOString() : undefined,
+        specifications: specifications.trim() || undefined,
+        shippingMethod: primaryShipping.name,
+        estimatedDeliveryTime: primaryShipping.estimatedDeliveryTime,
+        handlingTime: handlingTime.trim() || undefined,
+        isFreeShipping: hasFree,
+        shippingCost: primaryShipping.name === 'Free Shipping' ? 0 : Number(primaryShipping.cost) || 0,
+        returnPolicy: returnPolicy.trim() || undefined,
+        shippingOptions: JSON.stringify(shippingOptions),
         variants: sortedVariants
       });
 
@@ -197,7 +350,7 @@ export default function ProductModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div
-        className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#dbe6dc] overflow-hidden my-auto max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#dbe6dc] overflow-hidden my-auto max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -211,14 +364,14 @@ export default function ProductModal({
                 {title || (mode === 'create' ? 'Add New Botanical Product' : `Edit: ${initialData?.name || 'Product'}`)}
               </h3>
               <p className="text-xs text-[#526a57]">
-                {subtitle || 'Fill in product details, botanical benefits, ingredients, and usage directions.'}
+                {subtitle || 'Provide botanical specifications, device photos, origin dates, and delivery schedule.'}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-[#edf5ee] transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-[#edf5ee] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -232,10 +385,20 @@ export default function ProductModal({
           </div>
         )}
 
-        {/* Form Body - Scrollable */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+        {/* Notice for Sellers */}
+        {isSeller && mode === 'edit' && (
+          <div className="mx-6 mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center gap-2.5 text-amber-900 text-xs flex-shrink-0">
+            <RotateCcw className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>
+              <strong>Admin Approval Notice:</strong> Editing product details will submit the product for Admin re-approval before changes are shown live on the marketplace.
+            </span>
+          </div>
+        )}
 
-          {/* Product Name */}
+        {/* Form Body - Scrollable */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+
+          {/* Section 1: Product Name */}
           <div className="space-y-1.5">
             <label htmlFor="prod-name" className="block text-xs font-semibold text-[#1c3f24]">
               Product Name <span className="text-red-500">*</span>
@@ -246,19 +409,19 @@ export default function ProductModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Organic Moringa Oleifera Capsules"
+              placeholder="e.g. Pure Organic Moringa Oleifera Capsules"
               className="w-full px-3.5 py-2.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"
             />
           </div>
 
-          {/* Category & Wellness Need Row */}
+          {/* Section 2: Category & Wellness Need Row */}
           {isSeller ? (
-            <div className="p-3 bg-[#f4f8f4] border border-[#d2e4d5] rounded-xl flex items-start gap-2.5">
+            <div className="p-3.5 bg-[#f4f8f4] border border-[#d2e4d5] rounded-xl flex items-start gap-2.5">
               <Layers className="w-4 h-4 text-[#24492d] mt-0.5 flex-shrink-0" />
               <div>
                 <h4 className="text-xs font-bold text-[#1c3f24]">Category &amp; Wellness Need Managed by Admin</h4>
                 <p className="text-[11px] text-[#556e59] mt-0.5 leading-relaxed">
-                  Sellers do not set categories or wellness needs. Appropriate classifications will be assigned by Arboveya Administrators during product review.
+                  Appropriate classifications will be verified and assigned by Arboveya Administrators during product review.
                 </p>
               </div>
             </div>
@@ -307,7 +470,167 @@ export default function ProductModal({
             </div>
           )}
 
-          {/* Weight, Pricing & Stock Options (Primary Pricing & Inventory) */}
+          {/* Section 3: Device Photos Upload (Max 10 photos - No URL input, No Presets) */}
+          <div className="space-y-3 p-4 rounded-xl bg-[#f7faf7] border border-[#d8e8dc]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <label className="block text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#24492d]" />
+                  Product Photos ({photos.length}/10 uploaded)
+                </label>
+                <p className="text-[11px] text-[#55735c] mt-0.5">
+                  Upload up to 10 photos from your device or drive. The first photo is the primary storefront image.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={photos.length >= 10 || uploadingImage}
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 text-xs font-semibold bg-[#24492d] hover:bg-[#1a3821] text-white px-3.5 py-1.5 rounded-lg shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>{uploadingImage ? 'Uploading Photos...' : 'Upload Photos from Device'}</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleDeviceUpload}
+                className="hidden"
+              />
+            </div>
+
+            {/* Photo Gallery Grid */}
+            {photos.length === 0 ? (
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="p-6 border-2 border-dashed border-[#b8dabf] rounded-xl bg-white text-center cursor-pointer hover:bg-[#f2f8f3] transition-colors"
+              >
+                <Upload className="w-7 h-7 mx-auto text-[#436e4b] mb-1.5" />
+                <p className="text-xs font-semibold text-[#1c3f24]">Click to upload photos from your device</p>
+                <p className="text-[11px] text-[#698870] mt-0.5">PNG, JPG, WebP, AVIF up to 10MB each (max 10 photos)</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                {photos.map((photoUrl, idx) => {
+                  const isMain = idx === 0;
+                  return (
+                    <div 
+                      key={idx}
+                      className={`relative rounded-xl overflow-hidden border-2 bg-white shadow-2xs group flex flex-col ${
+                        isMain ? 'border-[#24492d]' : 'border-stone-200'
+                      }`}
+                    >
+                      <div className="relative aspect-square w-full">
+                        <Image
+                          src={photoUrl}
+                          alt={`Product photo ${idx + 1}`}
+                          fill
+                          sizes="140px"
+                          className="object-cover"
+                        />
+                        {isMain && (
+                          <div className="absolute top-1.5 left-1.5 bg-[#24492d] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                            Main Photo
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(idx)}
+                          className="absolute top-1.5 right-1.5 p-1 bg-white/90 hover:bg-red-500 hover:text-white text-stone-600 rounded-full shadow-xs transition-colors cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      {!isMain && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimaryPhoto(idx)}
+                          className="w-full py-1 text-[10px] font-semibold text-[#24492d] bg-[#edf5ee] hover:bg-[#deede0] transition-colors text-center border-t border-stone-200 cursor-pointer"
+                        >
+                          Set as Main
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Origin, Condition & Dates */}
+          <div className="space-y-3 p-4 rounded-xl bg-[#fafcfa] border border-[#d8e6da]">
+            <div className="flex items-center gap-2 pb-1 border-b border-[#e6efe7]">
+              <Globe className="w-4 h-4 text-[#24492d]" />
+              <h4 className="text-xs font-bold text-[#1c3f24]">Botanical Origin, Condition &amp; Lifecycle Dates</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Country of Origin */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-[#1c3f24]">
+                  Country of Origin <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={countryOfOrigin}
+                  onChange={(e) => setCountryOfOrigin(e.target.value)}
+                  placeholder="e.g. Sri Lanka, India, Madagascar"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                />
+              </div>
+
+              {/* Product Condition */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-[#1c3f24]">
+                  Product Condition
+                </label>
+                <select
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                >
+                  <option value="Brand New / Fresh Harvest">Brand New / Fresh Harvest</option>
+                  <option value="Certified Organic Harvest">Certified Organic Harvest</option>
+                  <option value="Grade A Artisanal Batch">Grade A Artisanal Batch</option>
+                  <option value="New / Sealed Container">New / Sealed Container</option>
+                </select>
+              </div>
+
+              {/* Manufacture Date */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-[#1c3f24] flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#24492d]" />
+                  Manufacture Date
+                </label>
+                <input
+                  type="date"
+                  value={manufactureDate}
+                  onChange={(e) => setManufactureDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                />
+              </div>
+
+              {/* Expiry Date */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-[#1c3f24] flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#24492d]" />
+                  Expiry Date / Best Before
+                </label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Weight, Pricing & Stock Options (Without Lowest pill badge in chart) */}
           <div className="space-y-3 p-4 rounded-xl bg-[#f0f7f1] border border-[#c9dece]">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
@@ -316,7 +639,7 @@ export default function ProductModal({
                   Weight, Pricing &amp; Stock Options <span className="text-red-500">*</span>
                 </label>
                 <p className="text-[11px] text-[#5c7561] mt-0.5">
-                  Add available weights with their individual price and stock. The lowest price will be displayed as the default storefront value.
+                  Add weight variations with individual prices. The lowest price will be displayed as the base storefront price on the homepage.
                 </p>
               </div>
               <button
@@ -342,100 +665,88 @@ export default function ProductModal({
               <div className="col-span-1 text-center">Remove</div>
             </div>
 
-            {/* Variant Rows */}
+            {/* Variant Rows (Note: "Lowest" pill badge removed per user request) */}
             <div className="space-y-2">
-              {variants.map((v, idx) => {
-                const lowestPrice = variants.length > 0
-                  ? Math.min(...variants.filter(item => (item.price || 0) > 0).map(item => item.price))
-                  : 0;
-                const isLowest = variants.length > 1 && v.price > 0 && v.price === lowestPrice;
+              {variants.map((v, idx) => (
+                <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2.5 rounded-lg border border-[#ccdacc] shadow-2xs">
+                  {/* Weight Input */}
+                  <div className="sm:col-span-5">
+                    <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Weight / Option</label>
+                    <input
+                      type="text"
+                      required
+                      value={v.weight}
+                      onChange={e => {
+                        const updated = [...variants];
+                        updated[idx] = { ...updated[idx], weight: e.target.value };
+                        setVariants(updated);
+                      }}
+                      placeholder="e.g. 50g, 100g, 250g, 1kg"
+                      className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
+                    />
+                  </div>
 
-                return (
-                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2.5 rounded-lg border border-[#ccdacc] shadow-2xs">
-                    {/* Weight Input */}
-                    <div className="sm:col-span-5 relative">
-                      <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Weight / Option</label>
-                      <input
-                        type="text"
-                        required
-                        value={v.weight}
-                        onChange={e => {
-                          const updated = [...variants];
-                          updated[idx] = { ...updated[idx], weight: e.target.value };
-                          setVariants(updated);
-                        }}
-                        placeholder="e.g. 50g, 100g, 250g, 1kg"
-                        className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
-                      />
-                      {isLowest && (
-                        <span className="hidden sm:inline-block absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold bg-[#e0efe2] text-[#24492d] px-1.5 py-0.5 rounded border border-[#b8dabf]">
-                          Lowest
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Price Input */}
-                    <div className="sm:col-span-3">
-                      <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Price ($ USD)</label>
-                      <div className="relative">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          required
-                          value={v.price !== undefined ? v.price : ''}
-                          onChange={e => {
-                            const updated = [...variants];
-                            updated[idx] = { ...updated[idx], price: parseFloat(e.target.value) || 0 };
-                            setVariants(updated);
-                          }}
-                          placeholder="24.99"
-                          className="w-full pl-6 pr-2 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Stock Input */}
-                    <div className="sm:col-span-3">
-                      <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Stock Quantity</label>
+                  {/* Price Input */}
+                  <div className="sm:col-span-3">
+                    <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Price ($ USD)</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">$</span>
                       <input
                         type="number"
+                        step="0.01"
                         min="0"
                         required
-                        value={v.stockQuantity !== undefined ? v.stockQuantity : ''}
+                        value={v.price !== undefined ? v.price : ''}
                         onChange={e => {
                           const updated = [...variants];
-                          updated[idx] = { ...updated[idx], stockQuantity: parseInt(e.target.value) || 0 };
+                          updated[idx] = { ...updated[idx], price: parseFloat(e.target.value) || 0 };
                           setVariants(updated);
                         }}
-                        placeholder="50"
-                        className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
+                        placeholder="24.99"
+                        className="w-full pl-6 pr-2 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                       />
                     </div>
-
-                    {/* Remove Button */}
-                    <div className="sm:col-span-1 flex justify-center">
-                      <button
-                        type="button"
-                        disabled={variants.length <= 1}
-                        onClick={() => {
-                          if (variants.length > 1) {
-                            setVariants(prev => prev.filter((_, i) => i !== idx));
-                          }
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${variants.length <= 1
-                          ? 'text-gray-300 cursor-not-allowed'
-                          : 'text-red-400 hover:text-red-600 hover:bg-red-50'
-                          }`}
-                        title={variants.length <= 1 ? 'At least one option is required' : 'Remove this option'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
                   </div>
-                );
-              })}
+
+                  {/* Stock Input */}
+                  <div className="sm:col-span-3">
+                    <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Stock Quantity</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={v.stockQuantity !== undefined ? v.stockQuantity : ''}
+                      onChange={e => {
+                        const updated = [...variants];
+                        updated[idx] = { ...updated[idx], stockQuantity: parseInt(e.target.value) || 0 };
+                        setVariants(updated);
+                      }}
+                      placeholder="50"
+                      className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
+                    />
+                  </div>
+
+                  {/* Remove Button */}
+                  <div className="sm:col-span-1 flex justify-center">
+                    <button
+                      type="button"
+                      disabled={variants.length <= 1}
+                      onClick={() => {
+                        if (variants.length > 1) {
+                          setVariants(prev => prev.filter((_, i) => i !== idx));
+                        }
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${variants.length <= 1
+                        ? 'text-gray-300 cursor-not-allowed'
+                        : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                        }`}
+                      title={variants.length <= 1 ? 'At least one option is required' : 'Remove this option'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Summary Info */}
@@ -456,7 +767,185 @@ export default function ProductModal({
             )}
           </div>
 
-          {/* Best Seller Checkbox for Admin */}
+          {/* Section 6: Shipping, Delivery Schedule & Returns */}
+          <div className="space-y-4 p-4 rounded-xl bg-[#f4f9f5] border border-[#d2e5d6]">
+            <div className="flex items-center justify-between pb-1 border-b border-[#e0ede2] flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#24492d]" />
+                <div>
+                  <h4 className="text-xs font-bold text-[#1c3f24]">Shipping Methods &amp; Delivery Schedule</h4>
+                  <p className="text-[10px] text-[#557159]">Configure one or more delivery options with estimated delivery times and costs for buyers.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentNames = shippingOptions.map(o => o.name);
+                  const available = ['Standard Shipping', 'Express Shipping', 'Free Shipping'].find(n => !currentNames.includes(n));
+                  const newName = available || 'Standard Shipping';
+                  setShippingOptions(prev => [
+                    ...prev,
+                    {
+                      name: newName,
+                      estimatedDeliveryTime: newName === 'Express Shipping' ? '1-2 business days' : newName === 'Free Shipping' ? '5-7 business days' : '3-5 business days',
+                      cost: newName === 'Free Shipping' ? 0 : newName === 'Express Shipping' ? 14.99 : 4.99
+                    }
+                  ]);
+                }}
+                className="px-2.5 py-1 text-[11px] font-bold text-[#24492d] bg-white border border-[#24492d] rounded-lg hover:bg-[#edf5ee] transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Shipping Method</span>
+              </button>
+            </div>
+
+            {/* Methods list */}
+            <div className="space-y-2.5">
+              {shippingOptions.map((opt, optIdx) => (
+                <div key={optIdx} className="p-3 bg-white rounded-lg border border-[#ccdacc] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                  {/* Method Dropdown */}
+                  <div className="sm:col-span-4 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#38533e] uppercase">
+                      Shipping Method
+                    </label>
+                    <select
+                      value={opt.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const updated = [...shippingOptions];
+                        updated[optIdx] = {
+                          ...updated[optIdx],
+                          name: val,
+                          cost: val === 'Free Shipping' ? 0 : updated[optIdx].cost === 0 ? 4.99 : updated[optIdx].cost,
+                          estimatedDeliveryTime: updated[optIdx].estimatedDeliveryTime || (val === 'Express Shipping' ? '1-2 business days' : val === 'Free Shipping' ? '5-7 business days' : '3-5 business days')
+                        };
+                        setShippingOptions(updated);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                    >
+                      <option value="Standard Shipping">Standard Shipping</option>
+                      <option value="Express Shipping">Express Shipping</option>
+                      <option value="Free Shipping">Free Shipping</option>
+                    </select>
+                  </div>
+
+                  {/* Estimated Delivery Time */}
+                  <div className="sm:col-span-4 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#38533e] uppercase">
+                      Estimated Delivery Time
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={opt.estimatedDeliveryTime}
+                      onChange={(e) => {
+                        const updated = [...shippingOptions];
+                        updated[optIdx] = { ...updated[optIdx], estimatedDeliveryTime: e.target.value };
+                        setShippingOptions(updated);
+                      }}
+                      placeholder="e.g. 3-5 business days"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                    />
+                  </div>
+
+                  {/* Shipping Cost ($) */}
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#38533e] uppercase">
+                      Delivery Cost ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={opt.name === 'Free Shipping'}
+                        value={opt.name === 'Free Shipping' ? '0' : opt.cost}
+                        onChange={(e) => {
+                          const updated = [...shippingOptions];
+                          updated[optIdx] = { ...updated[optIdx], cost: parseFloat(e.target.value) || 0 };
+                          setShippingOptions(updated);
+                        }}
+                        placeholder="4.99"
+                        className={`w-full pl-6 pr-2 py-1.5 rounded-lg border border-[#ccdacc] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] ${
+                          opt.name === 'Free Shipping' ? 'bg-stone-100 text-stone-500 cursor-not-allowed' : 'bg-[#fafcfa]'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Delete button */}
+                  <div className="sm:col-span-1 flex justify-center pb-0.5">
+                    <button
+                      type="button"
+                      disabled={shippingOptions.length <= 1}
+                      onClick={() => {
+                        if (shippingOptions.length > 1) {
+                          setShippingOptions(prev => prev.filter((_, i) => i !== optIdx));
+                        }
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        shippingOptions.length <= 1
+                          ? 'text-gray-300 cursor-not-allowed'
+                          : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                      }`}
+                      title={shippingOptions.length <= 1 ? 'At least one shipping method is required' : 'Remove method'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Handling Time & Return Policy */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#e0ede2]">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-[#1c3f24]">
+                  Handling &amp; Dispatch Time
+                </label>
+                <input
+                  type="text"
+                  value={handlingTime}
+                  onChange={(e) => setHandlingTime(e.target.value)}
+                  placeholder="e.g. Dispatched within 24 hours"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                />
+              </div>
+
+            {/* Return Policy */}
+            <div className="space-y-1 pt-1">
+              <label className="block text-[11px] font-semibold text-[#1c3f24]">
+                Return Shipping &amp; Policy Details
+              </label>
+              <textarea
+                rows={2}
+                value={returnPolicy}
+                onChange={(e) => setReturnPolicy(e.target.value)}
+                placeholder="Describe return window, eligible conditions, and who pays return postage..."
+                className="w-full px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] resize-none"
+              />
+            </div>
+          </div>
+          </div>
+
+          {/* Section 7: Product Specifications */}
+          <div className="space-y-1.5">
+            <label htmlFor="prod-specs" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-[#24492d]" />
+              Product Specifications &amp; Technical Details
+            </label>
+            <textarea
+              id="prod-specs"
+              rows={2}
+              value={specifications}
+              onChange={(e) => setSpecifications(e.target.value)}
+              placeholder="e.g. Form: Vegetable Capsules | Extraction Ratio: 10:1 | Packaging: Amber Glass Bottle | Certified Organic USDA"
+              className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
+            />
+          </div>
+
+          {/* Section 8: Best Seller Checkbox for Admin */}
           {!hideBestSeller && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-[#fafcfa] border border-[#d6dfd7]">
               <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -474,133 +963,28 @@ export default function ProductModal({
             </div>
           )}
 
-          {/* Image Selection Area */}
-          <div className="space-y-3 p-4 rounded-xl bg-[#f7faf7] border border-[#e2ede3]">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-[#1c3f24]">
-                Product Image & Visuals
-              </label>
-              <span className="text-[11px] text-[#4d6b53]">Upload image or pick a preset</span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              {/* Image Preview Box */}
-              <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-[#24492d]/40 bg-white shadow-sm flex items-center justify-center flex-shrink-0 group">
-                {imageUrl ? (
-                  <Image
-                    src={imageUrl}
-                    alt="Product preview"
-                    fill
-                    sizes="96px"
-                    className="object-cover group-hover:scale-105 transition-transform"
-                    onError={() => { }}
-                  />
-                ) : (
-                  <ImageIcon className="w-8 h-8 text-[#9eb6a2]" />
-                )}
-                {uploadingImage && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-              </div>
-
-              {/* Upload & URL Controls */}
-              <div className="flex-1 w-full space-y-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingImage}
-                    className="px-3.5 py-1.5 rounded-lg bg-white border border-[#24492d] text-[#24492d] hover:bg-[#edf5ee] text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Image File</span>
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <span className="text-[11px] text-gray-500">or paste direct image URL below:</span>
-                </div>
-
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://... or /images/..."
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d] focus:border-[#24492d]"
-                />
-              </div>
-            </div>
-
-            {/* Presets */}
-            <div className="pt-2 border-t border-[#edf2ed]">
-              <span className="text-[10px] font-semibold text-[#5a755f] uppercase tracking-wider block mb-1.5">
-                Quick Botanical Presets:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_IMAGES.map((preset) => {
-                  const isSelected = imageUrl === preset.url;
-                  return (
-                    <button
-                      key={preset.url}
-                      type="button"
-                      onClick={() => setImageUrl(preset.url)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1 ${isSelected
-                        ? 'bg-[#24492d] text-white shadow-xs'
-                        : 'bg-white text-[#39563d] border border-[#ccdacc] hover:bg-[#edf5ee]'
-                        }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3" />}
-                      <span>{preset.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Gallery Images (Optional extra URLs) */}
-            <div className="pt-2">
-              <label className="block text-[11px] font-semibold text-[#3b5940] mb-1">
-                Additional Gallery Image URLs (comma-separated):
-              </label>
-              <input
-                type="text"
-                value={galleryImages}
-                onChange={(e) => setGalleryImages(e.target.value)}
-                placeholder="/images/herbal-detox-tea.jpg, /images/aloe-vera-gel.jpg"
-                className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-              />
-            </div>
-          </div>
-
-          {/* Description */}
+          {/* Section 9: Overview & Description */}
           <div className="space-y-1.5">
             <label htmlFor="prod-desc" className="block text-xs font-semibold text-[#1c3f24]">
-              Product Overview & Summary
+              Product Overview &amp; Summary
             </label>
             <textarea
               id="prod-desc"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe therapeutic virtues, purity guarantees, and origin..."
+              placeholder="Describe therapeutic virtues, purity guarantees, and traditional heritage..."
               className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
             />
           </div>
 
-          {/* Key Benefits (Bullet points) */}
+          {/* Section 10: Key Benefits */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="prod-benefits" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
                 <ListChecks className="w-3.5 h-3.5 text-[#24492d]" />
-                Key Benefits (Shown with green checkmarks on product page)
+                Key Benefits (One benefit per line)
               </label>
-              <span className="text-[10px] text-[#55715a]">One benefit per line</span>
             </div>
             <textarea
               id="prod-benefits"
@@ -612,7 +996,7 @@ export default function ProductModal({
             />
           </div>
 
-          {/* Ingredients */}
+          {/* Section 11: Ingredients */}
           <div className="space-y-1.5">
             <label htmlFor="prod-ingredients" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
               <FlaskConical className="w-3.5 h-3.5 text-[#24492d]" />
@@ -628,11 +1012,11 @@ export default function ProductModal({
             />
           </div>
 
-          {/* How To Use */}
+          {/* Section 12: How To Use */}
           <div className="space-y-1.5">
             <label htmlFor="prod-howtouse" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5 text-[#24492d]" />
-              How To Use & Dosage Directions
+              How To Use &amp; Dosage Directions
             </label>
             <textarea
               id="prod-howtouse"
@@ -647,14 +1031,18 @@ export default function ProductModal({
           {/* Live Card Preview Box */}
           <div className="p-3 rounded-xl bg-[#f2f6f3] border border-[#dde8df] flex items-center gap-4">
             <div className="relative w-12 h-12 rounded-lg bg-white overflow-hidden border border-[#d2e0d4] flex-shrink-0">
-              {imageUrl && (
+              {photos[0] ? (
                 <Image
-                  src={imageUrl}
+                  src={photos[0]}
                   alt={name || 'Preview'}
                   fill
                   sizes="48px"
                   className="object-cover"
                 />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-stone-100 text-stone-400">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -695,6 +1083,14 @@ export default function ProductModal({
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e3ede5] text-[#24492d] font-semibold">
                       Stock: {pStock}
                     </span>
+                    <span className="text-[10px] text-stone-500">
+                      • {countryOfOrigin || 'Origin'}
+                    </span>
+                    {shippingOptions.some(o => o.name === 'Free Shipping' || o.cost === 0) && (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
+                        Free Delivery
+                      </span>
+                    )}
                   </div>
                 );
               })()}
@@ -707,14 +1103,14 @@ export default function ProductModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="px-5 py-2.5 rounded-lg border border-[#ccdacc] text-[#3e5642] hover:bg-[#f3f7f3] text-xs font-semibold tracking-wider uppercase transition-colors"
+              className="px-5 py-2.5 rounded-lg border border-[#ccdacc] text-[#3e5642] hover:bg-[#f3f7f3] text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting || uploadingImage}
-              className="px-6 py-2.5 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-md transition-all flex items-center gap-2 disabled:opacity-60"
+              className="px-6 py-2.5 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-md transition-all flex items-center gap-2 disabled:opacity-60 cursor-pointer"
             >
               {submitting ? (
                 <>

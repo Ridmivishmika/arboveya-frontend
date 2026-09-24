@@ -20,7 +20,17 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/a
 
 export default function CheckoutClient() {
   const { user, loading: authLoading } = useAuth();
-  const { cart, subtotal, discountAmount, total, clearCart } = useCart();
+  const { 
+    cart, 
+    subtotal, 
+    discountAmount, 
+    shipping, 
+    total, 
+    selectedShippingMethod, 
+    setSelectedShippingMethod, 
+    availableShippingMethods, 
+    clearCart 
+  } = useCart();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -86,6 +96,8 @@ export default function CheckoutClient() {
         customerName: fullName.trim(),
         customerEmail: email.trim(),
         shippingAddress: `${address.trim()}, ${city.trim() ? city.trim() + ', ' : ''}${country}`,
+        shippingMethod: selectedShippingMethod?.name || 'Standard Shipping',
+        shippingCost: selectedShippingMethod?.cost ?? 0,
         items: cart.map(item => ({
           productId: item.product.id,
           productName: item.product.name,
@@ -131,24 +143,27 @@ export default function CheckoutClient() {
     }
   };
 
-  // Seller restriction screen
-  if (user && user.role === 'Seller') {
+  // Seller and Admin restriction screen
+  if (user && (user.role === 'Seller' || user.role === 'Admin')) {
+    const isSeller = user.role === 'Seller';
     return (
       <div className="min-h-screen bg-[#fafcfa] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-[#d6dfd7] p-8 text-center space-y-4 shadow-sm">
           <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
             <Lock className="w-8 h-8" />
           </div>
-          <h1 className="font-serif text-2xl font-bold text-[#1c3f24]">Checkout Disabled for Sellers</h1>
+          <h1 className="font-serif text-2xl font-bold text-[#1c3f24]">Checkout Disabled for {isSeller ? 'Sellers' : 'Administrators'}</h1>
           <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-            Registered herbal merchant accounts cannot place product orders. You can browse the botanical catalog or manage your merchant store in Seller Studio.
+            {isSeller
+              ? 'Registered herbal merchant accounts cannot place product orders. You can browse the botanical catalog or manage your merchant store in Seller Studio.'
+              : 'Registered administrator accounts cannot place product orders. You can browse the botanical catalog or manage store administration in the Admin Portal.'}
           </p>
           <div className="pt-2 flex flex-col gap-2.5">
             <Link
-              href="/seller"
+              href={isSeller ? "/seller" : "/admin/products"}
               className="w-full py-3 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase rounded-lg shadow-sm transition-colors text-center"
             >
-              Go to Seller Studio
+              {isSeller ? "Go to Seller Studio" : "Go to Admin Portal"}
             </Link>
             <Link
               href="/shop"
@@ -384,6 +399,46 @@ export default function CheckoutClient() {
               ))}
             </div>
 
+            {/* Shipping Method Selector */}
+            <div className="space-y-2 border-t border-[#e2eae2] pt-3">
+              <span className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider block">
+                Shipping &amp; Delivery Method
+              </span>
+              <div className="space-y-2">
+                {availableShippingMethods.map((method, idx) => {
+                  const isChecked = selectedShippingMethod.name === method.name;
+                  return (
+                    <label
+                      key={idx}
+                      onClick={() => setSelectedShippingMethod(method)}
+                      className={`flex items-center justify-between p-3 rounded-lg border text-xs cursor-pointer transition-all ${
+                        isChecked
+                          ? 'border-[#24492d] bg-white ring-1 ring-[#24492d] shadow-2xs'
+                          : 'border-[#ccdacc] bg-white/70 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="shippingMethod"
+                          checked={isChecked}
+                          onChange={() => setSelectedShippingMethod(method)}
+                          className="text-[#24492d] focus:ring-[#24492d]"
+                        />
+                        <div>
+                          <span className="font-bold text-[#1c3f24] block">{method.name}</span>
+                          <span className="text-[11px] text-[#556e59]">Est: {method.estimatedDeliveryTime}</span>
+                        </div>
+                      </div>
+                      <span className={`font-bold ${method.cost === 0 ? 'text-emerald-700' : 'text-[#1c3f24]'}`}>
+                        {method.cost === 0 ? 'FREE' : `$${method.cost.toFixed(2)}`}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Totals */}
             <div className="space-y-2 border-t border-[#e2eae2] pt-3 text-xs">
               <div className="flex justify-between">
@@ -396,9 +451,14 @@ export default function CheckoutClient() {
                   <span className="font-bold">-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-[#556e59]">SHIPPING</span>
-                <span className="font-semibold text-[#1c3f24]">{subtotal >= 50 ? 'FREE' : 'Calculated at checkout'}</span>
+              <div className="flex justify-between items-center">
+                <div className="flex flex-col">
+                  <span className="text-[#556e59]">SHIPPING</span>
+                  <span className="text-[10px] text-[#718d75]">{selectedShippingMethod.name} ({selectedShippingMethod.estimatedDeliveryTime})</span>
+                </div>
+                <span className={`font-bold ${shipping === 0 ? 'text-emerald-700' : 'text-[#1c3f24]'}`}>
+                  {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
+                </span>
               </div>
               <div className="flex justify-between text-sm font-bold text-[#1c3f24] border-t border-[#e2eae2] pt-2">
                 <span>TOTAL</span>
@@ -439,8 +499,38 @@ export default function CheckoutClient() {
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-0.5 rounded border-[#ccdacc] text-[#24492d] focus:ring-[#24492d]"
               />
-              <span>
-                I have read and agree to the website terms and conditions *
+              <span className="leading-relaxed">
+                I have read and agree to the website{' '}
+                <Link
+                  href="/terms-and-conditions"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-[#1c3f24] underline hover:text-[#2d5c36]"
+                >
+                  Terms &amp; Conditions
+                </Link>
+                ,{' '}
+                <Link
+                  href="/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-[#1c3f24] underline hover:text-[#2d5c36]"
+                >
+                  Privacy Policy
+                </Link>
+                , and{' '}
+                <Link
+                  href="/refund-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-[#1c3f24] underline hover:text-[#2d5c36]"
+                >
+                  Refund Policy
+                </Link>{' '}
+                *
               </span>
             </label>
 

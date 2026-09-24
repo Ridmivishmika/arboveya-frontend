@@ -28,8 +28,12 @@ import {
   LogIn,
   FileText,
   Sparkles,
-  Info
+  Info,
+  Upload,
+  ImageIcon,
+  Loader2
 } from 'lucide-react';
+import { uploadBlogImage } from '@/lib/api';
 
 const CATEGORIES = ['All', 'Wellness', 'Herbal Tea', 'Skincare', 'Nutrition', 'Mindfulness'];
 
@@ -60,6 +64,32 @@ function BlogContent() {
   const [formCategory, setFormCategory] = useState('Wellness');
   const [formImageUrl, setFormImageUrl] = useState('/images/blog-moringa.jpg');
   const [formContent, setFormContent] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Image size exceeds 10MB limit.');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setUploadError(null);
+      const authToken = token || localStorage.getItem('arboveya_token') || '';
+      const url = await uploadBlogImage(file, authToken);
+      setFormImageUrl(url);
+    } catch (err: any) {
+      setUploadError(err.message || 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Fetch published blogs from backend
   const fetchBlogs = async () => {
@@ -770,8 +800,8 @@ function BlogContent() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+                <div className="sm:col-span-1">
                   <label className="block text-xs font-semibold text-stone-700 mb-1">Category *</label>
                   <select
                     value={formCategory}
@@ -786,19 +816,100 @@ function BlogContent() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">Image Thumbnail</label>
-                  <select
-                    value={formImageUrl}
-                    onChange={(e) => setFormImageUrl(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                  >
-                    <option value="/images/blog-moringa.jpg">Moringa Herbal Tea</option>
-                    <option value="/images/blog-herbal-tea.jpg">Chamomile Herbal Brew</option>
-                    <option value="/images/blog-skincare.jpg">Botanical Skincare Cream</option>
-                    <option value="/images/herbal-detox-tea.jpg">Detox Tea Loose Leaf</option>
-                    <option value="/images/aloe-vera-gel.jpg">Aloe Vera Gel</option>
-                  </select>
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Featured Image / Cover *
+                  </label>
+
+                  {/* Live Top Preview of Selected / Uploaded Image */}
+                  {formImageUrl && (
+                    <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
+                      <Image
+                        src={formImageUrl}
+                        alt="Blog cover preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-lg bg-white/95 text-stone-800 text-xs font-semibold hover:bg-white shadow-xs transition"
+                        >
+                          Change Image
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload and URL controls */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={uploadingImage}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 text-xs font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2E4D38]" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span>Upload From Device</span>
+                        </>
+                      )}
+                    </button>
+
+                    <input
+                      type="text"
+                      value={formImageUrl}
+                      onChange={(e) => setFormImageUrl(e.target.value)}
+                      placeholder="Or paste image URL (https://...)"
+                      className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  {uploadError && (
+                    <p className="text-[11px] text-rose-600 font-medium">{uploadError}</p>
+                  )}
+
+                  {/* Botanical Presets */}
+                  <div className="pt-1">
+                    <span className="text-[11px] text-stone-400 block mb-1.5">Or select botanical preset:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Moringa', url: '/images/blog-moringa.jpg' },
+                        { label: 'Chamomile Brew', url: '/images/blog-herbal-tea.jpg' },
+                        { label: 'Skincare Cream', url: '/images/blog-skincare.jpg' },
+                        { label: 'Detox Tea', url: '/images/herbal-detox-tea.jpg' },
+                        { label: 'Aloe Vera', url: '/images/aloe-vera-gel.jpg' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.url}
+                          type="button"
+                          onClick={() => setFormImageUrl(preset.url)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] border transition cursor-pointer ${
+                            formImageUrl === preset.url
+                              ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -835,61 +946,65 @@ function BlogContent() {
         </div>
       )}
 
-      {/* 6. MODAL: READ FULL BLOG */}
+      {/* 6. MODAL: READ FULL BLOG (IMAGE DISPLAYED FROM THE TOP) */}
       {readingBlog && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
-              <span className="text-xs font-bold text-[#2E4D38] uppercase tracking-wider">
-                {readingBlog.category || 'Wellness'}
-              </span>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto overflow-hidden">
+            {/* Top Featured Hero Image */}
+            <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
+              <Image
+                src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
+                alt={readingBlog.title}
+                fill
+                priority
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
+              <div className="absolute top-4 left-4">
+                <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                  {readingBlog.category || 'Wellness'}
+                </span>
+              </div>
               <button
                 onClick={() => setReadingBlog(null)}
-                className="p-1 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug mb-3">
-              {readingBlog.title}
-            </h2>
+            <div className="p-6 sm:p-8">
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug mb-3">
+                {readingBlog.title}
+              </h2>
 
-            <div className="flex items-center justify-between pb-5 mb-6 border-b border-stone-100 flex-wrap gap-3">
-              <div className="flex items-center gap-3 text-xs text-stone-500">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#2E4D38] flex items-center justify-center font-bold text-xs">
-                  {readingBlog.authorName ? readingBlog.authorName.charAt(0).toUpperCase() : 'A'}
+              <div className="flex items-center justify-between pb-5 mb-6 border-b border-stone-100 flex-wrap gap-3">
+                <div className="flex items-center gap-3 text-xs text-stone-500">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#2E4D38] flex items-center justify-center font-bold text-xs">
+                    {readingBlog.authorName ? readingBlog.authorName.charAt(0).toUpperCase() : 'A'}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-stone-800">{readingBlog.authorName || 'Arboveya Author'}</p>
+                    <p className="text-[11px] text-stone-400">
+                      {new Date(readingBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-stone-800">{readingBlog.authorName || 'Arboveya Author'}</p>
-                  <p className="text-[11px] text-stone-400">
-                    {new Date(readingBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
+                {renderStatusBadge(readingBlog)}
               </div>
-              {renderStatusBadge(readingBlog)}
-            </div>
 
-            <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden mb-6 shadow-xs border border-stone-200/70 bg-stone-100">
-              <Image
-                src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
-                alt={readingBlog.title}
-                fill
-                className="object-cover"
-              />
-            </div>
+              <div className="text-stone-700 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-line font-serif sm:font-sans">
+                {readingBlog.content}
+              </div>
 
-            <div className="text-stone-700 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-line font-serif sm:font-sans">
-              {readingBlog.content}
-            </div>
-
-            <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
-              <button
-                onClick={() => setReadingBlog(null)}
-                className="px-5 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200 transition"
-              >
-                Close Blog
-              </button>
+              <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
+                <button
+                  onClick={() => setReadingBlog(null)}
+                  className="px-5 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200 transition"
+                >
+                  Close Blog
+                </button>
 
               {user && (user.id === readingBlog.authorId || user.role === 'Admin') && (
                 <div className="flex items-center gap-2">
@@ -918,6 +1033,7 @@ function BlogContent() {
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

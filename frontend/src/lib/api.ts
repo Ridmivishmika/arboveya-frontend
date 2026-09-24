@@ -287,7 +287,67 @@ export async function uploadProductImage(file: File): Promise<string> {
   }
   return data.imageUrl;
 }
+export async function uploadMultipleProductImages(files: File[]): Promise<string[]> {
+  if (!files || files.length === 0) return [];
 
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/products/upload-images`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    let errorMsg = "Failed to upload images";
+    try {
+      const errBody = await res.json();
+      errorMsg = errBody.message || errorMsg;
+    } catch (_) { }
+    throw new Error(errorMsg);
+  }
+
+  const data = await res.json();
+  const backendOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+  return (data.imageUrls || []).map((url: string) =>
+    url.startsWith("/") ? `${backendOrigin}${url}` : url
+  );
+}
+
+export async function updateOrderTracking(
+  orderId: string,
+  trackingNumber: string,
+  shippingCarrier?: string,
+  orderStatus: string = "Shipped",
+  token?: string
+): Promise<any> {
+  const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("arboveya_token") : "") || "";
+  const res = await fetch(`${API_BASE_URL}/orders/${orderId}/tracking`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+    },
+    body: JSON.stringify({
+      trackingNumber,
+      shippingCarrier,
+      orderStatus
+    })
+  });
+
+  if (!res.ok) {
+    let errorMsg = "Failed to update order tracking";
+    try {
+      const errBody = await res.json();
+      errorMsg = errBody.message || errorMsg;
+    } catch (_) { }
+    throw new Error(errorMsg);
+  }
+
+  return await res.json();
+}
 
 export async function getPendingProducts(token?: string): Promise<Product[]> {
   try {
@@ -450,6 +510,38 @@ export async function deleteCategory(id: string, token?: string): Promise<void> 
     } catch (_) { }
     throw new Error(errorMsg);
   }
+}
+
+export async function uploadCategoryImage(file: File, token?: string): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const authToken = token || await getAdminToken();
+  const headers: Record<string, string> = {
+    ...(authToken ? { "Authorization": `Bearer ${authToken}` } : {})
+  };
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/categories/upload-image`, {
+      method: "POST",
+      headers,
+      body: formData
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.imageUrl && data.imageUrl.startsWith("/")) {
+        const backendOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+        return `${backendOrigin}${data.imageUrl}`;
+      }
+      return data.imageUrl;
+    }
+  } catch (_) {
+    // fallback to products upload endpoint if categories endpoint is unreachable
+  }
+
+  // Graceful fallback to products upload-image endpoint which uses same storage
+  return uploadProductImage(file);
 }
 
 // ----------------- Wellness Need APIs ----------------- //
@@ -642,6 +734,33 @@ export async function moderateBlog(id: string, isApproved: boolean, token: strin
     throw new Error(err.message || "Failed to moderate blog post");
   }
   return await res.json();
+}
+
+export async function uploadBlogImage(file: File, token?: string): Promise<string> {
+  const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("arboveya_token") : "") || "";
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE_URL}/blogs/upload-image`, {
+    method: "POST",
+    headers: {
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    let errorMsg = "Failed to upload image";
+    try {
+      const errBody = await res.json();
+      errorMsg = errBody.message || errorMsg;
+    } catch (_) {}
+    throw new Error(errorMsg);
+  }
+
+  const data = await res.json();
+  const backendOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+  return data.imageUrl.startsWith("/") ? `${backendOrigin}${data.imageUrl}` : data.imageUrl;
 }
 
 // ----------------- Auth / Password Recovery APIs ----------------- //

@@ -268,6 +268,75 @@ export default function ApproveProductModal({
                   </div>
                 </div>
               )}
+
+              {/* New Product Attributes: Origin, Condition, Specs, Delivery */}
+              <div className="mt-3 pt-2.5 border-t border-[#d8e8dc] text-xs grid grid-cols-2 sm:grid-cols-3 gap-2 text-[#35533c]">
+                {product.countryOfOrigin && (
+                  <div>
+                    <span className="text-[10px] text-stone-400 block uppercase font-bold">Origin</span>
+                    <span className="font-semibold text-[#1c3f24]">{product.countryOfOrigin}</span>
+                  </div>
+                )}
+                {product.condition && (
+                  <div>
+                    <span className="text-[10px] text-stone-400 block uppercase font-bold">Condition</span>
+                    <span className="font-semibold text-[#1c3f24]">{product.condition}</span>
+                  </div>
+                )}
+                {product.shippingOptions ? (() => {
+                  try {
+                    const parsed = typeof product.shippingOptions === 'string'
+                      ? JSON.parse(product.shippingOptions)
+                      : product.shippingOptions;
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      return (
+                        <div className="col-span-2 sm:col-span-3">
+                          <span className="text-[10px] text-stone-400 block uppercase font-bold mb-1">
+                            Seller Shipping Methods ({parsed.length})
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {parsed.map((opt: any, i: number) => (
+                              <span key={i} className="px-2 py-0.5 rounded-md bg-[#edf5ee] border border-[#ccdacc] text-[#1c3f24] text-[11px] font-medium">
+                                {opt.name}: <strong>{Number(opt.cost) === 0 ? 'FREE' : `$${Number(opt.cost).toFixed(2)}`}</strong> ({opt.estimatedDeliveryTime})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  } catch {}
+                  return null;
+                })() : (
+                  <>
+                    {product.shippingMethod && (
+                      <div>
+                        <span className="text-[10px] text-stone-400 block uppercase font-bold">Shipping Method</span>
+                        <span className="font-semibold text-[#1c3f24]">{product.shippingMethod}</span>
+                      </div>
+                    )}
+                    {product.estimatedDeliveryTime && (
+                      <div>
+                        <span className="text-[10px] text-stone-400 block uppercase font-bold">Est. Delivery</span>
+                        <span className="font-semibold text-[#1c3f24]">{product.estimatedDeliveryTime}</span>
+                      </div>
+                    )}
+                    {product.isFreeShipping !== undefined && (
+                      <div>
+                        <span className="text-[10px] text-stone-400 block uppercase font-bold">Delivery Cost</span>
+                        <span className="font-semibold text-[#1c3f24]">
+                          {product.isFreeShipping ? 'Free Shipping' : `$${Number(product.shippingCost || 0).toFixed(2)}`}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {product.expiryDate && (
+                  <div>
+                    <span className="text-[10px] text-stone-400 block uppercase font-bold">Expiry Date</span>
+                    <span className="font-semibold text-[#1c3f24]">{new Date(product.expiryDate).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

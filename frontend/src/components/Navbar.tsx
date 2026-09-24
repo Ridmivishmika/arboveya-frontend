@@ -609,6 +609,16 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           </Link>
 
           {/* Role Portal Shortcut */}
+          {user && user.role === 'Customer' && (
+            <Link
+              href="/buyer"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#24492d]/30 bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition shadow-2xs"
+            >
+              <User className="w-3.5 h-3.5 text-[#24492d]" />
+              <span>Buyer Portal</span>
+            </Link>
+          )}
+
           {user && user.role === 'Seller' && (
             <Link
               href="/seller"
@@ -669,7 +679,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           )}
 
           {/* Cart Icon with Live Count (Customers & Guests only) */}
-          {(!user || user.role !== 'Seller') && (
+          {(!user || (user.role !== 'Seller' && user.role !== 'Admin')) && (
             <Link
               href="/cart"
               className={`relative p-2 rounded-xl transition-all duration-300 ${
@@ -750,6 +760,16 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           >
             Contact
           </Link>
+
+          {user && user.role === 'Customer' && (
+            <Link
+              href="/buyer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] bg-[#edf5ee]"
+            >
+              Buyer Portal
+            </Link>
+          )}
 
           {user && user.role === 'Seller' && (
             <Link

@@ -2,13 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Product, ProductVariant } from '@/types';
+import { Product, ProductVariant, ShippingOption } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
 export interface CartItem {
   product: Product;
   quantity: number;
   selectedVariant?: ProductVariant;
+  selectedShippingOption?: ShippingOption;
 }
 
 export interface Coupon {
@@ -26,7 +27,10 @@ interface CartContextType {
   coupon: Coupon | null;
   couponError: string | null;
   couponSuccess: string | null;
-  addToCart: (product: Product, quantity?: number, variant?: ProductVariant) => void;
+  selectedShippingMethod: ShippingOption;
+  setSelectedShippingMethod: (method: ShippingOption) => void;
+  availableShippingMethods: ShippingOption[];
+  addToCart: (product: Product, quantity?: number, variant?: ProductVariant, shippingOption?: ShippingOption) => void;
   updateQuantity: (productId: string, quantity: number, variantWeight?: string) => void;
   removeFromCart: (productId: string, variantWeight?: string) => void;
   clearCart: () => void;
@@ -53,27 +57,74 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const loadedKeyRef = React.useRef<string | null>(null);
 
-  // Determine user-specific storage key; strictly null if not authenticated
-  const storageKey = user?.id 
+  const isPrivilegedRole = user?.role === 'Seller' || user?.role === 'Admin';
+
+  // Determine user-specific storage key; guest key if not authenticated
+  const storageKey = isPrivilegedRole
+    ? null
+    : user?.id 
     ? `arboveya_cart_${user.id}` 
     : user?.email 
     ? `arboveya_cart_${user.email}` 
-    : null;
+    : 'arboveya_cart_guest';
 
-  // Whenever user changes, load their profile-specific cart or clear completely
+  // Whenever user changes, load their profile-specific cart or guest cart
   useEffect(() => {
     try {
-      // Clear legacy guest cart
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('arboveya_cart_guest');
-      }
-
-      if (!storageKey) {
-        // Without sign in, cart is strictly empty
+      if (!storageKey || isPrivilegedRole) {
+        // Privileged roles (Seller, Admin) do not have active purchasing carts
         setCart([]);
         setCoupon(null);
         loadedKeyRef.current = null;
-      } else {
+        setIsLoaded(true);
+        return;
+      }
+
+      // Check if user just signed in and had items in guest cart: migrate guest cart into user profile
+      if (storageKey !== 'arboveya_cart_guest' && typeof window !== 'undefined') {
+        const guestSaved = localStorage.getItem('arboveya_cart_guest');
+        let guestItems: CartItem[] = [];
+        if (guestSaved) {
+          try {
+            const parsed = JSON.parse(guestSaved);
+            if (Array.isArray(parsed)) guestItems = parsed;
+          } catch {}
+        }
+
+        const userSaved = localStorage.getItem(storageKey);
+        let userItems: CartItem[] = [];
+        if (userSaved) {
+          try {
+            const parsed = JSON.parse(userSaved);
+            if (Array.isArray(parsed)) userItems = parsed;
+          } catch {}
+        }
+
+        if (guestItems.length > 0) {
+          const merged = [...userItems];
+          guestItems.forEach(gItem => {
+            const gVKey = gItem.selectedVariant?.weight ?? '__default__';
+            const existIdx = merged.findIndex(
+              m => m.product.id === gItem.product.id && (m.selectedVariant?.weight ?? '__default__') === gVKey
+            );
+            if (existIdx >= 0) {
+              merged[existIdx].quantity += gItem.quantity;
+            } else {
+              merged.push(gItem);
+            }
+          });
+
+          localStorage.setItem(storageKey, JSON.stringify(merged));
+          localStorage.removeItem('arboveya_cart_guest');
+          setCart(merged);
+          loadedKeyRef.current = storageKey;
+          setIsLoaded(true);
+          return;
+        }
+      }
+
+      // Regular load from storageKey
+      if (typeof window !== 'undefined') {
         const saved = localStorage.getItem(storageKey);
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -92,9 +143,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       loadedKeyRef.current = storageKey;
     }
     setIsLoaded(true);
-  }, [storageKey]);
+  }, [storageKey, isPrivilegedRole]);
 
-  // Save cart to the active user profile localStorage key
+  // Save cart to the active user profile or guest localStorage key
   useEffect(() => {
     if (isLoaded && storageKey && loadedKeyRef.current === storageKey && typeof window !== 'undefined') {
       try {
@@ -105,19 +156,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cart, isLoaded, storageKey]);
 
-  const addToCart = (product: Product, quantity = 1, variant?: ProductVariant) => {
-    if (!user) {
+  const addToCart = (product: Product, quantity = 1, variant?: ProductVariant, shippingOption?: ShippingOption) => {
+    if (user?.role === 'Seller' || user?.role === 'Admin') {
       if (typeof window !== 'undefined') {
-        alert('Please sign in first to add botanical products to your cart.');
-        const returnUrl = encodeURIComponent(window.location.pathname);
-        router.push(`/login?redirect=${returnUrl}`);
-      }
-      return;
-    }
-
-    if (user.role === 'Seller') {
-      if (typeof window !== 'undefined') {
-        alert('Purchasing is disabled for Seller accounts. As an herbal merchant, you can view all botanical products, but purchases are reserved for customer accounts.');
+        const roleLabel = user.role === 'Admin' ? 'Administrator' : 'Seller';
+        alert(`Purchasing is disabled for ${roleLabel} accounts. You can view all botanical products, but purchases are reserved for customer accounts.`);
       }
       return;
     }
@@ -131,10 +174,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existingIdx >= 0) {
         const updated = [...prev];
         updated[existingIdx].quantity += quantity;
+        if (shippingOption) {
+          updated[existingIdx].selectedShippingOption = shippingOption;
+        }
         return updated;
       }
-      return [...prev, { product, quantity, selectedVariant: variant }];
+      return [...prev, { product, quantity, selectedVariant: variant, selectedShippingOption: shippingOption }];
     });
+
+    if (shippingOption) {
+      setSelectedShippingMethod(shippingOption);
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('arboveya:cart-highlight'));
@@ -142,7 +192,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQuantity = (productId: string, quantity: number, variantWeight?: string) => {
-    if (!user) {
+    if (user?.role === 'Seller' || user?.role === 'Admin') {
       setCart([]);
       return;
     }
@@ -161,7 +211,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeFromCart = (productId: string, variantWeight?: string) => {
-    if (!user) {
+    if (user?.role === 'Seller' || user?.role === 'Admin') {
       setCart([]);
       return;
     }
@@ -185,7 +235,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const applyCoupon = (code: string): boolean => {
-    if (!user) return false;
+    if (user?.role === 'Seller' || user?.role === 'Admin') return false;
     const cleanCode = code.trim().toUpperCase();
     if (VALID_COUPONS[cleanCode]) {
       setCoupon({
@@ -208,8 +258,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCouponError(null);
   };
 
-  // If no user is signed in or user is a Seller, cart is strictly empty and counts are 0
-  const activeCart = user && user.role !== 'Seller' ? cart : [];
+const DEFAULT_SHIPPING_METHODS: ShippingOption[] = [
+  { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
+  { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 },
+  { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 }
+];
+
+  // If user is a Seller or Admin, cart is strictly empty and counts are 0; guests and customers have active carts
+  const activeCart = React.useMemo(() => {
+    if (user?.role === 'Seller' || user?.role === 'Admin') {
+      return [];
+    }
+    return cart;
+  }, [user, cart]);
+
   const cartCount = activeCart.reduce((sum, item) => sum + item.quantity, 0);
 
   const subtotal = activeCart.reduce(
@@ -223,8 +285,72 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const discountedSubtotal = subtotal - discountAmount;
 
-  // Free shipping over $50, otherwise $5.00 (free if cart is empty)
-  const shipping = activeCart.length === 0 ? 0 : discountedSubtotal >= 50 ? 0 : 5.00;
+  // Dynamically compute available shipping methods from items in the cart
+  const availableShippingMethods = React.useMemo<ShippingOption[]>(() => {
+    if (activeCart.length === 0) {
+      return DEFAULT_SHIPPING_METHODS;
+    }
+
+    const map = new Map<string, ShippingOption>();
+    activeCart.forEach(item => {
+      let opts: ShippingOption[] = [];
+      if (item.product.shippingOptions) {
+        try {
+          const parsed = typeof item.product.shippingOptions === 'string'
+            ? JSON.parse(item.product.shippingOptions)
+            : item.product.shippingOptions;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            opts = parsed.map((o: any) => ({
+              name: o.name || 'Standard Shipping',
+              estimatedDeliveryTime: o.estimatedDeliveryTime || '3-5 business days',
+              cost: o.name === 'Free Shipping' ? 0 : Number(o.cost) || 0
+            }));
+          }
+        } catch {}
+      }
+      if (opts.length === 0) {
+        const name = item.product.shippingMethod || (item.product.isFreeShipping ? 'Free Shipping' : 'Standard Shipping');
+        const cost = item.product.isFreeShipping ? 0 : (Number(item.product.shippingCost) || 0);
+        opts.push({
+          name,
+          estimatedDeliveryTime: item.product.estimatedDeliveryTime || (cost === 0 ? '5-7 business days' : '3-5 business days'),
+          cost
+        });
+      }
+
+      opts.forEach(o => {
+        if (!map.has(o.name)) {
+          map.set(o.name, o);
+        } else {
+          const existing = map.get(o.name)!;
+          if (o.cost > existing.cost) {
+            map.set(o.name, o);
+          }
+        }
+      });
+    });
+
+    return Array.from(map.values());
+  }, [activeCart]);
+
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingOption>(DEFAULT_SHIPPING_METHODS[0]);
+
+  useEffect(() => {
+    if (availableShippingMethods.length === 0) return;
+
+    setSelectedShippingMethod(prev => {
+      const match = availableShippingMethods.find(m => m.name === prev.name);
+      if (match) {
+        if (match.cost === prev.cost && match.estimatedDeliveryTime === prev.estimatedDeliveryTime) {
+          return prev;
+        }
+        return match;
+      }
+      return availableShippingMethods[0];
+    });
+  }, [availableShippingMethods]);
+
+  const shipping = activeCart.length === 0 ? 0 : (selectedShippingMethod?.cost ?? 0);
 
   const total = discountedSubtotal + shipping;
 
@@ -240,6 +366,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         coupon,
         couponError,
         couponSuccess,
+        selectedShippingMethod,
+        setSelectedShippingMethod,
+        availableShippingMethods,
         addToCart,
         updateQuantity,
         removeFromCart,

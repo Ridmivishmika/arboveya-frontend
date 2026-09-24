@@ -48,7 +48,6 @@ function LoginForm() {
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
-  const [devCodeHint, setDevCodeHint] = useState<string | null>(null);
 
   useEffect(() => {
     if (roleParam && roleParam.toLowerCase() === 'seller') {
@@ -99,7 +98,6 @@ function LoginForm() {
     setConfirmPassword('');
     setForgotError(null);
     setForgotSuccess(null);
-    setDevCodeHint(null);
     setIsForgotModalOpen(true);
   };
 
@@ -112,13 +110,9 @@ function LoginForm() {
     setForgotSubmitting(true);
     setForgotError(null);
     setForgotSuccess(null);
-    setDevCodeHint(null);
 
     try {
       const res = await forgotPassword(forgotEmail.trim());
-      if (res.resetCode) {
-        setDevCodeHint(res.resetCode);
-      }
       setForgotSuccess(res.message || 'Verification code sent to your email.');
       setForgotStep('reset');
     } catch (err: any) {
@@ -368,18 +362,6 @@ function LoginForm() {
               <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                 <span>{forgotSuccess}</span>
-              </div>
-            )}
-
-            {devCodeHint && forgotStep === 'reset' && (
-              <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between">
-                <div>
-                  <span className="font-semibold">Reset Code:</span>{' '}
-                  <span className="font-mono text-sm tracking-widest font-bold bg-white px-2 py-0.5 rounded border border-amber-200">
-                    {devCodeHint}
-                  </span>
-                </div>
-                <span className="text-[10px] text-amber-700">Expires in 15 min</span>
               </div>
             )}
 

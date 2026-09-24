@@ -172,6 +172,8 @@ export default function ShopClient({
     e.preventDefault();
     e.stopPropagation();
 
+    if (user && (user.role === 'Seller' || user.role === 'Admin')) return;
+
     const product = products.find((p) => p.id === productId);
     if (!product) return;
 
@@ -625,7 +627,7 @@ export default function ShopClient({
 
                         {/* Quick Add / View Overlay on Hover (Separate from Link) */}
                         <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/50 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
-                          {user && user.role === 'Seller' ? (
+                          {user && (user.role === 'Seller' || user.role === 'Admin') ? (
                             <Link
                               href={`/shop/${product.id}`}
                               className="w-full py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 bg-white text-[#1c3f24] hover:bg-[#24492d] hover:text-white"

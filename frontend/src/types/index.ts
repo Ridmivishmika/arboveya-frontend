@@ -19,6 +19,12 @@ export interface ProductVariant {
   stockQuantity: number;
 }
 
+export interface ShippingOption {
+  name: 'Standard Shipping' | 'Express Shipping' | 'Free Shipping' | string;
+  estimatedDeliveryTime: string;
+  cost: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -44,6 +50,18 @@ export interface Product {
   sellerName?: string;
   approvalStatus?: string;
   adminFeedback?: string;
+  countryOfOrigin?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
+  condition?: string;
+  specifications?: string;
+  shippingMethod?: string;
+  estimatedDeliveryTime?: string;
+  isFreeShipping?: boolean;
+  shippingCost?: number;
+  handlingTime?: string;
+  returnPolicy?: string;
+  shippingOptions?: ShippingOption[] | string;
   createdAt?: string;
   updatedAt?: string;
   variants?: ProductVariant[];
@@ -78,6 +96,18 @@ export interface CreateProductInput {
   howToUse?: string;
   galleryImages?: string;
   isBestSeller?: boolean;
+  countryOfOrigin?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
+  condition?: string;
+  specifications?: string;
+  shippingMethod?: string;
+  estimatedDeliveryTime?: string;
+  isFreeShipping?: boolean;
+  shippingCost?: number;
+  handlingTime?: string;
+  returnPolicy?: string;
+  shippingOptions?: ShippingOption[] | string;
   variants?: ProductVariant[];
 }
 
@@ -95,6 +125,18 @@ export interface UpdateProductInput {
   howToUse?: string;
   galleryImages?: string;
   isBestSeller?: boolean;
+  countryOfOrigin?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
+  condition?: string;
+  specifications?: string;
+  shippingMethod?: string;
+  estimatedDeliveryTime?: string;
+  isFreeShipping?: boolean;
+  shippingCost?: number;
+  handlingTime?: string;
+  returnPolicy?: string;
+  shippingOptions?: ShippingOption[] | string;
   variants?: ProductVariant[];
 }
 

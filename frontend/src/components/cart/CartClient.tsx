@@ -28,7 +28,11 @@ export default function CartClient() {
     cart,
     subtotal,
     discountAmount,
+    shipping,
     total,
+    selectedShippingMethod,
+    setSelectedShippingMethod,
+    availableShippingMethods,
     coupon,
     couponError,
     couponSuccess,
@@ -70,24 +74,28 @@ export default function CartClient() {
       {/* Cart Container */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         
-        {user && user.role === 'Seller' ? (
-          /* Seller Account Notice State */
+        {user && (user.role === 'Seller' || user.role === 'Admin') ? (
+          /* Seller / Admin Account Notice State */
           <div className="py-16 text-center space-y-4 bg-[#f8faf8] rounded-2xl border border-[#d6dfd7] p-8 max-w-lg mx-auto shadow-2xs">
             <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
               <Lock className="w-8 h-8" />
             </div>
             <h2 className="font-serif text-2xl font-bold text-[#1c3f24]">
-              Purchasing Disabled for Sellers
+              Purchasing Disabled for {user.role === 'Admin' ? 'Administrators' : 'Sellers'}
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              Your account is registered as an <strong>Arboveya Herbal Merchant</strong>. Purchasing products is disabled for seller accounts. You can browse and inspect all store products or manage your merchant inventory.
+              {user.role === 'Admin' ? (
+                <>Your account is registered as an <strong>Arboveya Administrator</strong>. Purchasing products is disabled for administrator accounts. You can inspect all store products and manage administrative operations.</>
+              ) : (
+                <>Your account is registered as an <strong>Arboveya Herbal Merchant</strong>. Purchasing products is disabled for seller accounts. You can browse and inspect all store products or manage your merchant inventory.</>
+              )}
             </p>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                href="/seller"
+                href={user.role === 'Admin' ? "/admin/products" : "/seller"}
                 className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase rounded-md shadow-sm transition-colors"
               >
-                Go to Seller Studio
+                {user.role === 'Admin' ? 'Go to Admin Portal' : 'Go to Seller Studio'}
               </Link>
               <Link
                 href="/shop"
@@ -282,15 +290,57 @@ export default function CartClient() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-xs sm:text-sm border-t border-[#e2eae2] pt-3 text-[#526a57]">
-                  <span className="font-bold uppercase tracking-wider text-[#1c3f24]">SHIPPING</span>
-                  <span className="text-xs text-[#526a57]">
-                    {isFreeShipping ? (
-                      <span className="font-bold text-[#15803d]">FREE (Orders over $50)</span>
-                    ) : (
-                      'Calculated at checkout'
-                    )}
-                  </span>
+                {/* Shipping Method Selection */}
+                <div className="border-t border-[#e2eae2] pt-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs sm:text-sm text-[#1c3f24]">
+                    <span className="font-bold uppercase tracking-wider">SHIPPING METHOD</span>
+                    <span className="font-bold text-xs">
+                      {shipping === 0 ? (
+                        <span className="text-emerald-700 font-bold">FREE</span>
+                      ) : (
+                        `$${shipping.toFixed(2)}`
+                      )}
+                    </span>
+                  </div>
+
+                  {availableShippingMethods.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      {availableShippingMethods.map((opt) => {
+                        const isSelected = selectedShippingMethod?.name === opt.name;
+                        return (
+                          <label
+                            key={opt.name}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-[#24492d] bg-white shadow-xs font-semibold text-[#1c3f24]'
+                                : 'border-[#e0eae0] bg-white/60 hover:bg-white text-stone-600'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="cart_shipping_method"
+                                checked={isSelected}
+                                onChange={() => setSelectedShippingMethod(opt)}
+                                className="w-3.5 h-3.5 text-[#24492d] accent-[#24492d]"
+                              />
+                              <div>
+                                <span>{opt.name}</span>
+                                {opt.estimatedDeliveryTime && (
+                                  <span className="block text-[10px] text-stone-500 font-normal">
+                                    Est. {opt.estimatedDeliveryTime}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-stone-800">
+                              {opt.cost === 0 ? 'FREE' : `$${opt.cost.toFixed(2)}`}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-sm sm:text-base border-t border-[#e2eae2] pt-4 font-bold text-[#1c3f24]">

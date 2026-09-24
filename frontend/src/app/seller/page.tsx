@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { BlogPost, Category, WellnessNeed, CreateProductInput, UpdateProductInput } from '@/types';
-import { getCategories, getWellnessNeeds } from '@/lib/api';
+import { getCategories, getWellnessNeeds, uploadBlogImage } from '@/lib/api';
 import ProductModal from '@/components/admin/ProductModal';
 import {
   Package,
@@ -34,7 +34,8 @@ import {
   FileText,
   Eye,
   X,
-  Info
+  Info,
+  Truck
 } from 'lucide-react';
 
 interface SellerOrderItem {
@@ -52,10 +53,15 @@ interface SellerOrder {
   customerName?: string;
   customerEmail?: string;
   shippingAddress?: string;
+  shippingMethod?: string;
+  shippingCost?: number;
   totalAmount: number;
   orderStatus: string;
   paymentStatus: string;
   createdAt: string;
+  trackingNumber?: string;
+  shippingCarrier?: string;
+  shippedAt?: string;
   orderItems?: SellerOrderItem[];
 }
 
@@ -69,6 +75,7 @@ interface Product {
   wellnessNeedId?: string;
   wellnessNeedName?: string;
   wellnessNeed?: string;
+  shippingOptions?: string;
   imageUrl?: string;
   galleryImages?: string;
   weight?: string;
@@ -78,6 +85,17 @@ interface Product {
   keyBenefits?: string;
   approvalStatus: string;
   adminFeedback?: string;
+  countryOfOrigin?: string;
+  condition?: string;
+  manufactureDate?: string;
+  expiryDate?: string;
+  specifications?: string;
+  shippingMethod?: string;
+  estimatedDeliveryTime?: string;
+  isFreeShipping?: boolean;
+  shippingCost?: number;
+  handlingTime?: string;
+  returnPolicy?: string;
   createdAt?: string;
   variants?: import('@/types').ProductVariant[];
 }
@@ -106,6 +124,13 @@ export default function SellerDashboardPage() {
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
+  // Order Tracking States
+  const [editingTrackingOrderId, setEditingTrackingOrderId] = useState<string | null>(null);
+  const [trackingNumberInput, setTrackingNumberInput] = useState('');
+  const [carrierInput, setCarrierInput] = useState('DHL Express');
+  const [savingTracking, setSavingTracking] = useState(false);
+  const [trackingSuccessMsg, setTrackingSuccessMsg] = useState<string | null>(null);
+
   // Blog State
   const [myBlogs, setMyBlogs] = useState<BlogPost[]>([]);
   const [loadingBlogs, setLoadingBlogs] = useState(true);
@@ -120,6 +145,32 @@ export default function SellerDashboardPage() {
   const [blogCategory, setBlogCategory] = useState('Wellness');
   const [blogImageUrl, setBlogImageUrl] = useState('/images/blog-moringa.jpg');
   const [blogContent, setBlogContent] = useState('');
+  const [uploadingBlogImage, setUploadingBlogImage] = useState(false);
+  const [blogUploadError, setBlogUploadError] = useState<string | null>(null);
+  const blogFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleBlogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setBlogUploadError('Image size exceeds 10MB limit.');
+      return;
+    }
+
+    try {
+      setUploadingBlogImage(true);
+      setBlogUploadError(null);
+      const authToken = (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+      const url = await uploadBlogImage(file, authToken);
+      setBlogImageUrl(url);
+    } catch (err: any) {
+      setBlogUploadError(err.message || 'Failed to upload blog image.');
+    } finally {
+      setUploadingBlogImage(false);
+      if (blogFileInputRef.current) blogFileInputRef.current.value = '';
+    }
+  };
 
   const isApproved = user?.isSellerApproved ?? true;
 
@@ -324,6 +375,20 @@ export default function SellerDashboardPage() {
       ingredients: input.ingredients || undefined,
       howToUse: input.howToUse || undefined,
       keyBenefits: input.keyBenefits || undefined,
+      countryOfOrigin: input.countryOfOrigin || undefined,
+      condition: input.condition || undefined,
+      manufactureDate: input.manufactureDate || undefined,
+      expiryDate: input.expiryDate || undefined,
+      specifications: input.specifications || undefined,
+      shippingMethod: input.shippingMethod || undefined,
+      estimatedDeliveryTime: input.estimatedDeliveryTime || undefined,
+      handlingTime: input.handlingTime || undefined,
+      isFreeShipping: input.isFreeShipping,
+      shippingCost: input.shippingCost,
+      returnPolicy: input.returnPolicy || undefined,
+      shippingOptions: input.shippingOptions 
+        ? (typeof input.shippingOptions === 'string' ? input.shippingOptions : JSON.stringify(input.shippingOptions)) 
+        : undefined,
       variants: cleanedVariants.length > 0 ? cleanedVariants : undefined,
     };
 
@@ -337,11 +402,11 @@ export default function SellerDashboardPage() {
 
         if (res.ok) {
           const data = await res.json();
-          setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...data } : p)));
+          setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...data, approvalStatus: 'Pending' } : p)));
         } else {
-          setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...payload } as any : p)));
+          setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...payload, approvalStatus: 'Pending' } as any : p)));
         }
-        setSuccessMsg(`Product "${input.name}" updated successfully!`);
+        setSuccessMsg(`Product "${input.name}" updated successfully! It has been submitted for Admin re-approval.`);
         setEditingProduct(null);
       } else {
         const res = await fetch(`http://localhost:5287/api/products/seller?sellerId=${user?.id || ''}`, {
@@ -383,12 +448,64 @@ export default function SellerDashboardPage() {
         setSuccessMsg(`Product "${input.name}" submitted successfully! Added to your seller dashboard (Pending Review).`);
         setShowAddModal(false);
       } else {
-        setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...payload } as any : p)));
-        setSuccessMsg(`Product "${input.name}" updated successfully!`);
+        setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...payload, approvalStatus: 'Pending' } as any : p)));
+        setSuccessMsg(`Product "${input.name}" updated successfully! Awaiting Admin review.`);
         setEditingProduct(null);
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSaveTracking = async (orderId: string) => {
+    if (!trackingNumberInput.trim()) return;
+    setSavingTracking(true);
+    setTrackingSuccessMsg(null);
+    try {
+      const res = await fetch(`http://localhost:5287/api/orders/${orderId}/tracking`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          trackingNumber: trackingNumberInput.trim(),
+          shippingCarrier: carrierInput.trim(),
+          orderStatus: 'Shipped'
+        })
+      });
+
+      if (res.ok) {
+        const updatedOrder = await res.json();
+        setOrders(prev => prev.map(o => o.id === orderId ? { 
+          ...o, 
+          ...updatedOrder, 
+          trackingNumber: trackingNumberInput.trim(), 
+          shippingCarrier: carrierInput.trim(), 
+          orderStatus: 'Shipped' 
+        } : o));
+      } else {
+        setOrders(prev => prev.map(o => o.id === orderId ? { 
+          ...o, 
+          trackingNumber: trackingNumberInput.trim(), 
+          shippingCarrier: carrierInput.trim(), 
+          orderStatus: 'Shipped' 
+        } : o));
+      }
+      setTrackingSuccessMsg(`Tracking number updated! Order marked as Shipped.`);
+      setEditingTrackingOrderId(null);
+      setTrackingNumberInput('');
+    } catch (err) {
+      console.warn('Fallback tracking update:', err);
+      setOrders(prev => prev.map(o => o.id === orderId ? { 
+        ...o, 
+        trackingNumber: trackingNumberInput.trim(), 
+        shippingCarrier: carrierInput.trim(), 
+        orderStatus: 'Shipped' 
+      } : o));
+      setEditingTrackingOrderId(null);
+    } finally {
+      setSavingTracking(false);
     }
   };
 
@@ -514,12 +631,6 @@ export default function SellerDashboardPage() {
     }
   };
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      window.location.replace('/');
-    }
-  }, [authLoading, user]);
-
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#FBFBFA] flex items-center justify-center py-20">
@@ -532,7 +643,48 @@ export default function SellerDashboardPage() {
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-[#FBFBFA] py-16 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-8 sm:p-10 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
+            <Store className="w-8 h-8" />
+          </div>
+
+          <div>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
+              Seller Studio Access
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
+              To access your botanical catalog, add products, and manage merchant orders, please sign in with your registered Seller account.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Link
+              href="/login?role=Seller&redirect=/seller"
+              className="w-full py-3 px-5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-sm transition flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In as Herbal Seller</span>
+            </Link>
+
+            <Link
+              href="/register?role=Seller&redirect=/seller"
+              className="w-full py-3 px-5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold tracking-wider uppercase transition flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register Seller Account</span>
+            </Link>
+
+            <div>
+              <Link href="/" className="text-xs text-stone-500 hover:text-stone-900 underline">
+                Return to Store Home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Logged-in Customer asking to become seller
@@ -1083,14 +1235,28 @@ export default function SellerDashboardPage() {
                         </div>
                       </div>
 
-                      {/* Customer Info & Shipping Destination */}
-                      <div className="p-3 bg-white rounded-xl border border-stone-200/70 text-xs grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {/* Customer Info, Shipping Method & Destination */}
+                      <div className="p-3 bg-white rounded-xl border border-stone-200/70 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Buyer</span>
                           <span className="font-semibold text-stone-800">{order.customerName || 'Valued Customer'}</span>
                           {order.customerEmail && (
                             <span className="text-stone-500 block text-[11px]">{order.customerEmail}</span>
                           )}
+                        </div>
+                        <div>
+                          <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Selected Shipping</span>
+                          <span className="font-semibold text-[#2E4D38] flex items-center gap-1">
+                            <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                            {order.shippingMethod || 'Standard Shipping'}
+                          </span>
+                          <span className="text-stone-500 block text-[11px]">
+                            {order.shippingCost === 0 || !order.shippingCost ? (
+                              <span className="text-emerald-700 font-semibold">Free Shipping ($0.00)</span>
+                            ) : (
+                              `Fee: $${order.shippingCost.toFixed(2)}`
+                            )}
+                          </span>
                         </div>
                         <div>
                           <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Dispatch Address</span>
@@ -1130,6 +1296,122 @@ export default function SellerDashboardPage() {
                             </div>
                           ))}
                         </div>
+                      </div>
+
+                      {/* Tracking Information & Dispatch Action */}
+                      <div className="pt-2 border-t border-stone-200/60">
+                        {order.trackingNumber ? (
+                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-1.5 rounded-lg bg-[#2E4D38] text-white">
+                                <Truck className="w-3.5 h-3.5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800">
+                                    Dispatched with {order.shippingCarrier || 'Standard Carrier'}
+                                  </span>
+                                  <span className="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold">
+                                    Shipped
+                                  </span>
+                                </div>
+                                <div className="font-mono text-xs font-bold text-[#1c3f24] mt-0.5">
+                                  Tracking Number: {order.trackingNumber}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setEditingTrackingOrderId(order.id);
+                                setTrackingNumberInput(order.trackingNumber || '');
+                                setCarrierInput(order.shippingCarrier || 'DHL Express');
+                              }}
+                              className="text-xs font-semibold text-[#2E4D38] hover:text-[#1a3821] hover:underline cursor-pointer self-start sm:self-auto"
+                            >
+                              Update Tracking
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-[11px] text-stone-500">
+                              Order pending dispatch. Once shipped, provide tracking details for the buyer.
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingTrackingOrderId(order.id);
+                                setTrackingNumberInput('');
+                                setCarrierInput('DHL Express');
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2E4D38] hover:bg-[#1a3821] text-white text-xs font-bold transition shadow-2xs cursor-pointer"
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                              <span>Add Tracking &amp; Ship Order</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Inline Tracking Edit Form */}
+                        {editingTrackingOrderId === order.id && (
+                          <div className="mt-3 p-4 bg-white rounded-xl border border-[#2E4D38]/30 shadow-sm space-y-3">
+                            <div className="flex items-center justify-between pb-1 border-b border-stone-100">
+                              <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                                <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                                Provide Shipment Tracking Number
+                              </h4>
+                              <button
+                                onClick={() => setEditingTrackingOrderId(null)}
+                                className="text-stone-400 hover:text-stone-600 text-xs cursor-pointer"
+                              >
+                                &times;
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">
+                                  Shipping Carrier / Courier
+                                </label>
+                                <input
+                                  type="text"
+                                  value={carrierInput}
+                                  onChange={(e) => setCarrierInput(e.target.value)}
+                                  placeholder="e.g. DHL Express, FedEx, USPS, Sri Lanka Post"
+                                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-200 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">
+                                  Tracking Number <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={trackingNumberInput}
+                                  onChange={(e) => setTrackingNumberInput(e.target.value)}
+                                  placeholder="e.g. TRK-892348123"
+                                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-200 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingTrackingOrderId(null)}
+                                className="px-3 py-1 text-xs text-stone-600 hover:bg-stone-100 rounded-lg cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={savingTracking || !trackingNumberInput.trim()}
+                                onClick={() => handleSaveTracking(order.id)}
+                                className="px-4 py-1.5 bg-[#2E4D38] hover:bg-[#1a3821] text-white text-xs font-bold rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{savingTracking ? 'Saving...' : 'Confirm & Update Tracking'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1230,20 +1512,102 @@ export default function SellerDashboardPage() {
                       <option value="Mindfulness">Mindfulness</option>
                     </select>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1">Image Thumbnail</label>
-                    <select
+                {/* Featured Cover Image Section */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Featured Image / Cover *
+                  </label>
+
+                  {/* Live Top Preview */}
+                  {blogImageUrl && (
+                    <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
+                      <Image
+                        src={blogImageUrl}
+                        alt="Blog preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => blogFileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-lg bg-white/95 text-stone-800 text-xs font-semibold hover:bg-white shadow-xs transition"
+                        >
+                          Change Image
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload & URL Controls */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="file"
+                      ref={blogFileInputRef}
+                      onChange={handleBlogImageUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={uploadingBlogImage}
+                      onClick={() => blogFileInputRef.current?.click()}
+                      className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 text-xs font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                    >
+                      {uploadingBlogImage ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#2E4D38]" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span>Upload From Device</span>
+                        </>
+                      )}
+                    </button>
+
+                    <input
+                      type="text"
                       value={blogImageUrl}
                       onChange={(e) => setBlogImageUrl(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                    >
-                      <option value="/images/blog-moringa.jpg">Moringa Herbal Tea</option>
-                      <option value="/images/blog-herbal-tea.jpg">Chamomile Herbal Brew</option>
-                      <option value="/images/blog-skincare.jpg">Botanical Skincare Cream</option>
-                      <option value="/images/herbal-detox-tea.jpg">Detox Tea Loose Leaf</option>
-                      <option value="/images/aloe-vera-gel.jpg">Aloe Vera Gel</option>
-                    </select>
+                      placeholder="Or paste image URL (https://...)"
+                      className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  {blogUploadError && (
+                    <p className="text-[11px] text-rose-600 font-medium">{blogUploadError}</p>
+                  )}
+
+                  {/* Botanical Presets */}
+                  <div className="pt-1">
+                    <span className="text-[11px] text-stone-400 block mb-1.5">Or select botanical preset:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Moringa', url: '/images/blog-moringa.jpg' },
+                        { label: 'Chamomile Brew', url: '/images/blog-herbal-tea.jpg' },
+                        { label: 'Skincare Cream', url: '/images/blog-skincare.jpg' },
+                        { label: 'Detox Tea', url: '/images/herbal-detox-tea.jpg' },
+                        { label: 'Aloe Vera', url: '/images/aloe-vera-gel.jpg' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.url}
+                          type="button"
+                          onClick={() => setBlogImageUrl(preset.url)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] border transition cursor-pointer ${
+                            blogImageUrl === preset.url
+                              ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -1280,57 +1644,61 @@ export default function SellerDashboardPage() {
           </div>
         )}
 
-        {/* Modal: Preview Blog */}
+        {/* Modal: Preview Blog (Display image from the top) */}
         {readingBlog && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
-                <span className="text-xs font-bold text-[#2E4D38] uppercase tracking-wider">
-                  {readingBlog.category || 'Wellness'}
-                </span>
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto overflow-hidden">
+              {/* Top Featured Hero Image */}
+              <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
+                <Image
+                  src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
+                  alt={readingBlog.title}
+                  fill
+                  priority
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
+                <div className="absolute top-4 left-4">
+                  <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    {readingBlog.category || 'Wellness'}
+                  </span>
+                </div>
                 <button
                   onClick={() => setReadingBlog(null)}
-                  className="p-1 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition"
+                  className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer"
+                  title="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug mb-3">
-                {readingBlog.title}
-              </h2>
+              <div className="p-6 sm:p-8">
+                <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug mb-3">
+                  {readingBlog.title}
+                </h2>
 
-              <div className="flex items-center justify-between pb-5 mb-6 border-b border-stone-100">
-                <span className="text-xs text-stone-400">
-                  Submitted {new Date(readingBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </span>
-                {readingBlog.isApproved && (user?.isSellerApproved ?? false) ? (
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                    Published & Live
+                <div className="flex items-center justify-between pb-5 mb-6 border-b border-stone-100 flex-wrap gap-2">
+                  <span className="text-xs text-stone-400">
+                    Submitted {new Date(readingBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </span>
-                ) : readingBlog.isApproved ? (
-                  <span className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
-                    Awaiting Profile Approval
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-                    Pending Admin Approval
-                  </span>
-                )}
-              </div>
+                  {readingBlog.isApproved && (user?.isSellerApproved ?? false) ? (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                      Published & Live
+                    </span>
+                  ) : readingBlog.isApproved ? (
+                    <span className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
+                      Awaiting Profile Approval
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                      Pending Admin Approval
+                    </span>
+                  )}
+                </div>
 
-              <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden mb-6 shadow-xs border border-stone-200/70 bg-stone-100">
-                <Image
-                  src={readingBlog.imageUrl || '/images/blog-moringa.jpg'}
-                  alt={readingBlog.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              <div className="text-stone-700 text-sm leading-relaxed space-y-4 whitespace-pre-line">
-                {readingBlog.content}
-              </div>
+                <div className="text-stone-700 text-sm leading-relaxed space-y-4 whitespace-pre-line font-serif sm:font-sans">
+                  {readingBlog.content}
+                </div>
 
               <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
                 <button
@@ -1365,6 +1733,7 @@ export default function SellerDashboardPage() {
               </div>
             </div>
           </div>
+        </div>
         )}
 
       </div>
