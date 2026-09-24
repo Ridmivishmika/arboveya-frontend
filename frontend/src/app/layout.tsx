@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Cormorant_Garamond, Inter } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
@@ -50,6 +51,10 @@ export default async function RootLayout({
         />
         </CartProvider>
         </AuthProvider>
+        <Script
+          src="https://www.payhere.lk/lib/payhere.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

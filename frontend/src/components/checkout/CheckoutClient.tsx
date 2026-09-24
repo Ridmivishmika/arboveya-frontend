@@ -120,6 +120,67 @@ export default function CheckoutClient() {
 
       if (res.ok) {
         const data = await res.json();
+
+        // If PayHere details are provided, launch PayHere modal
+        if (data.payHereDetails && typeof window !== 'undefined' && (window as any).payhere) {
+          const payHereObj = (window as any).payhere;
+          const details = data.payHereDetails;
+
+          const payment = {
+            sandbox: details.sandbox ?? true,
+            merchant_id: details.merchantId,
+            return_url: `${window.location.origin}/buyer`,
+            cancel_url: `${window.location.origin}/checkout`,
+            notify_url: details.notifyUrl || '',
+            order_id: details.orderId,
+            items: details.items || 'Arboveya Herbal Products',
+            amount: Number(details.amount).toFixed(2),
+            currency: details.currency || 'LKR',
+            hash: details.hash,
+            first_name: details.firstName || fullName.split(' ')[0] || 'Customer',
+            last_name: details.lastName || fullName.split(' ').slice(1).join(' ') || 'Customer',
+            email: details.email || email,
+            phone: phone || '0771234567',
+            address: address || 'Main Street',
+            city: city || 'Colombo',
+            country: country || 'Sri Lanka'
+          };
+
+          payHereObj.onCompleted = async function (orderId: string) {
+            console.log("PayHere payment completed successfully. OrderID:", orderId);
+            try {
+              await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
+                },
+                body: JSON.stringify({ payHereOrderId: details.orderId, paymentId: orderId })
+              });
+            } catch (confirmErr) {
+              console.warn("Failed to notify backend confirm-payment:", confirmErr);
+            }
+            clearCart();
+            setOrderSuccess(data);
+            setPlacingOrder(false);
+          };
+
+          payHereObj.onDismissed = function () {
+            setError("Payment popup was closed without completing payment. You can retry when ready.");
+            setPlacingOrder(false);
+          };
+
+          payHereObj.onError = function (err: any) {
+            console.error("PayHere payment error:", err);
+            setError(`Payment error: ${typeof err === 'string' ? err : 'Unable to complete transaction.'}`);
+            setPlacingOrder(false);
+          };
+
+          payHereObj.startPayment(payment);
+          return;
+        }
+
+        // Direct success if PayHere script not active
         setOrderSuccess(data);
         clearCart();
       } else {
