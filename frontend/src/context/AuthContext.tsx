@@ -14,6 +14,11 @@ export interface UserProfile {
   nationality?: string;
   phoneNumber?: string;
   isSellerApproved?: boolean;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  bankRoutingCode?: string;
 }
 
 interface AuthContextType {
@@ -56,7 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           address: u.address || '',
           nationality: u.nationality || '',
           phoneNumber: u.phoneNumber || '',
-          isSellerApproved: u.isSellerApproved ?? false
+          isSellerApproved: u.isSellerApproved ?? false,
+          bankName: u.bankName || '',
+          bankAccountName: u.bankAccountName || '',
+          bankAccountNumber: u.bankAccountNumber || '',
+          bankBranch: u.bankBranch || '',
+          bankRoutingCode: u.bankRoutingCode || ''
         };
         setUser(profile);
         localStorage.setItem('arboveya_user', JSON.stringify(profile));
@@ -188,7 +198,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         address: u.address || '',
         nationality: u.nationality || '',
         phoneNumber: u.phoneNumber || '',
-        isSellerApproved: u.isSellerApproved ?? false
+        isSellerApproved: u.isSellerApproved ?? false,
+        bankName: u.bankName || '',
+        bankAccountName: u.bankAccountName || '',
+        bankAccountNumber: u.bankAccountNumber || '',
+        bankBranch: u.bankBranch || '',
+        bankRoutingCode: u.bankRoutingCode || ''
       };
 
       setUser(profile);
@@ -229,7 +244,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         address: u.address || '',
         nationality: u.nationality || '',
         phoneNumber: u.phoneNumber || '',
-        isSellerApproved: u.isSellerApproved ?? false
+        isSellerApproved: u.isSellerApproved ?? false,
+        bankName: u.bankName || '',
+        bankAccountName: u.bankAccountName || '',
+        bankAccountNumber: u.bankAccountNumber || '',
+        bankBranch: u.bankBranch || '',
+        bankRoutingCode: u.bankRoutingCode || ''
       };
 
       setUser(profile);

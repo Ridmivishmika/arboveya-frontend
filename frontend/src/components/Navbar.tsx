@@ -20,7 +20,8 @@ import {
   User,
   ArrowLeft,
   Package,
-  BookOpen
+  BookOpen,
+  Building2
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -52,12 +53,12 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Seller Dashboard Tab State
-  const [sellerTab, setSellerTab] = useState<'products' | 'articles' | 'orders'>('products');
+  const [sellerTab, setSellerTab] = useState<'products' | 'articles' | 'orders' | 'payouts'>('products');
 
   useEffect(() => {
     const handleSellerTabChanged = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail === 'products' || customEvent.detail === 'articles' || customEvent.detail === 'orders') {
+      if (customEvent.detail === 'products' || customEvent.detail === 'articles' || customEvent.detail === 'orders' || customEvent.detail === 'payouts') {
         setSellerTab(customEvent.detail);
       }
     };
@@ -89,6 +90,15 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
       window.dispatchEvent(new CustomEvent('arboveya:set-seller-tab', { detail: 'orders' }));
     } else {
       router.push('/seller?tab=orders');
+    }
+  };
+
+  const handleSellerPayoutsClick = () => {
+    setSellerTab('payouts');
+    if (pathname === '/seller') {
+      window.dispatchEvent(new CustomEvent('arboveya:set-seller-tab', { detail: 'payouts' }));
+    } else {
+      router.push('/seller?tab=payouts');
     }
   };
 
@@ -258,6 +268,20 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Orders</span>
+            </button>
+
+            {/* Bank & Payouts Tab Button */}
+            <button
+              onClick={handleSellerPayoutsClick}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs cursor-pointer ${
+                sellerTab === 'payouts'
+                  ? 'bg-[#2E4D38] text-white shadow-xs'
+                  : 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+              }`}
+              title="Bank Account & Payouts"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Bank & Payouts</span>
             </button>
 
             {/* Profile Dropdown Trigger */}
@@ -462,6 +486,21 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 >
                   <ShoppingBag className="w-4 h-4" />
                   <span>Orders</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleSellerPayoutsClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                    sellerTab === 'payouts'
+                      ? 'bg-[#2E4D38] text-white shadow-xs'
+                      : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Bank & Payouts</span>
                 </button>
               </div>
 

@@ -20,7 +20,9 @@ import {
   PenTool,
   Truck,
   UserCheck,
-  LogIn
+  LogIn,
+  Building2,
+  CreditCard
 } from 'lucide-react';
 
 interface OrderItem {
@@ -348,6 +350,55 @@ export default function ProfilePage() {
                 </Link>
               </div>
             </div>
+
+            {/* Bank Account Details Card (if seller or bank details provided) */}
+            {(user?.role === 'Seller' || user?.bankAccountNumber || user?.bankName) && (
+              <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#2E4D38]" />
+                    <h2 className="font-serif text-lg font-bold text-stone-900">
+                      Bank & Payout Info
+                    </h2>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-[#2E4D38] px-2 py-0.5 rounded-full border border-emerald-200">
+                    Verified
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <div>
+                    <span className="text-[11px] text-stone-400 block">Bank Name</span>
+                    <span className="font-medium text-stone-800">{user?.bankName || 'Not configured'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-stone-400 block">Account Holder</span>
+                    <span className="font-medium text-stone-800">{user?.bankAccountName || user?.fullName || 'Not configured'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-stone-400 block">Account / IBAN</span>
+                    <span className="font-mono font-medium text-stone-800">{user?.bankAccountNumber ? `•••• •••• ${user.bankAccountNumber.slice(-4)}` : 'Not configured'}</span>
+                  </div>
+                  {user?.bankBranch && (
+                    <div>
+                      <span className="text-[11px] text-stone-400 block">Branch / SWIFT</span>
+                      <span className="font-mono text-stone-700">{user.bankBranch}</span>
+                    </div>
+                  )}
+                </div>
+
+                {user?.role === 'Seller' && (
+                  <div className="pt-2">
+                    <Link
+                      href="/seller"
+                      className="block text-center py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#233d2c] transition shadow-xs"
+                    >
+                      Manage Payout Details in Studio &rarr;
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Switch to Seller Callout */}
             <div className="p-5 rounded-2xl bg-[#F4F6F4] border border-[#2E4D38]/20 space-y-2">

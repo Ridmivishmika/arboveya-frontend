@@ -35,7 +35,11 @@ import {
   Eye,
   X,
   Info,
-  Truck
+  Truck,
+  Building2,
+  CreditCard,
+  Wallet,
+  Check
 } from 'lucide-react';
 
 interface SellerOrderItem {
@@ -105,9 +109,73 @@ export default function SellerDashboardPage() {
   const { user, logout, updateUser, token, refreshUser, loading: authLoading } = useAuth();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'products' | 'articles' | 'orders'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'articles' | 'orders' | 'payouts'>('products');
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Seller Bank Details State
+  const [bankNameInput, setBankNameInput] = useState('');
+  const [bankAccountNameInput, setBankAccountNameInput] = useState('');
+  const [bankAccountNumberInput, setBankAccountNumberInput] = useState('');
+  const [bankBranchInput, setBankBranchInput] = useState('');
+  const [bankRoutingCodeInput, setBankRoutingCodeInput] = useState('');
+  const [savingBankDetails, setSavingBankDetails] = useState(false);
+  const [bankSuccessMsg, setBankSuccessMsg] = useState<string | null>(null);
+  const [bankErrorMsg, setBankErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setBankNameInput(user.bankName || '');
+      setBankAccountNameInput(user.bankAccountName || '');
+      setBankAccountNumberInput(user.bankAccountNumber || '');
+      setBankBranchInput(user.bankBranch || '');
+      setBankRoutingCodeInput(user.bankRoutingCode || '');
+    }
+  }, [user]);
+
+  const handleSaveBankDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBankDetails(true);
+    setBankSuccessMsg(null);
+    setBankErrorMsg(null);
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+        },
+        body: JSON.stringify({
+          bankName: bankNameInput.trim(),
+          bankAccountName: bankAccountNameInput.trim(),
+          bankAccountNumber: bankAccountNumberInput.trim(),
+          bankBranch: bankBranchInput.trim(),
+          bankRoutingCode: bankRoutingCodeInput.trim()
+        })
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        updateUser({
+          bankName: updated.bankName || bankNameInput.trim(),
+          bankAccountName: updated.bankAccountName || bankAccountNameInput.trim(),
+          bankAccountNumber: updated.bankAccountNumber || bankAccountNumberInput.trim(),
+          bankBranch: updated.bankBranch || bankBranchInput.trim(),
+          bankRoutingCode: updated.bankRoutingCode || bankRoutingCodeInput.trim()
+        });
+        setBankSuccessMsg('Bank account details saved successfully! Future order revenues will be transferred to this account.');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setBankErrorMsg(err.message || 'Failed to update bank account details.');
+      }
+    } catch (err: any) {
+      setBankErrorMsg(err.message || 'Network error saving bank details.');
+    } finally {
+      setSavingBankDetails(false);
+    }
+  };
 
   // Classifications State (Categories & Wellness Needs)
   const [categories, setCategories] = useState<Category[]>([]);
@@ -312,12 +380,14 @@ export default function SellerDashboardPage() {
         setActiveTab('orders');
       } else if (tabParam === 'products') {
         setActiveTab('products');
+      } else if (tabParam === 'payouts') {
+        setActiveTab('payouts');
       }
     }
 
     const handleSetTab = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail === 'products' || customEvent.detail === 'articles' || customEvent.detail === 'orders') {
+      if (customEvent.detail === 'products' || customEvent.detail === 'articles' || customEvent.detail === 'orders' || customEvent.detail === 'payouts') {
         setActiveTab(customEvent.detail);
       }
     };
@@ -759,6 +829,76 @@ export default function SellerDashboardPage() {
             <span>{blogSuccessMsg}</span>
           </div>
         )}
+
+        {/* Seller Studio Navigation Tabs */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-stone-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'products'
+                  ? 'bg-[#2E4D38] text-white shadow-sm'
+                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <Package className="w-4 h-4" />
+              <span>Botanical Catalog ({products.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('articles')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'articles'
+                  ? 'bg-[#2E4D38] text-white shadow-sm'
+                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Articles ({myBlogs.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'orders'
+                  ? 'bg-[#2E4D38] text-white shadow-sm'
+                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Orders ({orders.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('payouts')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'payouts'
+                  ? 'bg-[#2E4D38] text-white shadow-sm'
+                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Bank & Payouts</span>
+              {user?.bankAccountNumber ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Bank Details Verified" />
+              ) : (
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase">
+                  Pending
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E4D38] hover:bg-[#253f2e] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Botanical</span>
+            </button>
+          </div>
+        </div>
 
         {/* TAB 1: PRODUCTS */}
         {activeTab === 'products' && (
@@ -1417,6 +1557,175 @@ export default function SellerDashboardPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: BANK ACCOUNT & PAYOUTS */}
+        {activeTab === 'payouts' && (
+          <div className="space-y-6">
+            {/* KPI Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Gross Sales Revenue</span>
+                  <div className="p-2 rounded-xl bg-emerald-50 text-[#2E4D38]">
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-serif font-bold text-[#2E4D38] mt-2">
+                  ${orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toFixed(2)}
+                </p>
+                <p className="text-[11px] text-stone-400 mt-1">Total revenue from customer orders</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Completed Orders</span>
+                  <div className="p-2 rounded-xl bg-blue-50 text-blue-700">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 mt-2">
+                  {orders.filter(o => o.paymentStatus?.toLowerCase() === 'paid').length}
+                </p>
+                <p className="text-[11px] text-stone-400 mt-1">Orders eligible for vendor disbursement</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Disbursement Status</span>
+                  <div className={`p-2 rounded-xl ${user?.bankAccountNumber ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className={`text-base sm:text-lg font-bold mt-2 ${user?.bankAccountNumber ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {user?.bankAccountNumber ? 'Bank Details Configured' : 'Bank Details Required'}
+                </p>
+                <p className="text-[11px] text-stone-400 mt-1">
+                  {user?.bankAccountNumber ? 'Revenues automatically routed' : 'Please provide bank details below'}
+                </p>
+              </div>
+            </div>
+
+            {/* Bank Form Alerts */}
+            {bankSuccessMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <span>{bankSuccessMsg}</span>
+              </div>
+            )}
+
+            {bankErrorMsg && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+                <span>{bankErrorMsg}</span>
+              </div>
+            )}
+
+            {/* Bank Account Details Card */}
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-stone-100 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2E4D38] flex items-center justify-center flex-shrink-0">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-serif text-lg font-bold text-stone-900">Registered Bank Account</h2>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Your vendor payouts for products purchased by customers are transferred directly to this account.
+                    </p>
+                  </div>
+                </div>
+
+                {user?.bankAccountNumber && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 self-start sm:self-auto">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Active Payout Account</span>
+                  </span>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveBankDetails} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="block font-semibold text-stone-700">Bank Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bankNameInput}
+                      onChange={(e) => setBankNameInput(e.target.value)}
+                      placeholder="e.g. Commercial Bank of Ceylon / JPMorgan Chase"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block font-semibold text-stone-700">Account Holder Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bankAccountNameInput}
+                      onChange={(e) => setBankAccountNameInput(e.target.value)}
+                      placeholder="e.g. Eleanor Vance / Herbal Botanicals Ltd"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block font-semibold text-stone-700">Account Number / IBAN *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bankAccountNumberInput}
+                      onChange={(e) => setBankAccountNumberInput(e.target.value)}
+                      placeholder="e.g. 100293847581 or GB29NWBK60161331926819"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block font-semibold text-stone-700">Branch Name / SWIFT / Routing Code</label>
+                    <input
+                      type="text"
+                      value={bankBranchInput}
+                      onChange={(e) => setBankBranchInput(e.target.value)}
+                      placeholder="e.g. Main Branch / SWIFT: CCEYLKLX / Routing: 021000021"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#f7faf7] border border-[#dce8dd] text-xs text-stone-600 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-[#1c3f24]">
+                    <CreditCard className="w-4 h-4 text-[#2E4D38]" />
+                    <span>Vendor Disbursement Security</span>
+                  </div>
+                  <p className="text-[12px] text-stone-500 leading-relaxed">
+                    When a buyer purchases products from your botanical catalog, an automated order notification is emailed to you. Payouts are reconciled and disbursed directly to the bank account listed above according to vendor settlement terms.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingBankDetails}
+                    className="px-6 py-2.5 rounded-xl bg-[#2E4D38] hover:bg-[#253f2e] text-white text-xs font-bold uppercase tracking-wider transition shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {savingBankDetails ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Saving Bank Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Save Bank Details</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

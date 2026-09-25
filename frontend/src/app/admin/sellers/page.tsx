@@ -15,7 +15,11 @@ import {
   MapPin, 
   Phone, 
   Mail,
-  AlertCircle
+  AlertCircle,
+  Building2,
+  CreditCard,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface Seller {
@@ -28,6 +32,11 @@ interface Seller {
   nationality?: string;
   phoneNumber?: string;
   isSellerApproved: boolean;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  bankRoutingCode?: string;
   createdAt: string;
 }
 
@@ -36,6 +45,13 @@ export default function AdminSellersPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [copiedBankId, setCopiedBankId] = useState<string | null>(null);
+
+  const handleCopyAccountNumber = (sellerId: string, accountNumber: string) => {
+    navigator.clipboard.writeText(accountNumber);
+    setCopiedBankId(sellerId);
+    setTimeout(() => setCopiedBankId(null), 2000);
+  };
 
   const fetchSellers = async () => {
     setLoading(true);
@@ -61,6 +77,10 @@ export default function AdminSellersPage() {
             nationality: 'Sri Lankan',
             phoneNumber: '+94771234567',
             isSellerApproved: false,
+            bankName: 'Bank of Ceylon',
+            bankAccountName: 'Kaveen Perera Botanicals',
+            bankAccountNumber: '8291048201',
+            bankBranch: 'Kandy Main Branch / SWIFT: BCEYLKLX',
             createdAt: new Date().toISOString()
           },
           {
@@ -73,6 +93,10 @@ export default function AdminSellersPage() {
             nationality: 'American',
             phoneNumber: '+15415550192',
             isSellerApproved: true,
+            bankName: 'Chase Bank',
+            bankAccountName: 'Aurelia Vance Organics',
+            bankAccountNumber: '4928104928',
+            bankBranch: 'Routing: 021000021 / Eugene, OR',
             createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
           }
         ]);
@@ -212,6 +236,7 @@ export default function AdminSellersPage() {
                   <tr className="bg-[#F4F6F4] text-[#2E4D38] text-xs font-bold uppercase tracking-wider border-b border-stone-200">
                     <th className="py-3.5 px-4">Merchant Name</th>
                     <th className="py-3.5 px-4">Email & Phone</th>
+                    <th className="py-3.5 px-4">Bank Account Details</th>
                     <th className="py-3.5 px-4">Business / Estate Address</th>
                     <th className="py-3.5 px-4">Registered Date</th>
                     <th className="py-3.5 px-4">Profile Status</th>
@@ -236,6 +261,56 @@ export default function AdminSellersPage() {
                             <Phone className="w-3.5 h-3.5 text-stone-400" />
                             <span>{seller.phoneNumber}</span>
                           </div>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-4 align-top text-xs space-y-1 min-w-[210px]">
+                        {seller.bankAccountNumber ? (
+                          <div className="bg-[#f7faf7] border border-[#dce8dd] p-2.5 rounded-lg space-y-1 shadow-xs">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-[#1c3f24] flex items-center gap-1 text-[11px]">
+                                <Building2 className="w-3.5 h-3.5 text-[#2E4D38] flex-shrink-0" />
+                                <span>{seller.bankName || 'Bank Account'}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyAccountNumber(seller.id, seller.bankAccountNumber!)}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-white hover:bg-stone-100 border border-stone-200 text-stone-600 flex items-center gap-0.5 cursor-pointer shadow-xs transition"
+                                title="Copy Account Number"
+                              >
+                                {copiedBankId === seller.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span className="text-emerald-700 font-semibold">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy A/C</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <div className="text-stone-800">
+                              <span className="text-stone-400 font-mono text-[10px]">A/C: </span>
+                              <strong className="font-mono text-stone-900 text-xs">{seller.bankAccountNumber}</strong>
+                            </div>
+                            {seller.bankAccountName && (
+                              <div className="text-[11px] text-stone-600 truncate" title={seller.bankAccountName}>
+                                {seller.bankAccountName}
+                              </div>
+                            )}
+                            {seller.bankBranch && (
+                              <div className="text-[10px] text-stone-500 truncate" title={seller.bankBranch}>
+                                {seller.bankBranch}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-stone-400 bg-stone-50 border border-stone-200 px-2 py-1 rounded">
+                            <AlertCircle className="w-3 h-3 text-stone-400" />
+                            <span>Pending submission</span>
+                          </span>
                         )}
                       </td>
 

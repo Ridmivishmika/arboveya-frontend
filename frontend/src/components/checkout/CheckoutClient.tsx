@@ -13,8 +13,16 @@ import {
   UserPlus, 
   LogIn, 
   ShieldCheck, 
-  User 
+  User,
+  AlertCircle
 } from 'lucide-react';
+import { 
+  ALLOWED_BUYER_COUNTRIES, 
+  getCountryByNameOrCode, 
+  validatePhoneNumber, 
+  CountryInfo, 
+  DEFAULT_COUNTRY 
+} from '@/lib/countries';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api";
 
@@ -34,10 +42,13 @@ export default function CheckoutClient() {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(DEFAULT_COUNTRY);
   const [phone, setPhone] = useState('');
+  const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; message?: string } | null>(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
-  const [country, setCountry] = useState('United States');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY.name);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
   const [agreed, setAgreed] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -53,17 +64,43 @@ export default function CheckoutClient() {
       if (!email) {
         setEmail(user.email || '');
       }
+      if (user.nationality) {
+        const found = getCountryByNameOrCode(user.nationality);
+        setSelectedCountry(found);
+        setCountry(found.name);
+      }
       if (!phone && user.phoneNumber) {
-        setPhone(user.phoneNumber);
+        let rawPhone = user.phoneNumber;
+        if (rawPhone.startsWith('+')) {
+          const parts = rawPhone.split(' ');
+          if (parts.length > 1) {
+            rawPhone = parts.slice(1).join('');
+          }
+        }
+        setPhone(rawPhone);
       }
       if (!address && user.address) {
         setAddress(user.address);
       }
-      if (user.nationality) {
-        setCountry(user.nationality);
-      }
     }
   }, [user]);
+
+  const handleCountryChange = (countryName: string) => {
+    const c = getCountryByNameOrCode(countryName);
+    setSelectedCountry(c);
+    setCountry(c.name);
+    if (phone) {
+      const val = validatePhoneNumber(c, phone);
+      setPhoneValidation({ isValid: val.isValid, message: val.message });
+    }
+  };
+
+  const handlePhoneChange = (val: string) => {
+    setPhone(val);
+    setPhoneTouched(true);
+    const res = validatePhoneNumber(selectedCountry, val);
+    setPhoneValidation({ isValid: res.isValid, message: res.message });
+  };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +125,14 @@ export default function CheckoutClient() {
       return;
     }
 
+    const phoneCheck = validatePhoneNumber(selectedCountry, phone);
+    if (!phoneCheck.isValid) {
+      setPhoneTouched(true);
+      setPhoneValidation({ isValid: false, message: phoneCheck.message });
+      setError(phoneCheck.message || `Please enter a valid phone number for ${selectedCountry.name}.`);
+      return;
+    }
+
     try {
       setPlacingOrder(true);
       setError(null);
@@ -95,7 +140,9 @@ export default function CheckoutClient() {
       const payload = {
         customerName: fullName.trim(),
         customerEmail: email.trim(),
-        shippingAddress: `${address.trim()}, ${city.trim() ? city.trim() + ', ' : ''}${country}`,
+        customerPhone: phoneCheck.fullInternationalNumber,
+        country: selectedCountry.name,
+        shippingAddress: `${address.trim()}, ${city.trim() ? city.trim() + ', ' : ''}${selectedCountry.name}`,
         shippingMethod: selectedShippingMethod?.name || 'Standard Shipping',
         shippingCost: selectedShippingMethod?.cost ?? 0,
         items: cart.map(item => ({
@@ -140,10 +187,10 @@ export default function CheckoutClient() {
             first_name: details.firstName || fullName.split(' ')[0] || 'Customer',
             last_name: details.lastName || fullName.split(' ').slice(1).join(' ') || 'Customer',
             email: details.email || email,
-            phone: phone || '0771234567',
+            phone: phoneCheck.fullInternationalNumber || details.phone || '0771234567',
             address: address || 'Main Street',
-            city: city || 'Colombo',
-            country: country || 'Sri Lanka'
+            city: city || 'City',
+            country: selectedCountry.name
           };
 
           payHereObj.onCompleted = async function (orderId: string) {
@@ -195,7 +242,8 @@ export default function CheckoutClient() {
         totalAmount: total,
         customerName: fullName,
         customerEmail: email,
-        shippingAddress: `${address}, ${city}, ${country}`
+        customerPhone: phoneCheck.fullInternationalNumber,
+        shippingAddress: `${address}, ${city}, ${selectedCountry.name}`
       };
       setOrderSuccess(demoOrder);
       clearCart();
@@ -387,17 +435,75 @@ export default function CheckoutClient() {
                     className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
+                
+                {/* Country / Region Selection (Restricted to non-Asian & non-African countries) */}
                 <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-semibold text-[#1c3f24]">Country / Region *</label>
+                    <span className="text-[10px] text-[#24492d] font-bold uppercase tracking-wider bg-[#edf5ee] px-1.5 py-0.5 rounded">
+                      Non-Asian/African
+                    </span>
+                  </div>
+                  <select
+                    value={selectedCountry.name}
+                    onChange={(e) => handleCountryChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                  >
+                    {ALLOWED_BUYER_COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.name}>
+                        {c.flag} {c.name} ({c.dialCode}) - {c.region}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Phone Number with Dynamic Country Code & Real-Time Validation */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
                   <label className="block font-semibold text-[#1c3f24]">Phone Number *</label>
+                  <span className="text-[11px] text-stone-500 font-medium">
+                    {selectedCountry.formatHint}
+                  </span>
+                </div>
+                <div className={`flex items-center rounded-md border bg-[#fafcfa] overflow-hidden focus-within:ring-1 ${
+                  phoneTouched && phoneValidation && !phoneValidation.isValid
+                    ? 'border-red-400 focus-within:ring-red-400'
+                    : 'border-[#ccdacc] focus-within:ring-[#24492d]'
+                }`}>
+                  <span className="px-3 py-2.5 bg-[#edf5ee] border-r border-[#ccdacc] text-xs font-bold text-[#1c3f24] flex items-center gap-1.5 select-none flex-shrink-0">
+                    <span className="text-base leading-none">{selectedCountry.flag}</span>
+                    <span>{selectedCountry.dialCode}</span>
+                  </span>
                   <input
                     type="tel"
                     required
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (555) 000-0000"
-                    className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    placeholder={selectedCountry.placeholder}
+                    className="w-full px-3.5 py-2.5 bg-transparent text-xs focus:outline-none"
                   />
+                  {phoneTouched && phoneValidation && (
+                    <div className="pr-3 flex items-center">
+                      {phoneValidation.isValid ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                      )}
+                    </div>
+                  )}
                 </div>
+                {phoneTouched && phoneValidation && !phoneValidation.isValid && (
+                  <p className="text-[11px] text-rose-600 font-medium">
+                    {phoneValidation.message}
+                  </p>
+                )}
+                {phoneTouched && phoneValidation && phoneValidation.isValid && (
+                  <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Valid international number: {selectedCountry.dialCode} {phone}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -412,28 +518,16 @@ export default function CheckoutClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block font-semibold text-[#1c3f24]">City *</label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="New York"
-                    className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block font-semibold text-[#1c3f24]">Country / Region *</label>
-                  <input
-                    type="text"
-                    required
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="block font-semibold text-[#1c3f24]">City *</label>
+                <input
+                  type="text"
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. New York, London, Sydney, Toronto"
+                  className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                />
               </div>
 
             </div>

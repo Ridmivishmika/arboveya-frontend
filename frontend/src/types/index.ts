@@ -247,3 +247,11 @@ export interface ContactMessage {
   updatedAt?: string;
 }
 
+export interface SellerBankDetails {
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  bankRoutingCode?: string;
+}
+
