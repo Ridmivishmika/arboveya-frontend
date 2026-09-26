@@ -2,18 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Clock, 
-  Send, 
-  CheckCircle2, 
-  Store, 
-  UserCheck, 
-  HelpCircle, 
-  Sparkles, 
-  MessageSquare, 
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Clock,
+  Send,
+  CheckCircle2,
+  Store,
+  UserCheck,
+  HelpCircle,
+  Sparkles,
+  MessageSquare,
   ArrowRight,
   ShieldCheck,
   ChevronDown,
@@ -33,7 +33,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
 
   // Role Selection ('Buyer' | 'Seller' | 'General')
   const [userType, setUserType] = useState<'Buyer' | 'Seller' | 'General'>('Buyer');
-  
+
   // Form Fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -71,21 +71,21 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
   // Topic Options tailored to selected role
   const topicOptions = userType === 'Buyer'
     ? [
-        'Order Tracking & Delivery Status',
-        'Botanical Guidance & Product Recommendation',
-        'Ingredient Purity & Allergy Advice',
-        'Returns, Exchanges & Guarantee',
-        'General Customer Care'
-      ]
+      'Order Tracking & Delivery Status',
+      'Botanical Guidance & Product Recommendation',
+      'Ingredient Purity & Allergy Advice',
+      'Returns, Exchanges & Guarantee',
+      'General Customer Care'
+    ]
     : userType === 'Seller'
-    ? [
+      ? [
         'Seller Account & Verification Status',
         'Botanical Listing Approval Support',
         'Merchant Commission & Payouts',
         'Packaging & Herbal Compliance Guidelines',
         'Technical Assistance with Seller Studio'
       ]
-    : [
+      : [
         'Wholesale & Bulk Botanical Sourcing',
         'Herbal Partnership Proposal',
         'Brand Collaboration & Press Inquiry',
@@ -176,7 +176,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
 
   return (
     <div className="min-h-screen bg-[#f8faf8] text-[#1c3f24] selection:bg-[#24492d] selection:text-white pb-20">
-      
+
       {/* 1. Botanical Header & Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#1c3f24] via-[#24492d] to-[#1c3f24] text-white pt-16 pb-24 sm:pt-20 sm:pb-28">
         {/* Subtle decorative background circles */}
@@ -186,7 +186,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold uppercase tracking-widest text-emerald-200 mb-6">
             <span>🌿</span>
-            <span>Customer & Merchant Support Center</span>
+            <span>Customer & Seller Support Center</span>
             <span>🌿</span>
           </div>
 
@@ -203,10 +203,10 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
       {/* 2. Main Content Grid (Contact Info Cards + Interactive Form) */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-20">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Left Column: Quick Contact Info Cards */}
           <div className="lg:col-span-4 space-y-5">
-            
+
             {/* Direct Admin Mail Card */}
             <div className="bg-white rounded-2xl p-6 border border-[#e2eae2] shadow-sm hover:shadow-md transition-shadow">
               <div className="w-12 h-12 rounded-xl bg-[#edf5ee] text-[#24492d] flex items-center justify-center mb-4">
@@ -218,11 +218,11 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
               <p className="text-xs text-stone-500 mb-3 leading-relaxed">
                 Messages submitted through this portal reach our executive team directly.
               </p>
-              <a 
-                href="mailto:care@arboveya.com" 
+              <a
+                href="mailto:care@arboveya.com"
                 className="text-xs font-bold text-[#24492d] hover:underline flex items-center gap-1.5"
               >
-                <span>care@arboveya.com</span>
+                <span>arboveya@gmmail.com</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -236,14 +236,14 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                 Herbal Support Hotline
               </h3>
               <p className="text-xs text-stone-500 mb-3 leading-relaxed">
-                Available Monday through Saturday for urgent orders or merchant guidance.
+                Available Monday through Sunday for urgent orders or seller guidance.
               </p>
               <div className="space-y-1">
                 <div className="text-xs font-bold text-[#1c3f24]">
                   {initialSettings?.whatsAppNumber || '+1 (800) 456-7890'}
                 </div>
                 <div className="text-[11px] text-stone-400">
-                  Hours: 9:00 AM – 6:00 PM EST
+                  Hours: 6:00 AM – 12:00 PM EST
                 </div>
               </div>
             </div>
@@ -257,9 +257,9 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                 Botanical Sanctuary
               </h3>
               <p className="text-xs text-stone-500 leading-relaxed">
-                Arboveya Herbal Botanical Center<br />
-                742 Evergreen Wellness Way<br />
-                Portland, Oregon 97201
+                Arboveya Herbal<br />
+                Thalaramba<br />
+                Matara, Sri Lanka
               </p>
             </div>
 
@@ -281,7 +281,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
           {/* Right Column: Interactive Contact Form & Submission State */}
           <div className="lg:col-span-8">
             <div className="bg-white rounded-2xl p-6 sm:p-10 border border-[#e2eae2] shadow-sm">
-              
+
               {submittedInquiry ? (
                 /* Success Screen State */
                 <div className="py-12 px-4 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -357,7 +357,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                       I am contacting as:
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      
+
                       {/* Buyer Tab */}
                       <button
                         type="button"
@@ -365,11 +365,10 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                           setUserType('Buyer');
                           setCategory('');
                         }}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          userType === 'Buyer'
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${userType === 'Buyer'
                             ? 'border-[#24492d] bg-[#edf5ee] text-[#1c3f24] ring-2 ring-[#24492d]/20 shadow-xs'
                             : 'border-[#e0eae0] bg-white text-stone-600 hover:border-[#bcd2bf] hover:bg-[#fafcfa]'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-base">🌿</span>
@@ -394,11 +393,10 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                           setUserType('Seller');
                           setCategory('');
                         }}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          userType === 'Seller'
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${userType === 'Seller'
                             ? 'border-[#24492d] bg-[#edf5ee] text-[#1c3f24] ring-2 ring-[#24492d]/20 shadow-xs'
                             : 'border-[#e0eae0] bg-white text-stone-600 hover:border-[#bcd2bf] hover:bg-[#fafcfa]'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-base">🏪</span>
@@ -411,7 +409,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                             Herbal Seller
                           </div>
                           <div className="text-[10px] text-stone-500 mt-0.5">
-                            Merchant account, listings & payouts
+                            Seller account, listings & payouts
                           </div>
                         </div>
                       </button>
@@ -423,11 +421,10 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                           setUserType('General');
                           setCategory('');
                         }}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          userType === 'General'
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${userType === 'General'
                             ? 'border-[#24492d] bg-[#edf5ee] text-[#1c3f24] ring-2 ring-[#24492d]/20 shadow-xs'
                             : 'border-[#e0eae0] bg-white text-stone-600 hover:border-[#bcd2bf] hover:bg-[#fafcfa]'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-base">✉️</span>
@@ -450,7 +447,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
 
                   {/* Form Submission */}
                   <form onSubmit={handleSubmit} className="space-y-5">
-                    
+
                     {/* Error Banner */}
                     {errorMessage && (
                       <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
@@ -515,11 +512,10 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                             key={opt}
                             type="button"
                             onClick={() => handleSelectCategory(opt)}
-                            className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition cursor-pointer ${
-                              category === opt || subject === opt
+                            className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition cursor-pointer ${category === opt || subject === opt
                                 ? 'bg-[#24492d] text-white shadow-2xs'
                                 : 'bg-[#f0f4f0] text-stone-700 hover:bg-[#e2eae2]'
-                            }`}
+                              }`}
                           >
                             {opt}
                           </button>
@@ -562,8 +558,8 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                           userType === 'Buyer'
                             ? 'Please describe your order, product concern, or health consultation query with as much detail as possible...'
                             : userType === 'Seller'
-                            ? 'Please provide your merchant store name, listing title, or verification details you need assistance with...'
-                            : 'Please describe your wholesale requirements or partnership proposal...'
+                              ? 'Please provide your merchant store name, listing title, or verification details you need assistance with...'
+                              : 'Please describe your wholesale requirements or partnership proposal...'
                         }
                         className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-[#ccdacc] bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition resize-y"
                       />
@@ -618,7 +614,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
           {faqs.map((faq, idx) => {
             const isOpen = openFaqIndex === idx;
             return (
-              <div 
+              <div
                 key={idx}
                 className="border border-[#e2eae2] rounded-xl bg-white overflow-hidden shadow-2xs transition-colors"
               >

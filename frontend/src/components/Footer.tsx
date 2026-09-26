@@ -17,9 +17,9 @@ interface FooterProps {
 export default function Footer({
   facebookLink = "https://facebook.com/arboveya",
   whatsAppNumber = "+94 70 602 6251",
-  email = "care@arboveya.com",
-  phone = "+94 70 602 6251",
-  address = "Arboveya Botanical Sanctuary, Sri Lanka"
+  email = "arboveya@gmail.com",
+  phone = "+94 71 798 1355",
+  address = "Arboveya, Thalaramba, Matara, Sri Lanka"
 }: FooterProps) {
   const pathname = usePathname();
   if (pathname?.startsWith('/seller') || pathname?.startsWith('/buyer') || pathname?.startsWith('/admin')) {
@@ -35,7 +35,7 @@ export default function Footer({
     <footer className="bg-[#142d1a] text-white pt-14 pb-8 border-t border-[#204229]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#254d30]">
-          
+
           {/* Brand Info & Interactive Contact Links */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ export default function Footer({
 
             {/* Direct Connect & Social Links: Facebook, WhatsApp, Phone, Email */}
             <div className="pt-2 space-y-2 text-xs">
-              
+
               {/* Follow us on Facebook */}
               <div>
                 <a
@@ -74,7 +74,7 @@ export default function Footer({
                   className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
                 >
                   <svg className="w-4 h-4 fill-[#1877F2] bg-white rounded-full p-0.5 flex-shrink-0" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>
                   <span className="font-medium">Follow us on Facebook</span>
                   <ExternalLink className="w-3 h-3 text-[#7e9984] group-hover:text-white transition-colors ml-auto sm:ml-1" />
@@ -100,7 +100,7 @@ export default function Footer({
               {/* Call Us Phone */}
               <div>
                 <a
-                  href={`tel:${cleanPhoneDigits ? `+${cleanPhoneDigits}` : '+94706026251'}`}
+                  href={`tel:${cleanPhoneDigits ? `+${cleanPhoneDigits}` : '+94717981355'}`}
                   className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
                 >
                   <Phone className="w-4 h-4 text-[#c5a66a] flex-shrink-0" />
@@ -140,13 +140,13 @@ export default function Footer({
               Explore
             </h4>
             <ul className="space-y-2 text-xs text-[#b0c6b6]">
-              <li><Link href="/shop" className="hover:text-white transition-colors">Catalog & Shop</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Our Philosophy</Link></li>
-              <li><Link href="/blog" className="hover:text-white transition-colors">Herbal Insights & Blogs</Link></li>
+              <li><Link href="/shop" className="hover:text-white transition-colors">Shop</Link></li>
+              <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href="/blog" className="hover:text-white transition-colors">Blogs</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-white transition-colors font-medium text-[#d8e5db]">Privacy Policy</Link></li>
               <li><Link href="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Conditions</Link></li>
               <li><Link href="/refund-policy" className="hover:text-white transition-colors">Refund Policy</Link></li>
-              <li><Link href="/contact" className="hover:text-white transition-colors">Contact Care</Link></li>
+              <li><Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -164,7 +164,7 @@ export default function Footer({
           </div>
 
           {/* Newsletter Form */}
-          <div className="space-y-3">
+          {/* <div className="space-y-3">
             <h4 className="font-serif text-sm font-semibold tracking-[0.15em] text-[#e8dfc7] uppercase">
               Stay Connected
             </h4>
@@ -184,7 +184,7 @@ export default function Footer({
                 Subscribe
               </button>
             </form>
-          </div>
+          </div> */}
 
         </div>
 
@@ -211,3 +211,5 @@ export default function Footer({
     </footer>
   );
 }
+
+
