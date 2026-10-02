@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Star, 
   ChevronRight, 
@@ -15,7 +15,8 @@ import {
   Award, 
   Truck, 
   X,
-  Eye 
+  Eye,
+  Search
 } from 'lucide-react';
 import { Product, Category, WellnessNeed } from '@/types';
 import { useCart } from '@/context/CartContext';
@@ -28,6 +29,7 @@ interface ShopClientProps {
   initialWellnessNeeds?: WellnessNeed[];
   initialCategoryParam?: string;
   initialWellnessNeedParam?: string;
+  initialSearchQuery?: string;
 }
 
 export default function ShopClient({
@@ -35,8 +37,10 @@ export default function ShopClient({
   initialCategories,
   initialWellnessNeeds = [],
   initialCategoryParam = 'All Products',
-  initialWellnessNeedParam = 'All Wellness Needs'
+  initialWellnessNeedParam = 'All Wellness Needs',
+  initialSearchQuery = ''
 }: ShopClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { addToCart } = useCart();
   const { user } = useAuth();
@@ -45,6 +49,7 @@ export default function ShopClient({
   const [products] = useState<Product[]>(initialProducts);
   const [categories] = useState<Category[]>(initialCategories);
   const [wellnessNeeds] = useState<WellnessNeed[]>(initialWellnessNeeds);
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery);
 
   // Compute dynamic price ceiling from actual product lowest-variant prices
   const catalogMaxPrice = useMemo(() => {
@@ -87,7 +92,35 @@ export default function ShopClient({
     if (wellnessNeedParam) {
       setSelectedWellnessNeed(wellnessNeedParam);
     }
+    const qParam = searchParams.get('q') || searchParams.get('search');
+    if (qParam !== null) {
+      setSearchQuery(qParam);
+    }
   }, [searchParams]);
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setCurrentPage(1);
+    const params = new URLSearchParams(window.location.search);
+    params.delete('q');
+    params.delete('search');
+    const qs = params.toString();
+    router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+    const params = new URLSearchParams(window.location.search);
+    if (val.trim()) {
+      params.set('q', val.trim());
+    } else {
+      params.delete('q');
+      params.delete('search');
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+  };
 
   // Helper to extract a display wellness need for product cards
   const getProductWellnessNeed = (product: Product): string => {
@@ -192,6 +225,23 @@ export default function ShopClient({
   // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      // 0. Search keyword filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = product.name?.toLowerCase().includes(q);
+        const matchesDesc = product.description?.toLowerCase().includes(q);
+        const matchesCategory = product.categoryName?.toLowerCase().includes(q);
+        const matchesWellness =
+          (product.wellnessNeedName && product.wellnessNeedName.toLowerCase().includes(q)) ||
+          (product.wellnessNeed && product.wellnessNeed.toLowerCase().includes(q));
+        const matchesIngredients = product.ingredients?.toLowerCase().includes(q);
+        const matchesBenefits = product.keyBenefits?.toLowerCase().includes(q);
+
+        if (!matchesName && !matchesDesc && !matchesCategory && !matchesWellness && !matchesIngredients && !matchesBenefits) {
+          return false;
+        }
+      }
+
       // 1. Category filter
       if (selectedCategory !== 'All Products') {
         const matchesCategory =
@@ -226,7 +276,7 @@ export default function ShopClient({
 
       return true;
     });
-  }, [products, selectedCategory, selectedWellnessNeed, maxPrice, selectedRatings]);
+  }, [products, selectedCategory, selectedWellnessNeed, maxPrice, selectedRatings, searchQuery]);
 
   // Sort products
   const sortedProducts = useMemo(() => {
@@ -266,19 +316,21 @@ export default function ShopClient({
     return counts;
   }, [products]);
 
-  const isFiltered = selectedCategory !== 'All Products' || selectedWellnessNeed !== 'All Wellness Needs' || maxPrice < catalogMaxPrice || selectedRatings.length > 0;
+  const isFiltered = selectedCategory !== 'All Products' || selectedWellnessNeed !== 'All Wellness Needs' || maxPrice < catalogMaxPrice || selectedRatings.length > 0 || searchQuery.trim().length > 0;
 
   return (
     <div className="w-full bg-[#fbfdfb] min-h-screen">
       
       {/* Top Breadcrumbs */}
       <div className="border-b border-[#e9efe9] bg-white/70 backdrop-blur-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center text-xs text-[#526b56] gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center text-xs text-[#526b56] gap-2 flex-wrap">
           <Link href="/" className="hover:text-[#1c3f24] transition-colors">
             Home
           </Link>
           <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
-          <span className="font-semibold text-[#1c3f24]">Shop All Botanicals</span>
+          <Link href="/shop" onClick={handleClearSearch} className="hover:text-[#1c3f24] transition-colors">
+            Shop All Botanicals
+          </Link>
           {selectedCategory !== 'All Products' && (
             <>
               <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
@@ -291,6 +343,12 @@ export default function ShopClient({
               <span className="font-bold text-[#24492d]">{selectedWellnessNeed}</span>
             </>
           )}
+          {searchQuery.trim() && (
+            <>
+              <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
+              <span className="font-bold text-[#24492d]">Search: &ldquo;{searchQuery}&rdquo;</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -299,8 +357,45 @@ export default function ShopClient({
         <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
           
           {/* ================= LEFT SIDEBAR ================= */}
-          <aside className="w-full md:w-64 flex-shrink-0 space-y-8 bg-white p-5 rounded-2xl border border-[#e8efe8] shadow-2xs">
+          <aside className="w-full md:w-64 flex-shrink-0 space-y-7 bg-white p-5 rounded-2xl border border-[#e8efe8] shadow-2xs">
             
+            {/* Search within shop in Sidebar */}
+            <div className="space-y-2 pb-4 border-b border-[#e5ece5]">
+              <div className="flex items-center justify-between">
+                <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-[#24492d]" />
+                  <span>SEARCH STORE</span>
+                </h3>
+                {searchQuery.trim() && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Filter botanicals..."
+                  className="w-full pl-8 pr-7 py-2 rounded-xl text-xs border border-[#ccdacc] bg-[#fbfdfb] text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
+                />
+                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                {searchQuery && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-stone-400 hover:text-stone-600 rounded"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Filter by Category */}
             <div className="space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
@@ -481,6 +576,28 @@ export default function ShopClient({
           {/* ================= RIGHT CATALOG AREA ================= */}
           <main className="flex-1 w-full space-y-6">
             
+            {/* Active Filter Banner when search keyword is active */}
+            {searchQuery.trim() && (
+              <div className="flex items-center justify-between bg-[#edf6ef] border border-[#d2e4d5] px-4 py-2.5 rounded-xl text-xs text-[#1c3f24] animate-fadeIn">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[#557359]">Search results for:</span>
+                  <span className="font-bold text-[#1c3f24] px-2.5 py-0.5 rounded-md bg-white border border-[#c4dbc8] shadow-2xs">
+                    &ldquo;{searchQuery}&rdquo;
+                  </span>
+                  <span className="text-[11px] text-[#557359]">
+                    ({filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found)
+                  </span>
+                </div>
+                <button
+                  onClick={handleClearSearch}
+                  className="font-bold text-[#24492d] hover:text-[#132c19] hover:underline text-xs flex items-center gap-1 cursor-pointer bg-white/70 hover:bg-white px-2.5 py-1 rounded-md transition-all shadow-2xs"
+                >
+                  <span>Clear Search</span>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Active Filter Banner when category is selected */}
             {selectedCategory !== 'All Products' && (
               <div className="flex items-center justify-between bg-[#edf6ef] border border-[#d2e4d5] px-4 py-2.5 rounded-xl text-xs text-[#1c3f24] animate-fadeIn">
@@ -534,6 +651,9 @@ export default function ShopClient({
                   {Math.min(currentPage * itemsPerPage, filteredProducts.length)}
                 </span>{' '}
                 of <span className="font-semibold text-[#1c3f24]">{filteredProducts.length}</span> results
+                {searchQuery.trim() && (
+                  <span className="text-[#516b55]"> for &ldquo;<strong className="text-[#1c3f24]">{searchQuery}</strong>&rdquo;</span>
+                )}
                 {selectedCategory !== 'All Products' && (
                   <span className="text-[#516b55]"> in <strong className="text-[#1c3f24]">{selectedCategory}</strong></span>
                 )}
@@ -564,15 +684,22 @@ export default function ShopClient({
               <div className="py-20 text-center space-y-3 bg-[#fafcfa] rounded-2xl border border-[#e8efe8] p-8">
                 <Leaf className="w-10 h-10 text-[#718875] mx-auto opacity-60" />
                 <h3 className="font-serif text-lg font-bold text-[#1c3f24]">
-                  {selectedWellnessNeed !== 'All Wellness Needs' ? `No products found for "${selectedWellnessNeed}"` : selectedCategory !== 'All Products' ? `No products found in "${selectedCategory}"` : 'No products match your criteria'}
+                  {searchQuery.trim()
+                    ? `No products found matching "${searchQuery}"`
+                    : selectedWellnessNeed !== 'All Wellness Needs'
+                    ? `No products found for "${selectedWellnessNeed}"`
+                    : selectedCategory !== 'All Products'
+                    ? `No products found in "${selectedCategory}"`
+                    : 'No products match your criteria'}
                 </h3>
                 <p className="text-xs text-[#627a66] max-w-sm mx-auto">
                   {isFiltered 
-                    ? "Try clearing your filters or viewing our full botanical catalog."
+                    ? "Try clearing your search query or filters to view our full botanical catalog."
                     : "No products available in this category yet."}
                 </p>
                 <button
                   onClick={() => {
+                    handleClearSearch();
                     handleCategorySelect('All Products');
                     handleWellnessNeedSelect('All Wellness Needs');
                     setMaxPrice(100);

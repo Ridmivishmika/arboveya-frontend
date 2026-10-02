@@ -18,13 +18,17 @@ import {
   Clock, 
   ShieldCheck, 
   User,
+  UserCheck,
   ArrowLeft,
   Package,
   BookOpen,
-  Building2
+  Building2,
+  Search
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import NavbarSearch from '@/components/search/NavbarSearch';
+import ProfileModal from '@/components/profile/ProfileModal';
 
 interface NavbarProps {
   cartCount?: number;
@@ -38,7 +42,9 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
   const cartCount = propCount !== undefined ? propCount : liveCount;
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [cartHighlighted, setCartHighlighted] = useState(false);
 
   useEffect(() => {
@@ -163,6 +169,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
   useEffect(() => {
     setProfileDropdownOpen(false);
     setMobileMenuOpen(false);
+    setMobileSearchOpen(false);
   }, [pathname]);
 
   const handleSignOut = () => {
@@ -190,7 +197,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
     const isApproved = user?.isSellerApproved ?? false;
 
     return (
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
+      <>
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
           
           {/* Brand Emblem & Seller Dashboard Title */}
@@ -288,13 +296,12 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-2 py-1 px-2.5 rounded-full border border-[#ccdacc] bg-[#f7faf7] hover:bg-[#eef4ee] text-xs font-semibold text-[#1c3f24] transition shadow-2xs cursor-pointer"
-                title="Click to view seller profile"
+                className="flex items-center gap-1.5 py-1 px-2 rounded-full border border-[#ccdacc] bg-[#f7faf7] hover:bg-[#eef4ee] text-xs font-semibold text-[#1c3f24] transition shadow-2xs cursor-pointer"
+                title="Click to view seller profile & options"
               >
                 <div className="w-7 h-7 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   {sellerInitial}
                 </div>
-                <span className="max-w-[110px] truncate hidden xl:inline">{sellerDisplayName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-stone-500 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -323,12 +330,23 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                       <h4 className="font-serif text-lg font-bold text-stone-900 leading-tight">
                         {sellerDisplayName}
                       </h4>
-                      <p className="text-xs text-stone-500 mt-0.5">
+                      <p className="text-xs text-stone-500 mt-0.5 truncate">
                         {user?.email}
                       </p>
                     </div>
 
-                    <div className="pt-2 border-t border-stone-100">
+                    <div className="pt-2 border-t border-stone-100 space-y-2">
+                      <button
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          setProfileModalOpen(true);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl border border-[#2E4D38]/30 hover:border-[#2E4D38] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                        <span>Update Profile</span>
+                      </button>
+
                       <button
                         onClick={handleSignOut}
                         className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
@@ -341,16 +359,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 </div>
               )}
             </div>
-
-            {/* Standalone Sign Out Button */}
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#ccdacc] hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold transition cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">Sign Out</span>
-            </button>
 
             {/* Cart Icon */}
             <button
@@ -527,7 +535,12 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           </div>
         )}
       </header>
-    );
+      <ProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
+    </>
+  );
   }
 
   // =========================================================================
@@ -538,7 +551,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
     const buyerDisplayName = user?.fullName || `${user?.firstName || 'Valued'} ${user?.lastName || 'Customer'}`.trim();
 
     return (
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
+      <>
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
           
           {/* Brand Emblem & Buyer Dashboard Title */}
@@ -566,6 +580,11 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           {/* Desktop Navigation (Large screens) */}
           <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 justify-end">
             
+            {/* Search Bar in Buyer Dashboard */}
+            <div className="hidden xl:block w-44 2xl:w-56 mr-1">
+              <NavbarSearch variant="desktop" placeholder="Search store..." />
+            </div>
+
             {/* Single Store button */}
             <Link
               href="/"
@@ -627,13 +646,12 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-2 py-1 px-2.5 rounded-full border border-[#ccdacc] bg-[#f7faf7] hover:bg-[#eef4ee] text-xs font-semibold text-[#1c3f24] transition shadow-2xs cursor-pointer"
-                title="Click to view profile"
+                className="flex items-center gap-1.5 py-1 px-2 rounded-full border border-[#ccdacc] bg-[#f7faf7] hover:bg-[#eef4ee] text-xs font-semibold text-[#1c3f24] transition shadow-2xs cursor-pointer"
+                title="Click to view profile & options"
               >
                 <div className="w-7 h-7 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   {buyerInitial}
                 </div>
-                <span className="max-w-[110px] truncate hidden xl:inline">{buyerDisplayName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-stone-500 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -651,12 +669,23 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                       <h4 className="font-serif text-lg font-bold text-stone-900 leading-tight">
                         {buyerDisplayName}
                       </h4>
-                      <p className="text-xs text-stone-500 mt-0.5">
+                      <p className="text-xs text-stone-500 mt-0.5 truncate">
                         {user?.email}
                       </p>
                     </div>
 
-                    <div className="pt-2 border-t border-stone-100">
+                    <div className="pt-2 border-t border-stone-100 space-y-2">
+                      <button
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          setProfileModalOpen(true);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl border border-[#2E4D38]/30 hover:border-[#2E4D38] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                        <span>Update Profile</span>
+                      </button>
+
                       <button
                         onClick={handleSignOut}
                         className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
@@ -669,16 +698,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 </div>
               )}
             </div>
-
-            {/* Standalone Sign Out Button */}
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#ccdacc] hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold transition cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">Sign Out</span>
-            </button>
           </div>
 
           {/* Mobile & Tablet Controls (Below lg breakpoint) */}
@@ -788,8 +807,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 </button>
               </div>
 
-              {/* Return to store link */}
-              <div className="pt-2 border-t border-stone-100">
+              {/* Additional Actions */}
+              <div className="pt-2 border-t border-stone-100 flex flex-col sm:flex-row items-center gap-2">
                 <Link
                   href="/"
                   onClick={() => setMobileMenuOpen(false)}
@@ -798,12 +817,36 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Return to Arboveya Store</span>
                 </Link>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-[#2E4D38]/30 bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition cursor-pointer"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                  <span>Update Profile</span>
+                </button>
+
+                <button
+                  onClick={handleSignOut}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-600" />
+                  <span>Sign Out</span>
+                </button>
               </div>
             </div>
           </div>
         )}
       </header>
-    );
+      <ProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
+    </>
+  );
   }
 
   // =========================================================================
@@ -824,7 +867,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
   const isContactActive = pathname?.startsWith('/contact');
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all">
+    <>
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         
         {/* Brand Logo & Name */}
@@ -845,7 +889,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
         </Link>
 
         {/* Desktop Navigation Links with Dynamic Active Underline */}
-        <nav className="hidden md:flex items-center space-x-6 lg:space-x-7 text-sm font-medium text-[#2d3a30]">
+        <nav className="hidden md:flex items-center space-x-4 lg:space-x-6 text-sm font-medium text-[#2d3a30] flex-shrink-0">
           <Link
             href="/"
             className={`pb-1 transition-all ${
@@ -927,35 +971,105 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               <span>Admin Dashboard</span>
             </Link>
           )}
-
-          
         </nav>
 
-        {/* Right Controls */}
-        <div className="flex items-center space-x-3 sm:space-x-4 text-[#243d2b]">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <Link
-                href={profileDestination}
-                className="flex items-center gap-2 py-1 px-2.5 rounded-full bg-[#f4f7f4] hover:bg-[#edf2ed] transition text-xs font-semibold text-[#1c3f24]"
-                title={`Logged in as ${user.fullName || user.firstName} (${user.role})`}
-              >
-                <div className="w-6 h-6 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-[11px]">
-                  {user.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <span className="max-w-[110px] truncate hidden sm:inline">
-                  {user.fullName || user.firstName}
-                </span>
-              </Link>
+        {/* Desktop Search Bar */}
+        <div className="hidden md:block flex-1 max-w-[210px] lg:max-w-xs xl:max-w-sm mx-2 lg:mx-4">
+          <NavbarSearch variant="desktop" />
+        </div>
 
+        {/* Right Controls */}
+        <div className="flex items-center space-x-2 sm:space-x-3 text-[#243d2b] flex-shrink-0">
+          {/* Mobile Search Toggle Button */}
+          <button
+            onClick={() => {
+              setMobileSearchOpen(!mobileSearchOpen);
+              if (mobileMenuOpen) setMobileMenuOpen(false);
+            }}
+            className="md:hidden p-2 text-[#1c3f24] hover:text-[#2d5c37] rounded-xl hover:bg-[#edf5ee] transition focus:outline-none"
+            aria-label="Toggle search"
+            title="Search products"
+          >
+            <Search className="w-5 h-5 stroke-[1.75]" />
+          </button>
+
+          {user ? (
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#ccdacc] hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold transition cursor-pointer"
-                title="Sign Out"
+                onClick={() => setProfileDropdownOpen((prev) => !prev)}
+                className="flex items-center gap-1.5 py-1 px-2 rounded-full border border-[#ccdacc] bg-[#f7faf7] hover:bg-[#eef4ee] text-xs font-semibold text-[#1c3f24] transition shadow-2xs cursor-pointer"
+                title={`Account Menu (${user.role})`}
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <div className="w-7 h-7 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  {user.firstName ? user.firstName.charAt(0).toUpperCase() : (user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U')}
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-stone-500 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* Profile Details Popover */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-stone-200 p-5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[#2E4D38] bg-[#edf5ee] px-2.5 py-0.5 rounded-full">
+                        {user.role === 'Seller' ? 'Herbal Merchant' : user.role === 'Admin' ? 'Administrator' : 'Valued Customer'}
+                      </span>
+                      {user.role === 'Seller' && (
+                        user.isSellerApproved ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Approved</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                            <Clock className="w-3 h-3" />
+                            <span>Pending</span>
+                          </span>
+                        )
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="font-serif text-lg font-bold text-stone-900 leading-tight">
+                        {user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User'}
+                      </h4>
+                      <p className="text-xs text-stone-500 mt-0.5 truncate">
+                        {user.email}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-100 space-y-2">
+                      <Link
+                        href={profileDestination}
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                      >
+                        <User className="w-3.5 h-3.5 text-[#2E4D38]" />
+                        <span>{user.role === 'Seller' ? 'Go to Seller Studio' : user.role === 'Admin' ? 'Go to Admin Portal' : 'Go to Buyer Portal'}</span>
+                      </Link>
+
+                      <button
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          setProfileModalOpen(true);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl border border-[#2E4D38]/30 hover:border-[#2E4D38] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                        <span>Update Profile</span>
+                      </button>
+
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <Link
@@ -992,7 +1106,10 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
 
           {/* Mobile Menu Toggle Button */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              setMobileMenuOpen(!mobileMenuOpen);
+              if (mobileSearchOpen) setMobileSearchOpen(false);
+            }}
             className="md:hidden p-2 text-[#1c3f24] hover:text-[#2d5c37] focus:outline-none"
             aria-label="Toggle menu"
           >
@@ -1001,9 +1118,27 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
         </div>
       </div>
 
+      {/* Mobile Quick Search Bar Dropdown */}
+      {mobileSearchOpen && (
+        <div className="md:hidden px-4 py-3 bg-[#f7faf7] border-t border-[#e5ebe5] shadow-xs animate-in fade-in slide-in-from-top-2 duration-150">
+          <NavbarSearch 
+            variant="mobile-bar" 
+            autoFocus 
+            onClose={() => setMobileSearchOpen(false)} 
+          />
+        </div>
+      )}
+
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-[#e5ebe5] px-4 pt-2 pb-6 space-y-3">
+        <div className="md:hidden bg-white border-b border-[#e5ebe5] px-4 pt-3 pb-6 space-y-3">
+          {/* Mobile Drawer Search Bar */}
+          <div className="pb-2">
+            <NavbarSearch 
+              variant="mobile-drawer" 
+              onClose={() => setMobileMenuOpen(false)} 
+            />
+          </div>
           <Link
             href="/"
             onClick={() => setMobileMenuOpen(false)}
@@ -1083,16 +1218,34 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           
 
           {user ? (
-            <div className="pt-4 border-t border-stone-100 flex items-center justify-between">
-              <span className="text-sm font-semibold text-stone-800">
-                {user.fullName || user.firstName}
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="text-xs text-rose-600 font-bold uppercase tracking-wider"
-              >
-                Sign Out
-              </button>
+            <div className="pt-4 border-t border-stone-100 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-stone-800">
+                  {user.fullName || user.firstName}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E4D38] bg-[#edf5ee] px-2 py-0.5 rounded-full">
+                  {user.role}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl border border-[#2E4D38]/30 bg-[#edf5ee] text-[#1c3f24] text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                  <span>Update Profile</span>
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="w-full py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="pt-4 border-t border-stone-100">
@@ -1108,5 +1261,10 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
         </div>
       )}
     </header>
-  );
+    <ProfileModal
+      isOpen={profileModalOpen}
+      onClose={() => setProfileModalOpen(false)}
+    />
+  </>
+);
 }

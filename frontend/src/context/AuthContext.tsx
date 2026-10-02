@@ -28,6 +28,7 @@ interface AuthContextType {
   register: (data: any) => Promise<UserProfile>;
   logout: (redirectTo?: string) => void;
   updateUser: (data: Partial<UserProfile>) => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<UserProfile>;
   refreshUser: () => Promise<UserProfile | null>;
   loading: boolean;
 }
@@ -278,9 +279,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(prev => {
       if (!prev) return null;
       const updated = { ...prev, ...data };
+      if (data.firstName !== undefined || data.lastName !== undefined) {
+        const fn = data.firstName !== undefined ? data.firstName : prev.firstName;
+        const ln = data.lastName !== undefined ? data.lastName : prev.lastName;
+        updated.fullName = `${fn} ${ln}`.trim();
+      }
       localStorage.setItem('arboveya_user', JSON.stringify(updated));
       return updated;
     });
+  };
+
+  const updateProfile = async (data: Partial<UserProfile>): Promise<UserProfile> => {
+    const savedToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : null);
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(savedToken ? { Authorization: 'Bearer ' + savedToken } : {})
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Failed to update profile' }));
+      throw new Error(err.message || 'Failed to update profile');
+    }
+
+    const u = await res.json();
+    const fName = u.firstName || '';
+    const lName = u.lastName || '';
+    const profile: UserProfile = {
+      id: u.id,
+      firstName: fName,
+      lastName: lName,
+      fullName: (fName + ' ' + lName).trim(),
+      email: u.email,
+      role: u.role,
+      address: u.address || '',
+      nationality: u.nationality || '',
+      phoneNumber: u.phoneNumber || '',
+      isSellerApproved: u.isSellerApproved ?? false,
+      bankName: u.bankName || '',
+      bankAccountName: u.bankAccountName || '',
+      bankAccountNumber: u.bankAccountNumber || '',
+      bankBranch: u.bankBranch || '',
+      bankRoutingCode: u.bankRoutingCode || ''
+    };
+
+    setUser(profile);
+    localStorage.setItem('arboveya_user', JSON.stringify(profile));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('arboveya:user-profile-updated', { detail: profile }));
+    }
+    return profile;
   };
 
   return (
@@ -292,6 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         updateUser,
+        updateProfile,
         refreshUser,
         loading
       }}

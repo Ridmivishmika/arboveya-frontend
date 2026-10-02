@@ -16,9 +16,12 @@ import {
   Sparkles,
   MessageSquare,
   Menu,
-  X
+  X,
+  ChevronDown,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import ProfileModal from '@/components/profile/ProfileModal';
 
 interface AdminHeaderProps {
   activeTab: 'products' | 'categories' | 'wellness-needs' | 'sellers' | 'blogs' | 'messages';
@@ -40,6 +43,23 @@ export default function AdminHeader({
   const router = useRouter();
   const { user, logout, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
 
   React.useEffect(() => {
     if (!loading && (!user || user.role !== 'Admin')) {
@@ -100,7 +120,8 @@ export default function AdminHeader({
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
+    <>
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#e5ebe5] transition-all shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
         
         {/* Brand Emblem & Admin Dashboard Title */}
@@ -173,26 +194,62 @@ export default function AdminHeader({
             );
           })}
 
-          {/* Admin Identity Badge */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs shadow-2xs">
-            <div className="w-5 h-5 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-[10px]">
-              {adminInitial}
-            </div>
-            <span className="text-emerald-800 font-semibold truncate max-w-[110px] hidden xl:inline">
-              {adminDisplayName}
-            </span>
-          </div>
+          {/* Admin Identity Dropdown Trigger */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setProfileDropdownOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 py-1 px-2 rounded-full border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-[#1c3f24] transition shadow-2xs cursor-pointer"
+              title="Click to view administrator profile & options"
+            >
+              <div className="w-6 h-6 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-[11px] shadow-xs">
+                {adminInitial}
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 text-emerald-800 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          {/* Dedicated Sign Out Button */}
-          <button
-            onClick={handleSignOut}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50/70 hover:bg-red-100 hover:border-red-300 text-red-700 font-bold text-xs transition-all cursor-pointer shadow-2xs active:scale-95"
-            title="Sign out of administration session"
-            aria-label="Sign Out"
-          >
-            <LogOut className="w-3.5 h-3.5 text-red-600" />
-            <span className="hidden xl:inline">Sign Out</span>
-          </button>
+            {/* Profile Popover */}
+            {profileDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-stone-200 p-5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#2E4D38] bg-[#edf5ee] px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      System Administrator
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="font-serif text-lg font-bold text-stone-900 leading-tight">
+                      {adminDisplayName}
+                    </h4>
+                    <p className="text-xs text-stone-500 mt-0.5 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-stone-100 space-y-2">
+                    <button
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        setProfileModalOpen(true);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl border border-[#2E4D38]/30 hover:border-[#2E4D38] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <UserCheck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                      <span>Update Profile</span>
+                    </button>
+
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-rose-300 hover:bg-rose-50 text-stone-600 hover:text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Mobile & Tablet Controls (Below lg breakpoint) */}
@@ -315,5 +372,10 @@ export default function AdminHeader({
         </div>
       )}
     </header>
-  );
+    <ProfileModal
+      isOpen={profileModalOpen}
+      onClose={() => setProfileModalOpen(false)}
+    />
+  </>
+);
 }

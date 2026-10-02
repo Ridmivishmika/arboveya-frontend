@@ -32,9 +32,32 @@ export default async function AboutUsPage() {
     .filter((p) => p.trim().length > 0);
 
   return (
-    <div className="bg-white min-h-screen">
-      {/* OUR STORY SECTION */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-16 sm:pb-20 md:pb-24">
+    <div className="bg-white min-h-screen text-[#1c3f24] selection:bg-[#24492d] selection:text-white">
+      {/* 1. Botanical Header & Hero (matching existing contact top style) */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#1c3f24] via-[#24492d] to-[#1c3f24] text-white pt-16 pb-20 sm:pt-20 sm:pb-24">
+        {/* Subtle decorative background circles */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold uppercase tracking-widest text-emerald-200 mb-6">
+            <span>🌿</span>
+            <span>Rooted in Nature & Wellness</span>
+            <span>🌿</span>
+          </div>
+
+          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">
+            About Arboveya
+          </h1>
+
+          <p className="text-emerald-100/90 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-light">
+            {settings.aboutHeroSubtitle || 'Rooted in nature, inspired by wellness. We bring the healing power of authentic herbal botanicals to your everyday life.'}
+          </p>
+        </div>
+      </section>
+
+      {/* 2. OUR STORY SECTION */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 sm:pb-20 md:pb-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 sm:gap-14 lg:gap-16 items-center">
           {/* Left Column: Image Card */}
           <div className="relative group">
@@ -73,7 +96,6 @@ export default async function AboutUsPage() {
           {/* 1. Natural Ingredients */}
           <div className="flex flex-col items-center">
             <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200/60 flex items-center justify-center text-[#24492d] mb-3">
-              {/* Arboveya Botanical A Emblem */}
               <span className="font-serif text-lg font-bold">🌿</span>
             </div>
             <h3 className="text-xs sm:text-sm font-bold tracking-wider text-stone-900 uppercase">

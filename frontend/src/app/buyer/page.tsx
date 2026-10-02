@@ -34,7 +34,10 @@ import {
   ArrowLeft,
   Upload,
   RefreshCw,
-  LogIn
+  LogIn,
+  AlertCircle,
+  Globe,
+  Phone
 } from 'lucide-react';
 
 interface OrderItem {
@@ -75,8 +78,8 @@ interface Order {
 
 export default function BuyerDashboardPage() {
   const router = useRouter();
-  const { user, logout, token, refreshUser, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'orders' | 'articles' | 'cart'>('orders');
+  const { user, logout, token, refreshUser, updateProfile, loading } = useAuth();
+  const [activeTab, setActiveTab] = useState<'orders' | 'articles' | 'cart' | 'profile'>('orders');
 
   // Cart Context
   const { 
@@ -164,7 +167,8 @@ export default function BuyerDashboardPage() {
   const [shippingPhone, setShippingPhone] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingCity, setShippingCity] = useState('');
-  const [shippingCountry, setShippingCountry] = useState('Sri Lanka');
+  const [shippingZip, setShippingZip] = useState('');
+  const [shippingCountry, setShippingCountry] = useState('United States');
   const [couponInput, setCouponInput] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -228,6 +232,56 @@ export default function BuyerDashboardPage() {
       if (user.nationality) setShippingCountry(user.nationality);
     }
   }, [user]);
+
+  // Profile Update Form State
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profileCountry, setProfileCountry] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+  const [profileErrorMsg, setProfileErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setProfileFirstName(user.firstName || '');
+      setProfileLastName(user.lastName || '');
+      setProfilePhone(user.phoneNumber || '');
+      setProfileAddress(user.address || '');
+      setProfileCountry(user.nationality || '');
+    }
+  }, [user]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileFirstName.trim()) {
+      setProfileErrorMsg('First name is required.');
+      return;
+    }
+    setSavingProfile(true);
+    setProfileSuccessMsg(null);
+    setProfileErrorMsg(null);
+
+    try {
+      await updateProfile({
+        firstName: profileFirstName.trim(),
+        lastName: profileLastName.trim(),
+        phoneNumber: profilePhone.trim(),
+        address: profileAddress.trim(),
+        nationality: profileCountry.trim()
+      });
+      setProfileSuccessMsg('Profile updated successfully! Default delivery address updated.');
+      setStatusMessage({
+        text: 'Your account profile and delivery address were updated successfully!',
+        type: 'success'
+      });
+    } catch (err: any) {
+      setProfileErrorMsg(err.message || 'Failed to update profile.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleSignOut = () => {
     logout();
@@ -299,12 +353,14 @@ export default function BuyerDashboardPage() {
         setActiveTab('orders');
       } else if (tabParam === 'cart') {
         setActiveTab('cart');
+      } else if (tabParam === 'profile') {
+        setActiveTab('profile');
       }
     }
 
     const handleSetTab = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail === 'orders' || customEvent.detail === 'articles' || customEvent.detail === 'cart') {
+      if (customEvent.detail === 'orders' || customEvent.detail === 'articles' || customEvent.detail === 'cart' || customEvent.detail === 'profile') {
         setActiveTab(customEvent.detail);
       }
     };
@@ -662,10 +718,19 @@ export default function BuyerDashboardPage() {
       setPlacingOrder(true);
       setOrderError(null);
 
+      const fullShippingAddress = [
+        shippingAddress.trim(),
+        shippingCity.trim(),
+        shippingZip.trim(),
+        shippingCountry.trim()
+      ].filter(Boolean).join(', ');
+
       const payload = {
         customerName: shippingFullName.trim() || user?.fullName || 'Valued Customer',
         customerEmail: shippingEmail.trim() || user?.email || '',
-        shippingAddress: `${shippingAddress.trim()}, ${shippingCity.trim() ? shippingCity.trim() + ', ' : ''}${shippingCountry}`,
+        customerPhone: shippingPhone.trim(),
+        country: shippingCountry.trim(),
+        shippingAddress: fullShippingAddress,
         items: cart.map(item => ({
           productId: item.product.id,
           productName: item.product.name,
@@ -813,8 +878,58 @@ export default function BuyerDashboardPage() {
           </div>
         )}
 
-        {/* Browse Catalog shortcut (in-page tab buttons removed per user preference) */}
-        <div className="flex items-center justify-end pb-3 border-b border-stone-200">
+        {/* Navigation Tabs Bar */}
+        <div className="flex items-center justify-between pb-3 border-b border-stone-200 gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                activeTab === 'orders'
+                  ? 'bg-[#2E4D38] text-white shadow-xs'
+                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>Orders ({orders.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('articles')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                activeTab === 'articles'
+                  ? 'bg-[#2E4D38] text-white shadow-xs'
+                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Blogs</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cart')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                activeTab === 'cart'
+                  ? 'bg-[#2E4D38] text-white shadow-xs'
+                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Cart & Checkout ({cartCount})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'bg-[#2E4D38] text-white shadow-xs'
+                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>My Profile</span>
+            </button>
+          </div>
+
           <Link
             href="/shop"
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-[#2E4D38] text-[#2E4D38] hover:bg-[#edf5ee] text-xs font-bold uppercase tracking-wider transition"
@@ -1481,11 +1596,27 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingPhone}
                             onChange={(e) => setShippingPhone(e.target.value)}
-                            placeholder="+94 77 123 4567"
+                            placeholder="e.g. +1 555 123 4567 or 077 123 4567"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
 
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
+                            Country *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={shippingCountry}
+                            onChange={(e) => setShippingCountry(e.target.value)}
+                            placeholder="e.g. United States, Sri Lanka"
+                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
                           <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
                             City / District *
@@ -1495,7 +1626,21 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingCity}
                             onChange={(e) => setShippingCity(e.target.value)}
-                            placeholder="Colombo"
+                            placeholder="e.g. Austin, London, Colombo"
+                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
+                            ZIP / Postal Code *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={shippingZip}
+                            onChange={(e) => setShippingZip(e.target.value)}
+                            placeholder="e.g. 78701 or 00100"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -1510,21 +1655,7 @@ export default function BuyerDashboardPage() {
                           required
                           value={shippingAddress}
                           onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="42 Lotus Garden Path, Ward Place"
-                          className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                          Country / Nationality *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={shippingCountry}
-                          onChange={(e) => setShippingCountry(e.target.value)}
-                          placeholder="Sri Lanka"
+                          placeholder="Apartment, suite, unit, building, street address"
                           className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                         />
                       </div>
@@ -1661,6 +1792,169 @@ export default function BuyerDashboardPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB 4: BUYER PROFILE & ACCOUNT SETTINGS */}
+        {activeTab === 'profile' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-lg shadow-xs">
+                    {profileFirstName ? profileFirstName.charAt(0).toUpperCase() : (user?.firstName?.charAt(0).toUpperCase() || 'B')}
+                  </div>
+                  <div>
+                    <h2 className="font-serif text-xl font-bold text-stone-900">
+                      My Customer Profile
+                    </h2>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Manage your personal info and default shipping delivery address.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Verified Buyer Account</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Profile Messages */}
+              {profileErrorMsg && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                  <span>{profileErrorMsg}</span>
+                </div>
+              )}
+
+              {profileSuccessMsg && (
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                  <span className="font-semibold">{profileSuccessMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveProfile} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={profileFirstName}
+                        onChange={(e) => setProfileFirstName(e.target.value)}
+                        placeholder="e.g. Eleanor"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                      <User className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileLastName}
+                      onChange={(e) => setProfileLastName(e.target.value)}
+                      placeholder="e.g. Vance"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Email Address <span className="text-stone-400 font-normal">(Account Login)</span>
+                    </label>
+                    <input
+                      type="email"
+                      disabled
+                      value={user?.email || ''}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-500 text-sm cursor-not-allowed select-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Contact Phone Number
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        value={profilePhone}
+                        onChange={(e) => setProfilePhone(e.target.value)}
+                        placeholder="e.g. +1 (555) 019-2834"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                      <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Default Delivery / Shipping Address
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        rows={2}
+                        value={profileAddress}
+                        onChange={(e) => setProfileAddress(e.target.value)}
+                        placeholder="e.g. 78 Gardenia Boulevard, Suite 300, New York, NY 10001"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] resize-none"
+                      />
+                      <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Country / Nationality
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={profileCountry}
+                        onChange={(e) => setProfileCountry(e.target.value)}
+                        placeholder="e.g. United States"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                      <Globe className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-stone-100 flex items-center justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="px-6 py-2.5 rounded-xl bg-[#2E4D38] hover:bg-[#233d2c] text-white text-xs font-bold uppercase tracking-wider transition shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {savingProfile ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Saving Profile...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Save Profile Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 

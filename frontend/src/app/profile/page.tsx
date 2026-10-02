@@ -22,8 +22,10 @@ import {
   UserCheck,
   LogIn,
   Building2,
-  CreditCard
+  CreditCard,
+  Edit3
 } from 'lucide-react';
+import ProfileModal from '@/components/profile/ProfileModal';
 
 interface OrderItem {
   id: string;
@@ -56,6 +58,7 @@ export default function ProfilePage() {
   const { user, logout, loading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleSignOut = () => {
     logout();
@@ -168,19 +171,26 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setProfileModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl border border-[#2E4D38] text-[#2E4D38] bg-emerald-50 hover:bg-emerald-100 text-xs font-bold uppercase tracking-wider transition shadow-2xs flex items-center gap-2 cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Profile</span>
+            </button>
             <Link
               href="/blog"
-              className="px-4 py-2.5 rounded-xl border border-[#2E4D38] text-[#2E4D38] bg-emerald-50/50 text-xs font-bold uppercase tracking-wider hover:bg-emerald-100/60 transition shadow-xs flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 bg-white text-xs font-bold uppercase tracking-wider hover:bg-stone-50 transition shadow-2xs flex items-center gap-2"
             >
-              <PenTool className="w-4 h-4" />
+              <PenTool className="w-3.5 h-3.5" />
               <span>Write Blog</span>
             </Link>
             <Link
               href="/shop"
               className="px-4 py-2.5 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-sm flex items-center gap-2"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-3.5 h-3.5" />
               <span>Continue Shopping</span>
             </Link>
             <button
@@ -311,9 +321,18 @@ export default function ProfilePage() {
           {/* Right Column: Profile & Addresses */}
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm space-y-4">
-              <h2 className="font-serif text-lg font-bold text-stone-900 pb-2 border-b border-stone-100">
-                Shipping & Contact Info
-              </h2>
+              <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                <h2 className="font-serif text-lg font-bold text-stone-900">
+                  Shipping & Contact Info
+                </h2>
+                <button
+                  onClick={() => setProfileModalOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2E4D38] hover:text-[#1e3626] cursor-pointer"
+                >
+                  <Edit3 className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              </div>
 
               <div className="space-y-3 text-xs">
                 <div className="flex items-start gap-2.5 text-stone-600">
@@ -420,6 +439,11 @@ export default function ProfilePage() {
         </div>
 
       </div>
+
+      <ProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { BlogPost, Category, WellnessNeed, CreateProductInput, UpdateProductInput } from '@/types';
 import { getCategories, getWellnessNeeds, uploadBlogImage, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 import ProductModal from '@/components/admin/ProductModal';
+import ManageOrders from '@/components/seller/ManageOrders';
 import {
   Package,
   ShoppingBag,
@@ -39,7 +40,11 @@ import {
   Building2,
   CreditCard,
   Wallet,
-  Check
+  Check,
+  User,
+  Phone,
+  MapPin,
+  Globe
 } from 'lucide-react';
 
 interface SellerOrderItem {
@@ -106,12 +111,19 @@ interface Product {
 
 export default function SellerDashboardPage() {
   const router = useRouter();
-  const { user, logout, updateUser, token, refreshUser, loading: authLoading } = useAuth();
+  const { user, logout, updateUser, updateProfile, token, refreshUser, loading: authLoading } = useAuth();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'products' | 'articles' | 'orders' | 'payouts'>('products');
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Seller Personal & Business Details State
+  const [sellerFirstNameInput, setSellerFirstNameInput] = useState('');
+  const [sellerLastNameInput, setSellerLastNameInput] = useState('');
+  const [sellerPhoneInput, setSellerPhoneInput] = useState('');
+  const [sellerAddressInput, setSellerAddressInput] = useState('');
+  const [sellerNationalityInput, setSellerNationalityInput] = useState('');
 
   // Seller Bank Details State
   const [bankNameInput, setBankNameInput] = useState('');
@@ -125,6 +137,11 @@ export default function SellerDashboardPage() {
 
   useEffect(() => {
     if (user) {
+      setSellerFirstNameInput(user.firstName || '');
+      setSellerLastNameInput(user.lastName || '');
+      setSellerPhoneInput(user.phoneNumber || '');
+      setSellerAddressInput(user.address || '');
+      setSellerNationalityInput(user.nationality || '');
       setBankNameInput(user.bankName || '');
       setBankAccountNameInput(user.bankAccountName || '');
       setBankAccountNumberInput(user.bankAccountNumber || '');
@@ -135,43 +152,31 @@ export default function SellerDashboardPage() {
 
   const handleSaveBankDetails = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!sellerFirstNameInput.trim()) {
+      setBankErrorMsg('First name is required.');
+      return;
+    }
     setSavingBankDetails(true);
     setBankSuccessMsg(null);
     setBankErrorMsg(null);
-    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
-        },
-        body: JSON.stringify({
-          bankName: bankNameInput.trim(),
-          bankAccountName: bankAccountNameInput.trim(),
-          bankAccountNumber: bankAccountNumberInput.trim(),
-          bankBranch: bankBranchInput.trim(),
-          bankRoutingCode: bankRoutingCodeInput.trim()
-        })
+      await updateProfile({
+        firstName: sellerFirstNameInput.trim(),
+        lastName: sellerLastNameInput.trim(),
+        phoneNumber: sellerPhoneInput.trim(),
+        address: sellerAddressInput.trim(),
+        nationality: sellerNationalityInput.trim(),
+        bankName: bankNameInput.trim(),
+        bankAccountName: bankAccountNameInput.trim(),
+        bankAccountNumber: bankAccountNumberInput.trim(),
+        bankBranch: bankBranchInput.trim(),
+        bankRoutingCode: bankRoutingCodeInput.trim()
       });
 
-      if (res.ok) {
-        const updated = await res.json();
-        updateUser({
-          bankName: updated.bankName || bankNameInput.trim(),
-          bankAccountName: updated.bankAccountName || bankAccountNameInput.trim(),
-          bankAccountNumber: updated.bankAccountNumber || bankAccountNumberInput.trim(),
-          bankBranch: updated.bankBranch || bankBranchInput.trim(),
-          bankRoutingCode: updated.bankRoutingCode || bankRoutingCodeInput.trim()
-        });
-        setBankSuccessMsg('Bank account details saved successfully! Future order revenues will be transferred to this account.');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setBankErrorMsg(err.message || 'Failed to update bank account details.');
-      }
+      setBankSuccessMsg('Seller profile and payout account details saved successfully!');
     } catch (err: any) {
-      setBankErrorMsg(err.message || 'Network error saving bank details.');
+      setBankErrorMsg(err.message || 'Failed to update profile and bank account details.');
     } finally {
       setSavingBankDetails(false);
     }
@@ -830,75 +835,7 @@ export default function SellerDashboardPage() {
           </div>
         )}
 
-        {/* Seller Studio Navigation Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-stone-200">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === 'products'
-                  ? 'bg-[#2E4D38] text-white shadow-sm'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Botanical Catalog ({products.length})</span>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('articles')}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === 'articles'
-                  ? 'bg-[#2E4D38] text-white shadow-sm'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Articles ({myBlogs.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === 'orders'
-                  ? 'bg-[#2E4D38] text-white shadow-sm'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Orders ({orders.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('payouts')}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === 'payouts'
-                  ? 'bg-[#2E4D38] text-white shadow-sm'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Bank & Payouts</span>
-              {user?.bankAccountNumber ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Bank Details Verified" />
-              ) : (
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase">
-                  Pending
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E4D38] hover:bg-[#253f2e] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Botanical</span>
-            </button>
-          </div>
-        </div>
 
         {/* TAB 1: PRODUCTS */}
         {activeTab === 'products' && (
@@ -955,7 +892,7 @@ export default function SellerDashboardPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowAddModal(true)}
-                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#253f2e] transition"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#253f2e] transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Product</span>
@@ -1262,303 +1199,12 @@ export default function SellerDashboardPage() {
 
         {/* TAB 3: CUSTOMER ORDERS */}
         {activeTab === 'orders' && (
-          <div className="space-y-6">
-            {/* Metric KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Total Customer Orders</span>
-                  <div className="p-2 rounded-xl bg-emerald-50 text-[#2E4D38]">
-                    <ShoppingBag className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 mt-2">
-                  {orders.length}
-                </p>
-                <p className="text-[11px] text-stone-400 mt-1">Orders placed for your botanicals</p>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Total Sales Volume</span>
-                  <div className="p-2 rounded-xl bg-blue-50 text-blue-700">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-2xl sm:text-3xl font-serif font-bold text-[#2E4D38] mt-2">
-                  ${orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toFixed(2)}
-                </p>
-                <p className="text-[11px] text-stone-400 mt-1">Gross paid customer sales</p>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Processing Orders</span>
-                  <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-2xl sm:text-3xl font-serif font-bold text-amber-800 mt-2">
-                  {orders.filter(o => o.orderStatus?.toLowerCase() === 'processing' || !o.orderStatus).length}
-                </p>
-                <p className="text-[11px] text-stone-400 mt-1">Ready for packing & dispatch</p>
-              </div>
-            </div>
-
-            {/* Customer Orders Table / Card List */}
-            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden p-6 space-y-5">
-              <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-                <div>
-                  <h2 className="font-serif text-lg font-bold text-stone-900">Customer Orders</h2>
-                  <p className="text-xs text-stone-500">Real-time buyer orders for your herbal remedies and botanical products.</p>
-                </div>
-                <button
-                  onClick={fetchSellerOrders}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-bold transition shadow-2xs cursor-pointer"
-                  title="Refresh orders list"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 text-stone-500 ${loadingOrders ? 'animate-spin' : ''}`} />
-                  <span>Refresh</span>
-                </button>
-              </div>
-
-              {loadingOrders ? (
-                <div className="py-16 text-center text-stone-400 text-xs">Loading customer orders...</div>
-              ) : orders.length === 0 ? (
-                <div className="py-16 text-center text-stone-400 space-y-3">
-                  <ShoppingBag className="w-10 h-10 mx-auto text-stone-300" />
-                  <p className="text-sm font-medium text-stone-700">No customer orders yet</p>
-                  <p className="text-xs text-stone-400 max-w-sm mx-auto">
-                    When buyers purchase your botanical products, their orders and shipping details will appear here immediately.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="p-5 rounded-2xl border border-stone-200/90 hover:border-[#2E4D38]/40 transition bg-[#FBFBFA]/80 space-y-4"
-                    >
-                      {/* Order Header Summary */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-200/60">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-xs font-bold text-stone-900">
-                              {order.payHereOrderId || order.id}
-                            </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                              {order.orderStatus || 'Processing'}
-                            </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800">
-                              {order.paymentStatus || 'Paid'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-stone-500 mt-1 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-stone-400" />
-                            <span>
-                              Placed on {new Date(order.createdAt).toLocaleDateString(undefined, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </p>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-sm font-bold text-[#2E4D38]">
-                            ${order.totalAmount?.toFixed(2)}
-                          </div>
-                          <div className="text-[11px] text-stone-400">Total Charged</div>
-                        </div>
-                      </div>
-
-                      {/* Customer Info, Shipping Method & Destination */}
-                      <div className="p-3 bg-white rounded-xl border border-stone-200/70 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Buyer</span>
-                          <span className="font-semibold text-stone-800">{order.customerName || 'Valued Customer'}</span>
-                          {order.customerEmail && (
-                            <span className="text-stone-500 block text-[11px]">{order.customerEmail}</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Selected Shipping</span>
-                          <span className="font-semibold text-[#2E4D38] flex items-center gap-1">
-                            <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
-                            {order.shippingMethod || 'Standard Shipping'}
-                          </span>
-                          <span className="text-stone-500 block text-[11px]">
-                            {order.shippingCost === 0 || !order.shippingCost ? (
-                              <span className="text-emerald-700 font-semibold">Free Shipping ($0.00)</span>
-                            ) : (
-                              `Fee: $${order.shippingCost.toFixed(2)}`
-                            )}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Dispatch Address</span>
-                          <span className="text-stone-700">{order.shippingAddress || 'Standard Delivery Address'}</span>
-                        </div>
-                      </div>
-
-                      {/* Order Items Table */}
-                      <div className="space-y-2 pt-1">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">Ordered Products:</span>
-                        <div className="space-y-2">
-                          {(order.orderItems && order.orderItems.length > 0 ? order.orderItems : [
-                            {
-                              id: 'default-item',
-                              productId: 'b7cbc9ea-29db-46b9-b87d-103b4a81694a',
-                              productName: 'Organic Brahmi Gotu Kola Extract',
-                              quantity: 1,
-                              unitPrice: order.totalAmount,
-                              totalPrice: order.totalAmount
-                            }
-                          ]).map((item) => (
-                            <div
-                              key={item.id}
-                              className="p-3 rounded-xl bg-white border border-stone-200/70 flex items-center justify-between gap-3 text-xs"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <h4 className="font-medium text-stone-900 truncate">
-                                  {item.productName}
-                                </h4>
-                                <span className="text-[11px] text-stone-500">
-                                  Qty: <strong>{item.quantity}</strong> × ${item.unitPrice?.toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="font-bold text-[#2E4D38]">
-                                ${((item.totalPrice) || (item.unitPrice * item.quantity))?.toFixed(2)}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Tracking Information & Dispatch Action */}
-                      <div className="pt-2 border-t border-stone-200/60">
-                        {order.trackingNumber ? (
-                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="p-1.5 rounded-lg bg-[#2E4D38] text-white">
-                                <Truck className="w-3.5 h-3.5" />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800">
-                                    Dispatched with {order.shippingCarrier || 'Standard Carrier'}
-                                  </span>
-                                  <span className="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold">
-                                    Shipped
-                                  </span>
-                                </div>
-                                <div className="font-mono text-xs font-bold text-[#1c3f24] mt-0.5">
-                                  Tracking Number: {order.trackingNumber}
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                setEditingTrackingOrderId(order.id);
-                                setTrackingNumberInput(order.trackingNumber || '');
-                                setCarrierInput(order.shippingCarrier || 'DHL Express');
-                              }}
-                              className="text-xs font-semibold text-[#2E4D38] hover:text-[#1a3821] hover:underline cursor-pointer self-start sm:self-auto"
-                            >
-                              Update Tracking
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-[11px] text-stone-500">
-                              Order pending dispatch. Once shipped, provide tracking details for the buyer.
-                            </span>
-                            <button
-                              onClick={() => {
-                                setEditingTrackingOrderId(order.id);
-                                setTrackingNumberInput('');
-                                setCarrierInput('DHL Express');
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2E4D38] hover:bg-[#1a3821] text-white text-xs font-bold transition shadow-2xs cursor-pointer"
-                            >
-                              <Truck className="w-3.5 h-3.5" />
-                              <span>Add Tracking &amp; Ship Order</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Inline Tracking Edit Form */}
-                        {editingTrackingOrderId === order.id && (
-                          <div className="mt-3 p-4 bg-white rounded-xl border border-[#2E4D38]/30 shadow-sm space-y-3">
-                            <div className="flex items-center justify-between pb-1 border-b border-stone-100">
-                              <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                                <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
-                                Provide Shipment Tracking Number
-                              </h4>
-                              <button
-                                onClick={() => setEditingTrackingOrderId(null)}
-                                className="text-stone-400 hover:text-stone-600 text-xs cursor-pointer"
-                              >
-                                &times;
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">
-                                  Shipping Carrier / Courier
-                                </label>
-                                <input
-                                  type="text"
-                                  value={carrierInput}
-                                  onChange={(e) => setCarrierInput(e.target.value)}
-                                  placeholder="e.g. DHL Express, FedEx, USPS, Sri Lanka Post"
-                                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-200 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">
-                                  Tracking Number <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={trackingNumberInput}
-                                  onChange={(e) => setTrackingNumberInput(e.target.value)}
-                                  placeholder="e.g. TRK-892348123"
-                                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-200 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-end gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={() => setEditingTrackingOrderId(null)}
-                                className="px-3 py-1 text-xs text-stone-600 hover:bg-stone-100 rounded-lg cursor-pointer"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                disabled={savingTracking || !trackingNumberInput.trim()}
-                                onClick={() => handleSaveTracking(order.id)}
-                                className="px-4 py-1.5 bg-[#2E4D38] hover:bg-[#1a3821] text-white text-xs font-bold rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>{savingTracking ? 'Saving...' : 'Confirm & Update Tracking'}</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <ManageOrders
+            orders={orders}
+            onRefresh={fetchSellerOrders}
+            user={user}
+            token={token || undefined}
+          />
         )}
 
         {/* TAB 4: BANK ACCOUNT & PAYOUTS */}
@@ -1623,76 +1269,176 @@ export default function SellerDashboardPage() {
               </div>
             )}
 
-            {/* Bank Account Details Card */}
+            {/* Merchant Profile & Bank Account Details Card */}
             <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-stone-100 gap-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2E4D38] flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-5 h-5" />
+                    <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-serif text-lg font-bold text-stone-900">Registered Bank Account</h2>
+                    <h2 className="font-serif text-lg font-bold text-stone-900">Merchant Profile & Bank Settings</h2>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      Your vendor payouts for products purchased by customers are transferred directly to this account.
+                      Manage your botanical artisan identity, location address, and payout bank account.
                     </p>
                   </div>
                 </div>
 
-                {user?.bankAccountNumber && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 self-start sm:self-auto">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Active Payout Account</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#edf5ee] text-[#1c3f24] border border-[#bcd2bf]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#2E4D38]" />
+                    <span>Herbal Artisan</span>
                   </span>
-                )}
+                  {user?.bankAccountNumber && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Active Payout Account</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <form onSubmit={handleSaveBankDetails} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
-                  <div className="space-y-1.5">
-                    <label className="block font-semibold text-stone-700">Bank Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankNameInput}
-                      onChange={(e) => setBankNameInput(e.target.value)}
-                      placeholder="e.g. Commercial Bank of Ceylon / JPMorgan Chase"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                    />
-                  </div>
+              <form onSubmit={handleSaveBankDetails} className="space-y-6">
+                
+                {/* Section 1: Merchant Identity & Contact */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-3 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-[#2E4D38]" />
+                    <span>Merchant Contact & Location</span>
+                  </h3>
 
-                  <div className="space-y-1.5">
-                    <label className="block font-semibold text-stone-700">Account Holder Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankAccountNameInput}
-                      onChange={(e) => setBankAccountNameInput(e.target.value)}
-                      placeholder="e.g. Eleanor Vance / Herbal Botanicals Ltd"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">First Name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        required
+                        value={sellerFirstNameInput}
+                        onChange={(e) => setSellerFirstNameInput(e.target.value)}
+                        placeholder="e.g. Eleanor"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                    </div>
 
-                  <div className="space-y-1.5">
-                    <label className="block font-semibold text-stone-700">Account Number / IBAN *</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankAccountNumberInput}
-                      onChange={(e) => setBankAccountNumberInput(e.target.value)}
-                      placeholder="e.g. 100293847581 or GB29NWBK60161331926819"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] font-mono"
-                    />
-                  </div>
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Last Name</label>
+                      <input
+                        type="text"
+                        value={sellerLastNameInput}
+                        onChange={(e) => setSellerLastNameInput(e.target.value)}
+                        placeholder="e.g. Vance"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                    </div>
 
-                  <div className="space-y-1.5">
-                    <label className="block font-semibold text-stone-700">Branch Name / SWIFT / Routing Code</label>
-                    <input
-                      type="text"
-                      value={bankBranchInput}
-                      onChange={(e) => setBankBranchInput(e.target.value)}
-                      placeholder="e.g. Main Branch / SWIFT: CCEYLKLX / Routing: 021000021"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                    />
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Email Address <span className="text-stone-400 font-normal">(Login)</span></label>
+                      <input
+                        type="email"
+                        disabled
+                        value={user?.email || ''}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-500 text-sm cursor-not-allowed select-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Phone Contact</label>
+                      <div className="relative">
+                        <input
+                          type="tel"
+                          value={sellerPhoneInput}
+                          onChange={(e) => setSellerPhoneInput(e.target.value)}
+                          placeholder="e.g. +1 (555) 234-5678"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                        />
+                        <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="block font-semibold text-stone-700">Botanical Workshop / Farm Address</label>
+                      <div className="relative">
+                        <textarea
+                          rows={2}
+                          value={sellerAddressInput}
+                          onChange={(e) => setSellerAddressInput(e.target.value)}
+                          placeholder="e.g. 104 Botanical Ridge, Foothills Estate, Kandy"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] resize-none"
+                        />
+                        <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="block font-semibold text-stone-700">Country of Origin / Nationality</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={sellerNationalityInput}
+                          onChange={(e) => setSellerNationalityInput(e.target.value)}
+                          placeholder="e.g. Sri Lanka / United States"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                        />
+                        <Globe className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Payout & Bank Information */}
+                <div className="pt-4 border-t border-stone-100">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-3 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#2E4D38]" />
+                    <span>Vendor Payout & Bank Details</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Bank Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={bankNameInput}
+                        onChange={(e) => setBankNameInput(e.target.value)}
+                        placeholder="e.g. Commercial Bank of Ceylon / JPMorgan Chase"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Account Holder Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={bankAccountNameInput}
+                        onChange={(e) => setBankAccountNameInput(e.target.value)}
+                        placeholder="e.g. Eleanor Vance / Herbal Botanicals Ltd"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Account Number / IBAN *</label>
+                      <input
+                        type="text"
+                        required
+                        value={bankAccountNumberInput}
+                        onChange={(e) => setBankAccountNumberInput(e.target.value)}
+                        placeholder="e.g. 100293847581 or GB29NWBK60161331926819"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-stone-700">Branch Name / SWIFT / Routing Code</label>
+                      <input
+                        type="text"
+                        value={bankBranchInput}
+                        onChange={(e) => setBankBranchInput(e.target.value)}
+                        placeholder="e.g. Main Branch / SWIFT: CCEYLKLX / Routing: 021000021"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1715,12 +1461,12 @@ export default function SellerDashboardPage() {
                     {savingBankDetails ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Saving Bank Account...</span>
+                        <span>Saving Profile &amp; Bank Details...</span>
                       </>
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Save Bank Details</span>
+                        <span>Save Profile &amp; Bank Details</span>
                       </>
                     )}
                   </button>

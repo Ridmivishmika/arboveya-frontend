@@ -15,21 +15,38 @@ interface FooterProps {
 }
 
 export default function Footer({
-  facebookLink = "https://facebook.com/arboveya",
-  whatsAppNumber = "+94 70 602 6251",
+  facebookLink = "https://www.facebook.com/share/1DspKR2vtm/",
+  whatsAppNumber = "0717981355",
   email = "arboveya@gmail.com",
-  phone = "+94 71 798 1355",
-  address = "Arboveya, Thalaramba, Matara, Sri Lanka"
+  phone = "0717981355",
+  address = "Sri Lanka"
 }: FooterProps) {
   const pathname = usePathname();
   if (pathname?.startsWith('/seller') || pathname?.startsWith('/buyer') || pathname?.startsWith('/admin')) {
     return null;
   }
 
-  const effectiveFacebook = facebookLink || "https://facebook.com/arboveya";
-  const effectiveWhatsApp = whatsAppNumber || "+94 70 602 6251";
-  const cleanWhatsAppDigits = effectiveWhatsApp.replace(/[^0-9]/g, '');
-  const cleanPhoneDigits = (phone || '').replace(/[^0-9]/g, '');
+  const effectiveFacebook = !facebookLink || facebookLink === "https://facebook.com/arboveya"
+    ? "https://www.facebook.com/share/1DspKR2vtm/"
+    : facebookLink;
+  const effectiveWhatsApp = !whatsAppNumber || whatsAppNumber === "+94 70 602 6251" || whatsAppNumber === "+94771234567"
+    ? "0717981355"
+    : whatsAppNumber;
+  const effectivePhone = !phone || phone === "+94 71 798 1355"
+    ? "0717981355"
+    : phone;
+  const effectiveEmail = email || "arboveya@gmail.com";
+  const effectiveAddress = !address || address.includes("Thalaramba") || address.includes("Los Angeles")
+    ? "Sri Lanka"
+    : address;
+
+  // WhatsApp wa.me link requires country code (94 for Sri Lanka without leading zero)
+  const cleanDigits = effectiveWhatsApp.replace(/[^0-9]/g, '');
+  const waLinkDigits = cleanDigits.startsWith('0')
+    ? `94${cleanDigits.substring(1)}`
+    : cleanDigits.startsWith('94')
+    ? cleanDigits
+    : `94${cleanDigits}`;
 
   return (
     <footer className="bg-[#142d1a] text-white pt-14 pb-8 border-t border-[#204229]">
@@ -84,7 +101,7 @@ export default function Footer({
               {/* Chat on WhatsApp */}
               <div>
                 <a
-                  href={`https://wa.me/${cleanWhatsAppDigits || '94706026251'}`}
+                  href={`https://wa.me/${waLinkDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
@@ -100,12 +117,12 @@ export default function Footer({
               {/* Call Us Phone */}
               <div>
                 <a
-                  href={`tel:${cleanPhoneDigits ? `+${cleanPhoneDigits}` : '+94717981355'}`}
+                  href={`tel:${effectivePhone.replace(/[^0-9+]/g, '')}`}
                   className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
                 >
                   <Phone className="w-4 h-4 text-[#c5a66a] flex-shrink-0" />
                   <span className="font-medium">
-                    Call Us: <span className="text-white font-semibold">{phone}</span>
+                    Call Us: <span className="text-white font-semibold">{effectivePhone}</span>
                   </span>
                 </a>
               </div>
@@ -113,12 +130,12 @@ export default function Footer({
               {/* Email Us */}
               <div>
                 <a
-                  href={`mailto:${email}`}
+                  href={`mailto:${effectiveEmail}`}
                   className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
                 >
                   <Mail className="w-4 h-4 text-[#c5a66a] flex-shrink-0" />
                   <span className="font-medium">
-                    Email Us: <span className="text-white font-semibold">{email}</span>
+                    Email Us: <span className="text-white font-semibold">{effectiveEmail}</span>
                   </span>
                 </a>
               </div>
@@ -127,7 +144,7 @@ export default function Footer({
               <div className="flex items-start gap-2.5 pt-1.5 text-xs text-[#a3bda9]">
                 <MapPin className="w-4 h-4 text-[#c5a66a] flex-shrink-0 mt-0.5" />
                 <span className="text-[#b2c8b8] leading-relaxed">
-                  {address}
+                  {effectiveAddress}
                 </span>
               </div>
 
@@ -163,29 +180,6 @@ export default function Footer({
             </ul>
           </div>
 
-          {/* Newsletter Form */}
-          {/* <div className="space-y-3">
-            <h4 className="font-serif text-sm font-semibold tracking-[0.15em] text-[#e8dfc7] uppercase">
-              Stay Connected
-            </h4>
-            <p className="text-xs text-[#a8c2af] leading-relaxed">
-              Receive holistic herbal wisdom and exclusive wellness offers directly.
-            </p>
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full px-3 py-2 text-xs bg-[#1d3d25] border border-[#2f5d3a] rounded-sm text-white placeholder-[#789680] focus:outline-none focus:border-[#d4af37]"
-              />
-              <button
-                type="submit"
-                className="w-full py-2 bg-[#2d5c36] hover:bg-[#386e42] text-[#f4efe0] text-xs font-bold tracking-[0.12em] rounded-sm transition-colors uppercase cursor-pointer"
-              >
-                Subscribe
-              </button>
-            </form>
-          </div> */}
-
         </div>
 
         {/* Bottom Copyright, Powered by Vian Tech & Policies */}
@@ -194,7 +188,15 @@ export default function Footer({
             <p>© {new Date().getFullYear()} Arboveya. All Rights Reserved.</p>
             <span className="hidden sm:inline text-[#2d5236]">•</span>
             <p className="text-[#a3bda9]">
-              Powered by <span className="font-semibold text-[#e8dfc7] tracking-wide">Vian Tech</span>
+              Powered by{" "}
+              <a
+                href="https://www.vian-tech.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#e8dfc7] hover:text-white underline underline-offset-2 decoration-[#c5a66a] transition-colors"
+              >
+                Vian Tech
+              </a>
             </p>
           </div>
 

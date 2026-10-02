@@ -4,8 +4,8 @@ export const fallbackSettings: SiteSettings = {
   id: 1,
   homePageHeroText: "Nature's Healing, Perfected",
   aboutUsContent: "Premium herbal wellness products crafted from nature's finest ingredients to support a healthier and balanced lifestyle.",
-  facebookLink: "https://facebook.com/arboveya",
-  whatsAppNumber: "+94 77 123 4567"
+  facebookLink: "https://www.facebook.com/share/1DspKR2vtm/",
+  whatsAppNumber: "0717981355"
 };
 
 export const wellnessNeeds: WellnessNeed[] = [

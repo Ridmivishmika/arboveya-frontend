@@ -76,7 +76,7 @@ function LoginForm() {
         } else if (selectedRole === 'Seller' || profile?.role === 'Seller') {
           router.push('/seller');
         } else {
-          router.push('/buyer');
+          router.push('/');
         }
       }, 800);
     } catch (err: any) {

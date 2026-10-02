@@ -7,11 +7,19 @@ export const dynamic = 'force-dynamic';
 export default async function ShopPage({
   searchParams
 }: {
-  searchParams?: Promise<{ category?: string; categoryId?: string; wellnessNeed?: string; need?: string }>;
+  searchParams?: Promise<{ 
+    category?: string; 
+    categoryId?: string; 
+    wellnessNeed?: string; 
+    need?: string;
+    q?: string;
+    search?: string;
+  }>;
 }) {
   const resolvedParams = searchParams ? await searchParams : {};
   const initialCategoryParam = resolvedParams.category || resolvedParams.categoryId || 'All Products';
   const initialWellnessNeedParam = resolvedParams.wellnessNeed || resolvedParams.need || 'All Wellness Needs';
+  const initialSearchQuery = resolvedParams.q || resolvedParams.search || '';
 
   const [products, categories, wellnessNeeds] = await Promise.all([
     getProducts(),
@@ -27,6 +35,7 @@ export default async function ShopPage({
         initialWellnessNeeds={wellnessNeeds}
         initialCategoryParam={initialCategoryParam}
         initialWellnessNeedParam={initialWellnessNeedParam}
+        initialSearchQuery={initialSearchQuery}
       />
     </Suspense>
   );

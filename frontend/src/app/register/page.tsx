@@ -112,7 +112,7 @@ function RegisterForm() {
         } else if (selectedRole === 'Seller') {
           router.push('/seller');
         } else {
-          router.push('/buyer');
+          router.push('/');
         }
       }, 1000);
     } catch (err: any) {
