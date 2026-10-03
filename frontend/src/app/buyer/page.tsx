@@ -979,6 +979,34 @@ export default function BuyerDashboardPage() {
           console.warn("Backend payment confirm notice:", e);
         }
 
+        // If PayHere SDK popup is active on window, trigger official PayHere payment modal
+        if (typeof window !== 'undefined' && (window as any).payhere && data.payHereDetails?.hash) {
+          try {
+            const pDetails = data.payHereDetails;
+            (window as any).payhere.startPayment({
+              sandbox: pDetails.sandbox,
+              merchant_id: pDetails.merchantId,
+              return_url: undefined,
+              cancel_url: undefined,
+              notify_url: pDetails.notifyUrl,
+              order_id: pDetails.orderId,
+              items: pDetails.items,
+              amount: Number(pDetails.amount).toFixed(2),
+              currency: pDetails.currency || 'USD',
+              hash: pDetails.hash,
+              first_name: pDetails.firstName,
+              last_name: pDetails.lastName,
+              email: pDetails.email,
+              phone: pDetails.phone,
+              address: pDetails.address,
+              city: pDetails.city,
+              country: pDetails.country
+            });
+          } catch (pe) {
+            console.warn("PayHere startPayment notice:", pe);
+          }
+        }
+
         orderRecord = {
           ...data,
           customerName: data.customerName || payload.customerName,

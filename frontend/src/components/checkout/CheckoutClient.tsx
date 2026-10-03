@@ -15,13 +15,22 @@ import {
   ShieldCheck, 
   User,
   AlertCircle,
-  CreditCard,
-  Calendar,
   Banknote
 } from 'lucide-react';
 import { resolveBackendImageUrl } from '@/lib/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api";
+
+declare global {
+  interface Window {
+    payhere?: {
+      startPayment: (payment: any) => void;
+      onCompleted?: (orderId: string) => void;
+      onDismissed?: () => void;
+      onError?: (error: string) => void;
+    };
+  }
+}
 
 export default function CheckoutClient() {
   const { user, loading: authLoading } = useAuth();
@@ -45,45 +54,12 @@ export default function CheckoutClient() {
   const [city, setCity] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'payhere' | 'cod' | 'paypal' | 'card'>('payhere');
+  const [payHereMode, setPayHereMode] = useState<'popup' | 'redirect'>('popup');
   const [agreed, setAgreed] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Card Payment Details State
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardHolder, setCardHolder] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
-
-  // Card detection helper
-  const detectCardBrand = (num: string): 'visa' | 'mastercard' | 'amex' | 'discover' | 'generic' => {
-    const clean = num.replace(/\D/g, '');
-    if (/^4/.test(clean)) return 'visa';
-    if (/^(5[1-5]|2[2-7])/.test(clean)) return 'mastercard';
-    if (/^3[47]/.test(clean)) return 'amex';
-    if (/^(6011|65|64[4-9])/.test(clean)) return 'discover';
-    return 'generic';
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
-    const formatted = raw.replace(/(\d{4})(?=\d)/g, '$1 ');
-    setCardNumber(formatted);
-  };
-
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let raw = e.target.value.replace(/\D/g, '').slice(0, 4);
-    if (raw.length >= 3) {
-      raw = `${raw.slice(0, 2)}/${raw.slice(2)}`;
-    }
-    setCardExpiry(raw);
-  };
-
-  const handleCvcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
-    setCardCvc(raw);
-  };
+  const [cancelNotice, setCancelNotice] = useState<string | null>(null);
 
   // Auto pre-populate user details when authenticated
   useEffect(() => {
@@ -91,9 +67,6 @@ export default function CheckoutClient() {
       const uName = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim();
       if (!fullName) {
         setFullName(uName);
-      }
-      if (!cardHolder) {
-        setCardHolder(uName);
       }
       if (!email) {
         setEmail(user.email || '');
@@ -112,6 +85,64 @@ export default function CheckoutClient() {
       }
     }
   }, [user]);
+
+  // Check for PayHere redirect return / cancel URL query params
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const status = params.get('status');
+      const orderId = params.get('order_id');
+      if (status === 'cancel') {
+        setCancelNotice('Your PayHere payment session was cancelled. You can retry anytime.');
+      } else if (status === 'success' && orderId) {
+        setOrderSuccess({
+          payHereOrderId: orderId,
+          paymentStatus: 'Paid',
+          paymentMethodName: 'PayHere Secure Gateway (Redirect Mode)'
+        });
+        clearCart();
+      }
+    }
+  }, [clearCart]);
+
+  // PayHere Checkout API Form Redirect Helper
+  const submitPayHereRedirect = (details: any) => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = details.actionUrl || (details.sandbox ? 'https://sandbox.payhere.lk/pay/checkout' : 'https://www.payhere.lk/pay/checkout');
+
+    const fields: Record<string, any> = {
+      merchant_id: details.merchantId,
+      return_url: details.returnUrl || `${window.location.origin}/checkout?status=success&order_id=${details.orderId}`,
+      cancel_url: details.cancelUrl || `${window.location.origin}/checkout?status=cancel`,
+      notify_url: details.notifyUrl || '',
+      first_name: details.firstName,
+      last_name: details.lastName,
+      email: details.email,
+      phone: details.phone,
+      address: details.address,
+      city: details.city,
+      country: details.country,
+      order_id: details.orderId,
+      items: details.items,
+      currency: details.currency || 'USD',
+      amount: Number(details.amount).toFixed(2),
+      hash: details.hash
+    };
+
+    Object.entries(fields).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = k;
+        inp.value = String(v);
+        form.appendChild(inp);
+      }
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+  };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,13 +167,33 @@ export default function CheckoutClient() {
       return;
     }
 
+    if (!fullName.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
     if (!phone.trim()) {
-      setError('Please enter your contact phone number.');
+      setError('Please enter your contact phone number (required by PayHere).');
       return;
     }
 
     if (!country.trim()) {
-      setError('Please enter your country.');
+      setError('Please enter your delivery country.');
+      return;
+    }
+
+    if (!address.trim()) {
+      setError('Please enter your delivery address.');
+      return;
+    }
+
+    if (!city.trim()) {
+      setError('Please enter your city.');
       return;
     }
 
@@ -151,39 +202,10 @@ export default function CheckoutClient() {
       return;
     }
 
-    // Card Details Validation for PayHere Gateway
-    const cleanNum = cardNumber.replace(/\s+/g, '');
-    if (cleanNum.length < 15 || cleanNum.length > 16) {
-      setError('Please enter a valid 15 or 16-digit credit/debit card number.');
-      return;
-    }
-    if (!cardHolder.trim()) {
-      setError('Please enter the name on your card.');
-      return;
-    }
-    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-      setError('Please enter a valid expiration date in MM/YY format.');
-      return;
-    }
-    const [expMonth, expYear] = cardExpiry.split('/').map(Number);
-    if (expMonth < 1 || expMonth > 12) {
-      setError('Please enter a valid expiration month (01-12).');
-      return;
-    }
-    const currentYear = new Date().getFullYear() % 100;
-    const currentMonth = new Date().getMonth() + 1;
-    if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-      setError('Your card expiration date has already passed.');
-      return;
-    }
-    if (cardCvc.length < 3 || cardCvc.length > 4) {
-      setError('Please enter a valid 3 or 4-digit CVV / CVC code from the back of your card.');
-      return;
-    }
-
     try {
       setPlacingOrder(true);
       setError(null);
+      setCancelNotice(null);
 
       const fullShippingAddress = [
         address.trim(),
@@ -220,74 +242,94 @@ export default function CheckoutClient() {
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const brand = detectCardBrand(cardNumber);
-        const cardLast4 = cardNumber.replace(/\s+/g, '').slice(-4);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setError(errorData.message || 'Failed to initialize order with server. Please try again.');
+        setPlacingOrder(false);
+        return;
+      }
 
-        // Confirm Payment with PayHere payment reference
+      const orderData = await res.json();
+      const details = orderData.payHereDetails;
+
+      if (!details || !details.hash) {
+        // Fallback demo confirmation if PayHere details missing
+        setOrderSuccess(orderData);
+        clearCart();
+        setPlacingOrder(false);
+        return;
+      }
+
+      // Check user preference for popup vs redirect
+      if (payHereMode === 'redirect' || typeof window === 'undefined' || !window.payhere) {
+        submitPayHereRedirect(details);
+        return;
+      }
+
+      // PayHere Onsite Popup SDK mode
+      window.payhere.onCompleted = async function onCompleted(completedOrderId: string) {
+        console.log('PayHere payment completed successfully. OrderID:', completedOrderId);
         try {
-          const confirmRes = await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
+          await fetch(`${API_BASE_URL}/orders/${orderData.id}/confirm-payment`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
             },
             body: JSON.stringify({ 
-              payHereOrderId: data.payHereOrderId, 
-              paymentId: `PAYHERE-${brand.toUpperCase()}-${cardLast4}-${Date.now()}` 
+              payHereOrderId: details.orderId, 
+              paymentId: completedOrderId 
             })
           });
-          if (confirmRes.ok) {
-            const confirmedData = await confirmRes.json();
-            setOrderSuccess({
-              ...confirmedData,
-              paymentMethodName: `PayHere Gateway (${brand.toUpperCase()} ending in •••• ${cardLast4})`,
-              cardBrand: brand,
-              cardLast4
-            });
-          } else {
-            setOrderSuccess({
-              ...data,
-              paymentStatus: 'Paid',
-              paymentMethodName: `PayHere Gateway (${brand.toUpperCase()} ending in •••• ${cardLast4})`,
-              cardBrand: brand,
-              cardLast4
-            });
-          }
         } catch (e) {
-          setOrderSuccess({
-            ...data,
-            paymentStatus: 'Paid',
-            paymentMethodName: `PayHere Gateway (${brand.toUpperCase()} ending in •••• ${cardLast4})`,
-            cardBrand: brand,
-            cardLast4
-          });
+          console.warn('Backend payment confirmation notice:', e);
         }
+
+        setOrderSuccess({
+          ...orderData,
+          paymentStatus: 'Paid',
+          paymentMethodName: `PayHere Gateway (Payment Ref: ${completedOrderId || details.orderId})`
+        });
         clearCart();
-        return;
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        setError(errorData.message || 'Failed to place order. Please try again.');
-      }
-    } catch (err) {
-      console.warn('Backend order call failed, providing local demo fallback:', err);
-      const demoOrder = {
-        id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
-        payHereOrderId: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
-        totalAmount: total,
-        customerName: fullName,
-        customerEmail: email,
-        customerPhone: phone.trim(),
-        shippingAddress: `${address}, ${city}, ${zipCode}, ${country}`,
-        paymentStatus: paymentMethod === 'cod' ? 'Pending (Cash on Delivery)' : 'Paid',
-        paymentMethodName: paymentMethod === 'card' 
-          ? `Card (ending in •••• ${cardNumber.replace(/\s+/g, '').slice(-4) || '4242'})`
-          : paymentMethod === 'paypal' ? 'PayPal Express' : 'Cash on Delivery'
+        setPlacingOrder(false);
       };
-      setOrderSuccess(demoOrder);
-      clearCart();
-    } finally {
+
+      window.payhere.onDismissed = function onDismissed() {
+        console.log('PayHere popup dismissed');
+        setCancelNotice('PayHere checkout popup was dismissed. You can reopen it or switch to redirect mode whenever you are ready.');
+        setPlacingOrder(false);
+      };
+
+      window.payhere.onError = function onError(payhereErr: string) {
+        console.error('PayHere error:', payhereErr);
+        setError(`PayHere Error: ${payhereErr}. If the popup is blocked, please select "Hosted Checkout Redirect".`);
+        setPlacingOrder(false);
+      };
+
+      const paymentObj = {
+        sandbox: details.sandbox,
+        merchant_id: details.merchantId,
+        return_url: undefined, // Must be undefined for popup mode per PayHere docs
+        cancel_url: undefined, // Must be undefined for popup mode per PayHere docs
+        notify_url: details.notifyUrl,
+        order_id: details.orderId,
+        items: details.items,
+        amount: Number(details.amount).toFixed(2),
+        currency: details.currency || 'USD',
+        hash: details.hash,
+        first_name: details.firstName,
+        last_name: details.lastName,
+        email: details.email,
+        phone: details.phone,
+        address: details.address,
+        city: details.city,
+        country: details.country
+      };
+
+      window.payhere.startPayment(paymentObj);
+    } catch (err) {
+      console.warn('Checkout order submission error:', err);
+      setError('An unexpected error occurred while placing your order. Please check your connection.');
       setPlacingOrder(false);
     }
   };
@@ -722,127 +764,71 @@ export default function CheckoutClient() {
                     </div>
                   </div>
 
-                  {/* Interactive Botanical Card Preview */}
-                  <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#1a3821] via-[#24492d] to-[#122818] p-4 text-white shadow-md">
-                    <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none" />
-                    <div className="absolute top-2 right-2 text-white/10 text-4xl font-serif select-none pointer-events-none">🌿</div>
-                    
-                    <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-2">
-                        {/* Golden Chip */}
-                        <div className="w-8 h-6 rounded bg-gradient-to-tr from-amber-400 to-amber-200 border border-amber-500/50 shadow-xs flex items-center justify-center">
-                          <div className="w-4 h-3 border border-amber-800/40 rounded-xs" />
-                        </div>
-                        {/* Contactless Icon */}
-                        <svg className="w-4 h-4 text-emerald-200/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-                          <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-                        </svg>
-                      </div>
-                      
-                      {/* Detected Brand Badge */}
-                      <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-white/15 border border-white/20 backdrop-blur-xs font-bold">
-                        {detectCardBrand(cardNumber).toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Card Number Display */}
-                    <div className="font-mono text-sm sm:text-base tracking-[0.18em] font-semibold text-emerald-50 mb-3">
-                      {cardNumber || '•••• •••• •••• ••••'}
-                    </div>
-
-                    {/* Cardholder & Expiry Row */}
-                    <div className="flex justify-between items-end text-[10px] uppercase tracking-wider text-emerald-100/80">
-                      <div>
-                        <div className="text-[8px] text-emerald-300/80 font-medium">Cardholder</div>
-                        <div className="font-semibold text-white tracking-normal truncate max-w-[170px]">
-                          {cardHolder || fullName || 'CUSTOMER NAME'}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[8px] text-emerald-300/80 font-medium">Expires</div>
-                        <div className="font-mono font-semibold text-white">
-                          {cardExpiry || 'MM/YY'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Input Fields */}
+                  {/* PayHere Checkout Mode Selector */}
                   <div className="space-y-3 pt-1">
-                    {/* Card Number */}
-                    <div>
-                      <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                        Card Number *
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={cardNumber}
-                          onChange={handleCardNumberChange}
-                          placeholder="4111 2222 3333 4444"
-                          maxLength={19}
-                          className="w-full pl-9 pr-12 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs"
-                        />
-                        <CreditCard className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-stone-500 uppercase">
-                          {detectCardBrand(cardNumber)}
-                        </span>
-                      </div>
+                    <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                      PayHere Checkout Experience
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setPayHereMode('popup')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          payHereMode === 'popup'
+                            ? 'border-[#24492d] bg-[#24492d]/5 ring-1 ring-[#24492d]'
+                            : 'border-stone-200 bg-white hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-[#1c3f24]">Onsite Popup Modal</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                            Recommended
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 leading-snug">
+                          Pay directly inside the secure PayHere modal without navigating away from Arboveya.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPayHereMode('redirect')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          payHereMode === 'redirect'
+                            ? 'border-[#24492d] bg-[#24492d]/5 ring-1 ring-[#24492d]'
+                            : 'border-stone-200 bg-white hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-[#1c3f24]">Hosted Page Redirect</span>
+                          <span className="text-[10px] bg-stone-100 text-stone-700 font-bold px-2 py-0.5 rounded-full">
+                            Standard
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 leading-snug">
+                          Redirects to the official PayHere gateway checkout page and returns upon completion.
+                        </p>
+                      </button>
                     </div>
 
-                    {/* Cardholder Name */}
-                    <div>
-                      <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                        Name on Card *
-                      </label>
-                      <input
-                        type="text"
-                        value={cardHolder}
-                        onChange={(e) => setCardHolder(e.target.value)}
-                        placeholder="e.g. John Doe"
-                        className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs"
-                      />
+                    {/* USD Foreign Customer Payout Feature Card */}
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-900 to-[#1c3f24] text-white space-y-1.5 shadow-sm">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
+                        <Banknote className="w-4 h-4" />
+                        <span>Direct USD Foreign Payouts Support</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-100/90 leading-relaxed">
+                        Foreign customer payments are collected securely in <strong>USD ($)</strong> and settled directly into our USD Bank Account without LKR conversion losses.
+                      </p>
                     </div>
 
-                    {/* Expiry & CVV */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                          Expiry Date (MM/YY) *
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={cardExpiry}
-                            onChange={handleExpiryChange}
-                            placeholder="MM/YY"
-                            maxLength={5}
-                            className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs text-center"
-                          />
-                          <Calendar className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                          Security CVV *
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="password"
-                            inputMode="numeric"
-                            value={cardCvc}
-                            onChange={handleCvcChange}
-                            placeholder="123"
-                            maxLength={4}
-                            className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs text-center"
-                          />
-                          <Lock className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
+                    {/* Secure Handled Notice */}
+                    <div className="p-2.5 rounded-lg bg-stone-50 border border-stone-200 text-[11px] text-stone-600 flex items-start gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                      <span>
+                        Your card and payment credentials (Card No, CVV, OTP) are processed directly within PayHere’s secure PCI-DSS Level 1 environment. Arboveya never stores your raw card data.
+                      </span>
                     </div>
                   </div>
 
@@ -909,6 +895,14 @@ export default function CheckoutClient() {
               </span>
             </label>
 
+            {/* Cancel Notice from PayHere */}
+            {cancelNotice && (
+              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <span>{cancelNotice}</span>
+              </div>
+            )}
+
             {/* Place Order Button */}
             <button
               type="submit"
@@ -918,8 +912,10 @@ export default function CheckoutClient() {
               <Lock className="w-4 h-4" />
               <span>
                 {placingOrder 
-                  ? 'PROCESSING PAYHERE TRANSACTION...' 
-                  : `PAY $${total.toFixed(2)} WITH PAYHERE`}
+                  ? 'COMMUNICATING WITH PAYHERE...' 
+                  : payHereMode === 'redirect'
+                  ? `REDIRECT TO PAYHERE ($${total.toFixed(2)} USD)`
+                  : `PAY $${total.toFixed(2)} USD WITH PAYHERE`}
               </span>
             </button>
 

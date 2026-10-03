@@ -52,7 +52,7 @@ export default async function RootLayout({
         </CartProvider>
         </AuthProvider>
         <Script
-          src="https://www.payhere.lk/lib/payhere.js"
+          src="https://www.payhere.lk/lib/payhere-2.0.js"
           strategy="afterInteractive"
         />
       </body>
