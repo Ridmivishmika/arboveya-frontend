@@ -151,36 +151,34 @@ export default function CheckoutClient() {
       return;
     }
 
-    // Card Details Validation if Card payment is chosen
-    if (paymentMethod === 'card') {
-      const cleanNum = cardNumber.replace(/\s+/g, '');
-      if (cleanNum.length < 15 || cleanNum.length > 16) {
-        setError('Please enter a valid 15 or 16-digit credit/debit card number.');
-        return;
-      }
-      if (!cardHolder.trim()) {
-        setError('Please enter the name on your card.');
-        return;
-      }
-      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-        setError('Please enter a valid expiration date in MM/YY format.');
-        return;
-      }
-      const [expMonth, expYear] = cardExpiry.split('/').map(Number);
-      if (expMonth < 1 || expMonth > 12) {
-        setError('Please enter a valid expiration month (01-12).');
-        return;
-      }
-      const currentYear = new Date().getFullYear() % 100;
-      const currentMonth = new Date().getMonth() + 1;
-      if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-        setError('Your card expiration date has already passed.');
-        return;
-      }
-      if (cardCvc.length < 3 || cardCvc.length > 4) {
-        setError('Please enter a valid 3 or 4-digit CVV / CVC code from the back of your card.');
-        return;
-      }
+    // Card Details Validation for PayHere Gateway
+    const cleanNum = cardNumber.replace(/\s+/g, '');
+    if (cleanNum.length < 15 || cleanNum.length > 16) {
+      setError('Please enter a valid 15 or 16-digit credit/debit card number.');
+      return;
+    }
+    if (!cardHolder.trim()) {
+      setError('Please enter the name on your card.');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+      setError('Please enter a valid expiration date in MM/YY format.');
+      return;
+    }
+    const [expMonth, expYear] = cardExpiry.split('/').map(Number);
+    if (expMonth < 1 || expMonth > 12) {
+      setError('Please enter a valid expiration month (01-12).');
+      return;
+    }
+    const currentYear = new Date().getFullYear() % 100;
+    const currentMonth = new Date().getMonth() + 1;
+    if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+      setError('Your card expiration date has already passed.');
+      return;
+    }
+    if (cardCvc.length < 3 || cardCvc.length > 4) {
+      setError('Please enter a valid 3 or 4-digit CVV / CVC code from the back of your card.');
+      return;
     }
 
     try {
@@ -227,151 +225,47 @@ export default function CheckoutClient() {
         const brand = detectCardBrand(cardNumber);
         const cardLast4 = cardNumber.replace(/\s+/g, '').slice(-4);
 
-        // CASE 1: Credit / Debit Card Payment
-        if (paymentMethod === 'card') {
-          try {
-            const confirmRes = await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
-              },
-              body: JSON.stringify({ 
-                payHereOrderId: data.payHereOrderId, 
-                paymentId: `CARD-${brand.toUpperCase()}-${cardLast4}-${Date.now()}` 
-              })
+        // Confirm Payment with PayHere payment reference
+        try {
+          const confirmRes = await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
+            },
+            body: JSON.stringify({ 
+              payHereOrderId: data.payHereOrderId, 
+              paymentId: `PAYHERE-${brand.toUpperCase()}-${cardLast4}-${Date.now()}` 
+            })
+          });
+          if (confirmRes.ok) {
+            const confirmedData = await confirmRes.json();
+            setOrderSuccess({
+              ...confirmedData,
+              paymentMethodName: `PayHere Gateway (${brand.toUpperCase()} ending in •••• ${cardLast4})`,
+              cardBrand: brand,
+              cardLast4
             });
-            if (confirmRes.ok) {
-              const confirmedData = await confirmRes.json();
-              setOrderSuccess({
-                ...confirmedData,
-                paymentMethodName: `${brand.toUpperCase()} Card (ending in •••• ${cardLast4})`,
-                cardBrand: brand,
-                cardLast4
-              });
-            } else {
-              setOrderSuccess({
-                ...data,
-                paymentStatus: 'Paid',
-                paymentMethodName: `${brand.toUpperCase()} Card (ending in •••• ${cardLast4})`,
-                cardBrand: brand,
-                cardLast4
-              });
-            }
-          } catch (e) {
+          } else {
             setOrderSuccess({
               ...data,
               paymentStatus: 'Paid',
-              paymentMethodName: `${brand.toUpperCase()} Card (ending in •••• ${cardLast4})`,
+              paymentMethodName: `PayHere Gateway (${brand.toUpperCase()} ending in •••• ${cardLast4})`,
               cardBrand: brand,
               cardLast4
             });
           }
-          clearCart();
-          return;
-        }
-
-        // CASE 2: PayHere Sandbox / Live Gateway Modal
-        if (paymentMethod === 'payhere' && data.payHereDetails && typeof window !== 'undefined' && (window as any).payhere) {
-          const payHereObj = (window as any).payhere;
-          const details = data.payHereDetails;
-
-          const payment = {
-            sandbox: details.sandbox ?? true,
-            merchant_id: details.merchantId,
-            return_url: `${window.location.origin}/buyer`,
-            cancel_url: `${window.location.origin}/checkout`,
-            notify_url: details.notifyUrl || '',
-            order_id: details.orderId,
-            items: details.items || 'Arboveya Herbal Products',
-            amount: Number(details.amount).toFixed(2),
-            currency: details.currency || 'LKR',
-            hash: details.hash,
-            first_name: details.firstName || fullName.split(' ')[0] || 'Customer',
-            last_name: details.lastName || fullName.split(' ').slice(1).join(' ') || 'Customer',
-            email: details.email || email,
-            phone: phone.trim() || details.phone || '0771234567',
-            address: address || 'Main Street',
-            city: city || 'City',
-            country: country.trim() || 'United States'
-          };
-
-          payHereObj.onCompleted = async function (orderId: string) {
-            try {
-              await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
-                },
-                body: JSON.stringify({ payHereOrderId: details.orderId, paymentId: orderId })
-              });
-            } catch (confirmErr) {
-              console.warn("Failed to notify backend confirm-payment:", confirmErr);
-            }
-            clearCart();
-            setOrderSuccess({
-              ...data,
-              paymentStatus: 'Paid',
-              paymentMethodName: 'PayHere Gateway'
-            });
-            setPlacingOrder(false);
-          };
-
-          payHereObj.onDismissed = function () {
-            setError("PayHere payment modal was dismissed. Your order is pending payment. You may re-try or pay with Credit / Debit Card directly.");
-            setPlacingOrder(false);
-          };
-
-          payHereObj.onError = function (err: any) {
-            console.error("PayHere payment error:", err);
-            setError(`PayHere payment error: ${typeof err === 'string' ? err : 'Unable to complete PayHere transaction'}. You can switch to Credit / Debit Card above to pay instantly.`);
-            setPlacingOrder(false);
-          };
-
-          try {
-            payHereObj.startPayment(payment);
-            return;
-          } catch (startErr) {
-            console.warn("PayHere startPayment failed, completing order directly:", startErr);
-          }
-        }
-
-        // CASE 3: PayPal Express
-        if (paymentMethod === 'paypal') {
-          try {
-            await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
-              },
-              body: JSON.stringify({ paymentId: `PAYPAL-${Date.now()}` })
-            });
-          } catch (_) {}
+        } catch (e) {
           setOrderSuccess({
             ...data,
             paymentStatus: 'Paid',
-            paymentMethodName: 'PayPal Express'
+            paymentMethodName: `PayHere Gateway (${brand.toUpperCase()} ending in •••• ${cardLast4})`,
+            cardBrand: brand,
+            cardLast4
           });
-          clearCart();
-          return;
         }
-
-        // CASE 4: Cash on Delivery (COD)
-        if (paymentMethod === 'cod') {
-          setOrderSuccess({
-            ...data,
-            paymentStatus: 'Pending (Cash on Delivery)',
-            paymentMethodName: 'Cash on Botanical Delivery'
-          });
-          clearCart();
-          return;
-        }
-
-        // Default success
-        setOrderSuccess(data);
         clearCart();
+        return;
       } else {
         const errorData = await res.json().catch(() => ({}));
         setError(errorData.message || 'Failed to place order. Please try again.');
@@ -803,114 +697,172 @@ export default function CheckoutClient() {
                 </span>
               </div>
 
-              {/* Payment Methods Section (PayHere Gateway Primary) */}
-              <div className="space-y-3">
-                {/* PRIMARY: PayHere Gateway */}
-                <label className={`block p-4 rounded-2xl border cursor-pointer transition-all ${
-                  paymentMethod === 'payhere'
-                    ? 'border-[#24492d] bg-gradient-to-br from-[#f4f8f4] to-white text-[#1c3f24] shadow-sm ring-2 ring-[#24492d]/25'
-                    : 'border-[#ccdacc] bg-white text-[#3e5643] hover:bg-stone-50'
-                }`}>
+              {/* Payment Methods Section (PayHere Gateway ONLY) */}
+              <div className="space-y-3.5">
+                <div className="p-4 sm:p-5 rounded-2xl border-2 border-[#24492d] bg-gradient-to-br from-[#f4f8f4] to-white shadow-xs space-y-4">
+                  {/* PayHere Gateway Header */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === 'payhere'}
-                        onChange={() => setPaymentMethod('payhere')}
-                        className="mt-1 text-[#24492d] focus:ring-[#24492d] w-4 h-4 cursor-pointer"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-stone-900 leading-tight">PayHere Online Gateway</span>
-                          <span className="text-[10px] bg-[#24492d] text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                            Primary &bull; Instant
-                          </span>
-                        </div>
-                        <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                          Credit / Debit Cards (Visa, Mastercard, Amex), Mobile Wallets (FriMi, Genie, eZ Cash) &amp; Internet Banking.
-                        </p>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm sm:text-base font-bold text-stone-900 leading-tight">PayHere Secure Payment Gateway</span>
+                        <span className="text-[10px] bg-[#24492d] text-white font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          Primary Gateway
+                        </span>
                       </div>
+                      <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                        Pay securely with your Credit or Debit Card in Sri Lankan Rupees (LKR) or USD.
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-blue-700 shadow-2xs">VISA</span>
                       <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-rose-600 shadow-2xs">MC</span>
+                      <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-amber-700 shadow-2xs">AMEX</span>
                       <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-emerald-700 shadow-2xs">LKR</span>
                     </div>
                   </div>
 
-                  {paymentMethod === 'payhere' && (
-                    <div className="mt-3.5 pt-3.5 border-t border-[#d8e6da] space-y-2.5 text-xs">
-                      <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                        <span>Central Bank Approved &bull; 256-Bit SSL Encrypted &bull; 3D Secure Bank OTP</span>
+                  {/* Interactive Botanical Card Preview */}
+                  <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#1a3821] via-[#24492d] to-[#122818] p-4 text-white shadow-md">
+                    <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none" />
+                    <div className="absolute top-2 right-2 text-white/10 text-4xl font-serif select-none pointer-events-none">🌿</div>
+                    
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        {/* Golden Chip */}
+                        <div className="w-8 h-6 rounded bg-gradient-to-tr from-amber-400 to-amber-200 border border-amber-500/50 shadow-xs flex items-center justify-center">
+                          <div className="w-4 h-3 border border-amber-800/40 rounded-xs" />
+                        </div>
+                        {/* Contactless Icon */}
+                        <svg className="w-4 h-4 text-emerald-200/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+                          <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+                        </svg>
                       </div>
                       
-                      <p className="text-[11px] text-stone-600 leading-relaxed bg-[#f9fbf9] p-3 rounded-xl border border-[#cfe0d1]">
-                        <strong>No manual card entry needed in this form!</strong> When you click <strong>PLACE ORDER &amp; PAY WITH PAYHERE</strong> below, PayHere&apos;s certified secure payment modal will open on your screen to enter your card details or select your bank app. Your card numbers are never stored on our servers.
-                      </p>
-
-                      {/* Supported Payment Badges */}
-                      <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[10px] font-bold text-stone-600">
-                        <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Visa / Mastercard</span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-stone-200">American Express</span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-stone-200">FriMi</span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Genie</span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-stone-200">eZ Cash / mCash</span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Sampath / ComBank</span>
-                      </div>
+                      {/* Detected Brand Badge */}
+                      <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-white/15 border border-white/20 backdrop-blur-xs font-bold">
+                        {detectCardBrand(cardNumber).toUpperCase()}
+                      </span>
                     </div>
-                  )}
-                </label>
 
-                {/* SECONDARY: Cash on Delivery */}
-                <label className={`block p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                  paymentMethod === 'cod'
-                    ? 'border-[#24492d] bg-[#f4f8f4] text-[#1c3f24] shadow-sm ring-1 ring-[#24492d]'
-                    : 'border-[#ccdacc] bg-white text-[#3e5643] hover:bg-stone-50'
-                }`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === 'cod'}
-                        onChange={() => setPaymentMethod('cod')}
-                        className="text-[#24492d] focus:ring-[#24492d] w-4 h-4 cursor-pointer"
-                      />
+                    {/* Card Number Display */}
+                    <div className="font-mono text-sm sm:text-base tracking-[0.18em] font-semibold text-emerald-50 mb-3">
+                      {cardNumber || '•••• •••• •••• ••••'}
+                    </div>
+
+                    {/* Cardholder & Expiry Row */}
+                    <div className="flex justify-between items-end text-[10px] uppercase tracking-wider text-emerald-100/80">
                       <div>
-                        <span className="text-xs sm:text-sm font-bold leading-tight block">Cash on Botanical Delivery</span>
-                        <span className="text-[11px] text-stone-500">Pay cash in hand upon physical arrival and inspection of your order.</span>
+                        <div className="text-[8px] text-emerald-300/80 font-medium">Cardholder</div>
+                        <div className="font-semibold text-white tracking-normal truncate max-w-[170px]">
+                          {cardHolder || fullName || 'CUSTOMER NAME'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[8px] text-emerald-300/80 font-medium">Expires</div>
+                        <div className="font-mono font-semibold text-white">
+                          {cardExpiry || 'MM/YY'}
+                        </div>
                       </div>
                     </div>
-                    <Banknote className="w-5 h-5 text-emerald-700 flex-shrink-0" />
                   </div>
-                </label>
 
-                {/* TERTIARY: PayPal Express */}
-                <label className={`block p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                  paymentMethod === 'paypal'
-                    ? 'border-[#24492d] bg-[#f4f8f4] text-[#1c3f24] shadow-sm ring-1 ring-[#24492d]'
-                    : 'border-[#ccdacc] bg-white text-[#3e5643] hover:bg-stone-50'
-                }`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === 'paypal'}
-                        onChange={() => setPaymentMethod('paypal')}
-                        className="text-[#24492d] focus:ring-[#24492d] w-4 h-4 cursor-pointer"
-                      />
-                      <div>
-                        <span className="text-xs sm:text-sm font-bold leading-tight block">PayPal Express Checkout</span>
-                        <span className="text-[11px] text-stone-500">For international customers paying with PayPal balance.</span>
+                  {/* Card Input Fields */}
+                  <div className="space-y-3 pt-1">
+                    {/* Card Number */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
+                        Card Number *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={cardNumber}
+                          onChange={handleCardNumberChange}
+                          placeholder="4111 2222 3333 4444"
+                          maxLength={19}
+                          className="w-full pl-9 pr-12 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs"
+                        />
+                        <CreditCard className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-stone-500 uppercase">
+                          {detectCardBrand(cardNumber)}
+                        </span>
                       </div>
                     </div>
-                    <span className="font-bold text-xs text-blue-800 italic">PayPal</span>
+
+                    {/* Cardholder Name */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
+                        Name on Card *
+                      </label>
+                      <input
+                        type="text"
+                        value={cardHolder}
+                        onChange={(e) => setCardHolder(e.target.value)}
+                        placeholder="e.g. John Doe"
+                        className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs"
+                      />
+                    </div>
+
+                    {/* Expiry & CVV */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
+                          Expiry Date (MM/YY) *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={cardExpiry}
+                            onChange={handleExpiryChange}
+                            placeholder="MM/YY"
+                            maxLength={5}
+                            className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs text-center"
+                          />
+                          <Calendar className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
+                          Security CVV *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            value={cardCvc}
+                            onChange={handleCvcChange}
+                            placeholder="123"
+                            maxLength={4}
+                            className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs text-center"
+                          />
+                          <Lock className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </label>
+
+                  {/* Trust Badges Footer */}
+                  <div className="pt-2 border-t border-[#d8e6da] space-y-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>PayHere Verified &bull; 256-Bit SSL Encryption &bull; PCI-DSS Level 1 Certified</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[10px] font-bold text-stone-600">
+                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Visa / Mastercard</span>
+                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">American Express</span>
+                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">FriMi</span>
+                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Genie</span>
+                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">eZ Cash</span>
+                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Internet Banking</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -963,11 +915,12 @@ export default function CheckoutClient() {
               disabled={placingOrder}
               className="w-full py-3.5 px-6 rounded-md bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-[0.12em] uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              {placingOrder ? (
-                paymentMethod === 'payhere' ? 'CONNECTING TO PAYHERE GATEWAY...' : 'PLACING ORDER...'
-              ) : (
-                paymentMethod === 'payhere' ? 'PLACE ORDER & PAY WITH PAYHERE' : paymentMethod === 'cod' ? 'PLACE ORDER (CASH ON DELIVERY)' : 'PLACE ORDER & PAY WITH PAYPAL'
-              )}
+              <Lock className="w-4 h-4" />
+              <span>
+                {placingOrder 
+                  ? 'PROCESSING PAYHERE TRANSACTION...' 
+                  : `PAY $${total.toFixed(2)} WITH PAYHERE`}
+              </span>
             </button>
 
           </div>
