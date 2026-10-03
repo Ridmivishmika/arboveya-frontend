@@ -23,7 +23,10 @@ import {
   LogIn,
   Building2,
   CreditCard,
-  Edit3
+  Edit3,
+  X,
+  Copy,
+  Check
 } from 'lucide-react';
 import ProfileModal from '@/components/profile/ProfileModal';
 
@@ -59,10 +62,20 @@ export default function ProfilePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
+  const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
+
+  const handleCopyTracking = (tracking: string) => {
+    if (!tracking) return;
+    navigator.clipboard.writeText(tracking);
+    setCopiedTracking(tracking);
+    setTimeout(() => {
+      setCopiedTracking(null);
+    }, 2500);
+  };
 
   const handleSignOut = () => {
-    logout();
-    window.location.replace('/');
+    logout('/');
   };
 
   useEffect(() => {
@@ -267,13 +280,29 @@ export default function ProfilePage() {
                           </span>
                         </div>
 
-                        {order.trackingNumber && (
-                          <div className="mt-2 flex items-center gap-2 text-[11px] text-[#1c3f24] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        {order.trackingNumber ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTrackingOrder(order)}
+                            className="mt-2 flex items-center gap-2 text-[11px] text-[#1c3f24] bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg border border-emerald-200 cursor-pointer transition shadow-2xs"
+                            title="Click to view tracking details"
+                          >
                             <Truck className="w-3.5 h-3.5 text-emerald-700" />
                             <span>
                               <strong>{order.shippingCarrier || 'Courier'}:</strong> {order.trackingNumber}
                             </span>
-                          </div>
+                            <span className="text-[10px] text-emerald-800 underline font-semibold ml-1">Track &rarr;</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTrackingOrder(order)}
+                            className="mt-2 flex items-center gap-1.5 text-[11px] text-stone-600 hover:text-stone-900 bg-stone-50 hover:bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200 cursor-pointer transition"
+                            title="Check tracking status"
+                          >
+                            <Truck className="w-3 h-3 text-stone-400" />
+                            <span>Check Tracking</span>
+                          </button>
                         )}
                       </div>
 
@@ -444,6 +473,171 @@ export default function ProfilePage() {
         isOpen={profileModalOpen}
         onClose={() => setProfileModalOpen(false)}
       />
+
+      {/* Tracking Dialog Modal */}
+      {selectedTrackingOrder && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedTrackingOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-6">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#2E4D38] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 inline-block mb-1">
+                  Arboveya Delivery Tracking
+                </span>
+                <h3 className="text-lg font-serif font-bold text-stone-900 flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-[#2E4D38]" />
+                  <span>Shipment & Delivery Details</span>
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5 font-mono">
+                  Order Ref: {selectedTrackingOrder.payHereOrderId || selectedTrackingOrder.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTrackingOrder(null)}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tracking Status Card */}
+            <div className="p-4 rounded-2xl bg-[#f8faf8] border border-emerald-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Fulfillment Status</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>{selectedTrackingOrder.orderStatus || 'Processing'}</span>
+                  </span>
+                </div>
+                {selectedTrackingOrder.shippingCarrier && (
+                  <div className="text-right">
+                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Courier</span>
+                    <span className="text-xs font-bold text-stone-800">{selectedTrackingOrder.shippingCarrier}</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedTrackingOrder.trackingNumber ? (
+                <div className="pt-2 border-t border-emerald-100/70 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Tracking ID</span>
+                    <span className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
+                      {selectedTrackingOrder.trackingNumber}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyTracking(selectedTrackingOrder.trackingNumber!)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  >
+                    {copiedTracking === selectedTrackingOrder.trackingNumber ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy #</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-emerald-100/70 text-xs text-stone-600">
+                  <p>Your botanical wellness items are being prepared for dispatch. Tracking details will update automatically once scanned by the courier.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Stepper Progress */}
+            <div className="space-y-3 pt-1">
+              <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block">Shipping Journey</span>
+              
+              <div className="relative pl-6 space-y-4 border-l-2 border-stone-200">
+                <div className="relative">
+                  <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white">
+                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-stone-900">Order Placed & Confirmed</p>
+                    <p className="text-[11px] text-stone-500">
+                      {new Date(selectedTrackingOrder.createdAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full flex items-center justify-center ${
+                    selectedTrackingOrder.orderStatus === 'Shipped' || selectedTrackingOrder.orderStatus === 'Delivered' || selectedTrackingOrder.trackingNumber
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-stone-300'
+                  }`}>
+                    {selectedTrackingOrder.orderStatus === 'Shipped' || selectedTrackingOrder.orderStatus === 'Delivered' || selectedTrackingOrder.trackingNumber ? (
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-stone-900">
+                      Shipped with {selectedTrackingOrder.shippingCarrier || 'Courier Partner'}
+                    </p>
+                    <p className="text-[11px] text-stone-500">
+                      {selectedTrackingOrder.trackingNumber 
+                        ? `Waybill Tracking: ${selectedTrackingOrder.trackingNumber}` 
+                        : 'Awaiting dispatch scan'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full flex items-center justify-center ${
+                    selectedTrackingOrder.orderStatus === 'Delivered'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-stone-200'
+                  }`}>
+                    {selectedTrackingOrder.orderStatus === 'Delivered' ? (
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`text-xs font-bold ${selectedTrackingOrder.orderStatus === 'Delivered' ? 'text-emerald-800' : 'text-stone-400'}`}>
+                      Delivered to Customer
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedTrackingOrder(null)}
+                className="px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                Close Tracking
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

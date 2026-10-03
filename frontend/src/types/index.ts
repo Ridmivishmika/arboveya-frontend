@@ -147,6 +147,7 @@ export interface ProductReview {
   date: string;
   comment: string;
   verified?: boolean;
+  orderId?: string;
 }
 
 export interface PublicReviewInput {

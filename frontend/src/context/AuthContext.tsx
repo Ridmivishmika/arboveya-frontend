@@ -263,15 +263,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = (redirectTo?: string) => {
+  const logout = (redirectTo: string = '/') => {
     setUser(null);
     setToken(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('arboveya_user');
       localStorage.removeItem('arboveya_token');
-      if (redirectTo) {
-        window.location.replace(redirectTo);
-      }
+      window.location.replace(redirectTo || '/');
     }
   };
 

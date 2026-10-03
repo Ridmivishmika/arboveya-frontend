@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,8 @@ import {
   Clock, 
   CheckCircle2, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   User,
   LogOut,
   PenTool,
@@ -37,7 +39,15 @@ import {
   LogIn,
   AlertCircle,
   Globe,
-  Phone
+  Phone,
+  Search,
+  Copy,
+  Check,
+  Printer,
+  CreditCard,
+  Calendar,
+  Banknote,
+  ShieldCheck
 } from 'lucide-react';
 
 interface OrderItem {
@@ -47,10 +57,13 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  productImageUrl?: string;
 }
 
 interface BuyerReviewRecord {
   id: string;
+  orderId?: string;
+  orderRef?: string;
   productId: string;
   productName: string;
   rating: number;
@@ -102,6 +115,64 @@ export default function BuyerDashboardPage() {
   // Orders State
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [orderSearchTerm, setOrderSearchTerm] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'Processing' | 'Shipped' | 'Delivered'>('ALL');
+  const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
+  const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
+  const [selectedOrderReceipt, setSelectedOrderReceipt] = useState<Order | null>(null);
+  const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
+
+  const handleCopyTracking = (tracking: string) => {
+    if (!tracking) return;
+    navigator.clipboard.writeText(tracking);
+    setCopiedTracking(tracking);
+    setTimeout(() => {
+      setCopiedTracking(null);
+    }, 2500);
+  };
+
+  const toggleOrderExpanded = (orderId: string) => {
+    setExpandedOrderIds(prev => 
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const handleToggleAllOrders = (currentFiltered: Order[]) => {
+    if (expandedOrderIds.length === currentFiltered.length && currentFiltered.length > 0) {
+      setExpandedOrderIds([]);
+    } else {
+      setExpandedOrderIds(currentFiltered.map(o => o.id));
+    }
+  };
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      // Status filter
+      if (orderStatusFilter !== 'ALL') {
+        const status = (order.orderStatus || 'processing').toLowerCase();
+        if (orderStatusFilter === 'Delivered' && !status.includes('deliver')) return false;
+        if (orderStatusFilter === 'Shipped' && !status.includes('ship')) return false;
+        if (orderStatusFilter === 'Processing' && (status.includes('deliver') || status.includes('ship') || status.includes('cancel'))) return false;
+      }
+
+      // Search term filter
+      if (orderSearchTerm.trim()) {
+        const q = orderSearchTerm.toLowerCase();
+        const matchesId = (order.payHereOrderId || order.id || '').toLowerCase().includes(q);
+        const matchesTracking = (order.trackingNumber || '').toLowerCase().includes(q);
+        const matchesAddress = (order.shippingAddress || '').toLowerCase().includes(q);
+        const items = (order.items && order.items.length > 0) 
+          ? order.items 
+          : (order.orderItems && order.orderItems.length > 0) 
+          ? order.orderItems 
+          : [];
+        const matchesItem = items.some(item => (item.productName || '').toLowerCase().includes(q));
+        return matchesId || matchesTracking || matchesAddress || matchesItem;
+      }
+
+      return true;
+    });
+  }, [orders, orderStatusFilter, orderSearchTerm]);
 
   // Blogs State
   const [myBlogs, setMyBlogs] = useState<BlogPost[]>([]);
@@ -147,14 +218,18 @@ export default function BuyerDashboardPage() {
   };
 
   // Review Modal State
-  const [reviewModalProduct, setReviewModalProduct] = useState<{ id: string; name: string } | null>(null);
+  const [reviewModalProduct, setReviewModalProduct] = useState<{
+    id: string;
+    name: string;
+    orderId: string;
+    orderRef: string;
+  } | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewedProductIds, setReviewedProductIds] = useState<string[]>([]);
 
-  // Persistent buyer reviews for View / Edit / Delete
-  const [buyerReviews, setBuyerReviews] = useState<Record<string, BuyerReviewRecord>>({});
+  // Persistent buyer reviews mapped strictly by order: `${orderId}:::${productId}`
+  const [orderReviews, setOrderReviews] = useState<Record<string, BuyerReviewRecord>>({});
   const [viewingReview, setViewingReview] = useState<BuyerReviewRecord | null>(null);
   const [editingReview, setEditingReview] = useState<BuyerReviewRecord | null>(null);
   const [editRating, setEditRating] = useState(5);
@@ -175,6 +250,41 @@ export default function BuyerDashboardPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [buyerReviewsList, setBuyerReviewsList] = useState<BuyerReviewRecord[]>([]);
 
+  // Payment Method & Card Details State
+  const [paymentMethod, setPaymentMethod] = useState<'payhere' | 'cod' | 'paypal' | 'card'>('payhere');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+
+  const detectCardBrand = (num: string): 'visa' | 'mastercard' | 'amex' | 'discover' | 'generic' => {
+    const clean = num.replace(/\D/g, '');
+    if (/^4/.test(clean)) return 'visa';
+    if (/^(5[1-5]|2[2-7])/.test(clean)) return 'mastercard';
+    if (/^3[47]/.test(clean)) return 'amex';
+    if (/^(6011|65|64[4-9])/.test(clean)) return 'discover';
+    return 'generic';
+  };
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
+    const formatted = raw.replace(/(\d{4})(?=\d)/g, '$1 ');
+    setCardNumber(formatted);
+  };
+
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (raw.length >= 3) {
+      raw = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+    }
+    setCardExpiry(raw);
+  };
+
+  const handleCvcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setCardCvc(raw);
+  };
+
   // Fetch customer reviews directly from database
   const fetchBuyerReviews = async () => {
     const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
@@ -193,24 +303,49 @@ export default function BuyerDashboardPage() {
         if (Array.isArray(data)) {
           const map: Record<string, BuyerReviewRecord> = {};
           const list: BuyerReviewRecord[] = [];
+
+          // Local storage fallback for order-to-review mappings
+          let localOrderMap: Record<string, string> = {};
+          try {
+            const raw = localStorage.getItem(`arboveya_order_review_links_${user?.id || 'guest'}`);
+            if (raw) localOrderMap = JSON.parse(raw);
+          } catch (_) {}
+
           data.forEach((r: any) => {
             if (r.productId) {
-              const cleanComment = r.comment ? r.comment.replace(/^\[.*?\]\s*/, '') : '';
+              let extractedOrderId = r.orderId || localOrderMap[r.id] || null;
+              let rawComment = r.comment || '';
+
+              const orderTagMatch = rawComment.match(/^\[Order:([^\]]+)\]\s*/i);
+              if (orderTagMatch) {
+                extractedOrderId = extractedOrderId || orderTagMatch[1].trim();
+                rawComment = rawComment.substring(orderTagMatch[0].length).trim();
+              }
+
+              // Strip author bracket [Name] if present
+              const cleanComment = rawComment.replace(/^\[.*?\]\s*/, '').trim();
+
               const rec: BuyerReviewRecord = {
                 id: r.id,
+                orderId: extractedOrderId,
                 productId: r.productId,
                 productName: r.productName || 'Botanical Product',
                 rating: r.rating || 5,
                 comment: cleanComment,
                 createdAt: r.createdAt || new Date().toISOString()
               };
-              map[r.productId] = rec;
+
               list.push(rec);
+
+              if (extractedOrderId) {
+                const normKey = `${extractedOrderId.trim().toLowerCase()}:::${r.productId.trim().toLowerCase()}`;
+                map[`${extractedOrderId}:::${r.productId}`] = rec;
+                map[normKey] = rec;
+              }
             }
           });
-          setBuyerReviews(map);
+          setOrderReviews(map);
           setBuyerReviewsList(list);
-          setReviewedProductIds(Object.keys(map));
         }
       }
     } catch (e) {
@@ -225,7 +360,9 @@ export default function BuyerDashboardPage() {
   // Pre-fill shipping info from authenticated user
   useEffect(() => {
     if (user) {
-      setShippingFullName(user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim());
+      const uName = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      setShippingFullName(uName);
+      if (!cardHolder) setCardHolder(uName);
       setShippingEmail(user.email || '');
       if (user.phoneNumber) setShippingPhone(user.phoneNumber);
       if (user.address) setShippingAddress(user.address);
@@ -284,8 +421,7 @@ export default function BuyerDashboardPage() {
   };
 
   const handleSignOut = () => {
-    logout();
-    window.location.replace('/');
+    logout('/');
   };
 
   const fetchOrders = async () => {
@@ -494,9 +630,9 @@ export default function BuyerDashboardPage() {
     }
   };
 
-  // Review Handlers
-  const handleOpenReview = (productId: string, productName: string) => {
-    setReviewModalProduct({ id: productId, name: productName });
+  // Review Handlers (Explicitly bound to order)
+  const handleOpenReview = (productId: string, productName: string, orderId: string, orderRef: string) => {
+    setReviewModalProduct({ id: productId, name: productName, orderId, orderRef });
     setReviewRating(5);
     setReviewComment('');
   };
@@ -509,6 +645,11 @@ export default function BuyerDashboardPage() {
     try {
       const authorName = user?.fullName || `${user?.firstName || 'Verified'} ${user?.lastName || 'Buyer'}`.trim();
       const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+      const orderId = reviewModalProduct.orderId;
+      const orderRef = reviewModalProduct.orderRef;
+
+      // Prefix comment with order tag for persistence across all endpoints
+      const commentWithOrderTag = `[Order:${orderId}] ${reviewComment.trim()}`;
 
       const res = await fetch(`${API_BASE_URL}/products/${reviewModalProduct.id}/public-reviews`, {
         method: 'POST',
@@ -520,8 +661,9 @@ export default function BuyerDashboardPage() {
           authorName: authorName,
           userId: user?.id || null,
           userEmail: user?.email || null,
+          orderId: orderId,
           rating: reviewRating,
-          comment: reviewComment.trim()
+          comment: commentWithOrderTag
         })
       });
 
@@ -538,19 +680,40 @@ export default function BuyerDashboardPage() {
 
       const newRecord: BuyerReviewRecord = {
         id: createdId,
+        orderId: orderId,
+        orderRef: orderRef,
         productId: reviewModalProduct.id,
         productName: reviewModalProduct.name,
         rating: reviewRating,
-        comment: reviewComment.trim().replace(/^\[.*?\]\s*/, ''),
+        comment: reviewComment.trim(),
         createdAt: new Date().toISOString()
       };
 
-      setBuyerReviews(prev => ({ ...prev, [reviewModalProduct.id]: newRecord }));
-      setBuyerReviewsList(prev => [newRecord, ...prev.filter(r => r.productId !== reviewModalProduct.id && r.id !== newRecord.id)]);
-      setReviewedProductIds(prev => Array.from(new Set([...prev, reviewModalProduct.id])));
+      // Persist local order-to-review link in localStorage
+      try {
+        const storageKey = `arboveya_order_review_links_${user?.id || 'guest'}`;
+        const raw = localStorage.getItem(storageKey);
+        const map = raw ? JSON.parse(raw) : {};
+        map[createdId] = orderId;
+        localStorage.setItem(storageKey, JSON.stringify(map));
+      } catch (_) {}
+
+      // Update state strictly keyed by order + product
+      setOrderReviews(prev => {
+        const next = { ...prev };
+        next[`${orderId}:::${reviewModalProduct.id}`] = newRecord;
+        next[`${orderId.trim().toLowerCase()}:::${reviewModalProduct.id.trim().toLowerCase()}`] = newRecord;
+        if (orderRef) {
+          next[`${orderRef}:::${reviewModalProduct.id}`] = newRecord;
+          next[`${orderRef.trim().toLowerCase()}:::${reviewModalProduct.id.trim().toLowerCase()}`] = newRecord;
+        }
+        return next;
+      });
+
+      setBuyerReviewsList(prev => [newRecord, ...prev.filter(r => !(r.id === newRecord.id || (r.orderId === orderId && r.productId === reviewModalProduct.id)))]);
       setReviewModalProduct(null);
       setStatusMessage({
-        text: `Thank you! Your verified customer review for "${reviewModalProduct.name}" is now live immediately!`,
+        text: `Thank you! Your verified customer review for "${reviewModalProduct.name}" (Order #${orderRef}) is now published!`,
         type: 'success'
       });
 
@@ -563,27 +726,14 @@ export default function BuyerDashboardPage() {
     }
   };
 
-  const handleOpenViewReview = (productId: string, productName?: string, record?: BuyerReviewRecord) => {
-    const rev = record || buyerReviews[productId];
-    if (rev) {
-      setViewingReview({
-        ...rev,
-        productName: productName || rev.productName || 'Botanical Product',
-        comment: rev.comment ? rev.comment.replace(/^\[.*?\]\s*/, '') : ''
-      });
-    }
+  const handleOpenViewReview = (record: BuyerReviewRecord) => {
+    setViewingReview(record);
   };
 
-  const handleOpenEditReview = (productId: string, productName?: string, record?: BuyerReviewRecord) => {
-    const rev = record || buyerReviews[productId];
-    if (rev) {
-      setEditingReview({
-        ...rev,
-        productName: productName || rev.productName || 'Botanical Product'
-      });
-      setEditRating(rev.rating);
-      setEditComment(rev.comment ? rev.comment.replace(/^\[.*?\]\s*/, '') : '');
-    }
+  const handleOpenEditReview = (record: BuyerReviewRecord) => {
+    setEditingReview(record);
+    setEditRating(record.rating);
+    setEditComment(record.comment);
   };
 
   const handleUpdateReview = async (e: React.FormEvent) => {
@@ -595,8 +745,9 @@ export default function BuyerDashboardPage() {
     try {
       const authorName = user?.fullName || `${user?.firstName || 'Verified'} ${user?.lastName || 'Buyer'}`.trim();
       const cleanComment = editComment.trim().replace(/^\[.*?\]\s*/, '');
+      const orderTag = editingReview.orderId ? `[Order:${editingReview.orderId}] ` : '';
+      const commentWithOrder = `${orderTag}${cleanComment}`;
 
-      // 1. First try PUT to /api/reviews/{id}
       let res = await fetch(`${API_BASE_URL}/reviews/${editingReview.id}`, {
         method: 'PUT',
         headers: {
@@ -605,13 +756,13 @@ export default function BuyerDashboardPage() {
         },
         body: JSON.stringify({
           rating: editRating,
-          comment: cleanComment,
+          comment: commentWithOrder,
           authorName: authorName,
-          productId: editingReview.productId
+          productId: editingReview.productId,
+          orderId: editingReview.orderId
         })
       });
 
-      // 2. If PUT fails, fallback to public-reviews upsert
       if (!res.ok && editingReview.productId) {
         res = await fetch(`${API_BASE_URL}/products/${editingReview.productId}/public-reviews`, {
           method: 'POST',
@@ -623,8 +774,9 @@ export default function BuyerDashboardPage() {
             authorName: authorName,
             userId: user?.id || null,
             userEmail: user?.email || null,
+            orderId: editingReview.orderId,
             rating: editRating,
-            comment: cleanComment
+            comment: commentWithOrder
           })
         });
       }
@@ -642,9 +794,17 @@ export default function BuyerDashboardPage() {
         comment: cleanComment
       };
 
-      setBuyerReviews(prev => ({ ...prev, [editingReview.productId]: updatedRecord }));
+      const editOrderId = editingReview.orderId;
+      if (editOrderId) {
+        setOrderReviews(prev => ({
+          ...prev,
+          [`${editOrderId}:::${editingReview.productId}`]: updatedRecord,
+          [`${editOrderId.trim().toLowerCase()}:::${editingReview.productId.trim().toLowerCase()}`]: updatedRecord
+        }));
+      }
+
       setBuyerReviewsList(prev => {
-        const idx = prev.findIndex(r => r.id === updatedRecord.id || r.productId === updatedRecord.productId);
+        const idx = prev.findIndex(r => r.id === updatedRecord.id || (r.orderId === updatedRecord.orderId && r.productId === updatedRecord.productId));
         if (idx >= 0) {
           const next = [...prev];
           next[idx] = updatedRecord;
@@ -667,17 +827,15 @@ export default function BuyerDashboardPage() {
     }
   };
 
-  const handleDeleteReview = async (productId: string, productName?: string, reviewId?: string) => {
-    const targetName = productName || buyerReviews[productId]?.productName || 'this remedy';
+  const handleDeleteReview = async (record: BuyerReviewRecord) => {
+    const targetName = record.productName || 'this remedy';
     if (!confirm(`Are you sure you want to delete your review for "${targetName}"?`)) return;
 
-    const rev = buyerReviews[productId];
-    const targetId = reviewId || rev?.id;
     const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
 
-    if (targetId) {
+    if (record.id) {
       try {
-        await fetch(`${API_BASE_URL}/reviews/${targetId}`, {
+        await fetch(`${API_BASE_URL}/reviews/${record.id}`, {
           method: 'DELETE',
           headers: authToken ? { Authorization: 'Bearer ' + authToken } : {}
         });
@@ -686,14 +844,17 @@ export default function BuyerDashboardPage() {
       }
     }
 
-    setBuyerReviews(prev => {
-      const next = { ...prev };
-      delete next[productId];
-      return next;
-    });
+    const recOrderId = record.orderId;
+    if (recOrderId) {
+      setOrderReviews(prev => {
+        const next = { ...prev };
+        delete next[`${recOrderId}:::${record.productId}`];
+        delete next[`${recOrderId.trim().toLowerCase()}:::${record.productId.trim().toLowerCase()}`];
+        return next;
+      });
+    }
 
-    setBuyerReviewsList(prev => prev.filter(r => r.id !== targetId && r.productId !== productId));
-    setReviewedProductIds(prev => prev.filter(id => id !== productId));
+    setBuyerReviewsList(prev => prev.filter(r => r.id !== record.id));
     setStatusMessage({
       text: `Your review for "${targetName}" has been deleted.`,
       type: 'success'
@@ -712,6 +873,38 @@ export default function BuyerDashboardPage() {
     if (cart.length === 0) {
       setOrderError('Your shopping cart is empty.');
       return;
+    }
+
+    // Card Details Validation ONLY if direct Card payment is chosen
+    if (paymentMethod === 'card') {
+      const cleanNum = cardNumber.replace(/\s+/g, '');
+      if (cleanNum.length < 15 || cleanNum.length > 16) {
+        setOrderError('Please enter a valid 15 or 16-digit credit/debit card number.');
+        return;
+      }
+      if (!cardHolder.trim()) {
+        setOrderError('Please enter the name on your card.');
+        return;
+      }
+      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+        setOrderError('Please enter a valid card expiration date (MM/YY).');
+        return;
+      }
+      const [expMonth, expYear] = cardExpiry.split('/').map(Number);
+      if (expMonth < 1 || expMonth > 12) {
+        setOrderError('Please enter a valid expiration month (01-12).');
+        return;
+      }
+      const currentYear = new Date().getFullYear() % 100;
+      const currentMonth = new Date().getMonth() + 1;
+      if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+        setOrderError('Your card expiration date has already passed.');
+        return;
+      }
+      if (cardCvc.length < 3 || cardCvc.length > 4) {
+        setOrderError('Please enter a valid 3 or 4-digit CVV / CVC code.');
+        return;
+      }
     }
 
     try {
@@ -755,6 +948,9 @@ export default function BuyerDashboardPage() {
 
       if (res.ok) {
         const data = await res.json();
+        const brand = detectCardBrand(cardNumber);
+        const cardLast4 = cardNumber.replace(/\s+/g, '').slice(-4);
+
         const resolvedItems = (data.items && data.items.length > 0)
           ? data.items
           : (data.orderItems && data.orderItems.length > 0)
@@ -768,17 +964,118 @@ export default function BuyerDashboardPage() {
               totalPrice: item.product.price * item.quantity
             }));
 
+        const finalPaymentStatus = paymentMethod === 'cod' ? 'Pending (Cash on Delivery)' : paymentMethod === 'payhere' ? 'Pending (PayHere)' : 'Paid';
+
         orderRecord = {
           ...data,
           customerName: data.customerName || payload.customerName,
           shippingAddress: data.shippingAddress || payload.shippingAddress,
           totalAmount: data.totalAmount || total,
           orderStatus: data.orderStatus || 'Processing',
-          paymentStatus: data.paymentStatus || 'Paid',
+          paymentStatus: finalPaymentStatus,
           createdAt: data.createdAt || new Date().toISOString(),
           items: resolvedItems,
           orderItems: resolvedItems
         };
+
+        // PayHere Gateway Trigger via PayHere JavaScript SDK
+        if (paymentMethod === 'payhere' && data.payHereDetails && typeof window !== 'undefined' && (window as any).payhere) {
+          const payHereObj = (window as any).payhere;
+          const details = data.payHereDetails;
+
+          const payment = {
+            sandbox: details.sandbox ?? true,
+            merchant_id: details.merchantId,
+            return_url: `${window.location.origin}/buyer`,
+            cancel_url: `${window.location.origin}/buyer`,
+            notify_url: details.notifyUrl || '',
+            order_id: details.orderId,
+            items: details.items || 'Arboveya Herbal Products',
+            amount: Number(details.amount).toFixed(2),
+            currency: details.currency || 'LKR',
+            hash: details.hash,
+            first_name: details.firstName || shippingFullName.split(' ')[0] || user?.firstName || 'Customer',
+            last_name: details.lastName || shippingFullName.split(' ').slice(1).join(' ') || user?.lastName || 'Customer',
+            email: details.email || shippingEmail || user?.email || '',
+            phone: shippingPhone.trim() || details.phone || '0771234567',
+            address: shippingAddress || 'Main Street',
+            city: shippingCity || 'Colombo',
+            country: shippingCountry.trim() || 'Sri Lanka'
+          };
+
+          payHereObj.onCompleted = async function (orderId: string) {
+            try {
+              await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+                },
+                body: JSON.stringify({ payHereOrderId: details.orderId, paymentId: orderId })
+              });
+            } catch (confirmErr) {
+              console.warn("Failed to notify backend confirm-payment:", confirmErr);
+            }
+            orderRecord.paymentStatus = 'Paid';
+            setOrders(prev => [orderRecord, ...prev.filter(o => o.id !== orderRecord.id)]);
+            clearCart();
+            setActiveTab('orders');
+            setStatusMessage({
+              text: `Payment successful! Your order #${orderRecord.payHereOrderId || orderRecord.id} has been paid via PayHere and is now processing.`,
+              type: 'success'
+            });
+            await fetchOrders();
+          };
+
+          payHereObj.onDismissed = function () {
+            setPlacingOrder(false);
+            setOrders(prev => [orderRecord, ...prev.filter(o => o.id !== orderRecord.id)]);
+            clearCart();
+            setActiveTab('orders');
+            setStatusMessage({
+              text: `Order #${orderRecord.payHereOrderId || orderRecord.id} placed. You can complete your PayHere payment at any time from your orders list.`,
+              type: 'success'
+            });
+          };
+
+          payHereObj.onError = function (err: string) {
+            setPlacingOrder(false);
+            setOrderError(`PayHere payment error: ${err}`);
+          };
+
+          payHereObj.startPayment(payment);
+          return;
+        }
+
+        // Confirm Payment if paid via Card or PayPal
+        if (paymentMethod === 'card') {
+          try {
+            await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+              },
+              body: JSON.stringify({ 
+                payHereOrderId: data.payHereOrderId, 
+                paymentId: `CARD-${brand.toUpperCase()}-${cardLast4}-${Date.now()}` 
+              })
+            });
+          } catch (e) {
+            console.warn("Backend payment confirm notice:", e);
+          }
+        } else if (paymentMethod === 'paypal') {
+          try {
+            await fetch(`${API_BASE_URL}/orders/${data.id}/confirm-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+              },
+              body: JSON.stringify({ paymentId: `PAYPAL-${Date.now()}` })
+            });
+          } catch (_) {}
+        }
       } else {
         const errJson = await res.json().catch(() => ({}));
         throw new Error(errJson.message || 'Failed to place order.');
@@ -787,8 +1084,19 @@ export default function BuyerDashboardPage() {
       setOrders(prev => [orderRecord, ...prev]);
       clearCart();
       setActiveTab('orders');
+      
+      const brand = detectCardBrand(cardNumber);
+      const cardLast4 = cardNumber.replace(/\s+/g, '').slice(-4);
+      const methodLabel = paymentMethod === 'card' 
+        ? `Paid via ${brand.toUpperCase()} Card (ending in •••• ${cardLast4})` 
+        : paymentMethod === 'paypal' 
+        ? 'Paid via PayPal Express' 
+        : paymentMethod === 'payhere' 
+        ? 'Submitted via PayHere Gateway' 
+        : 'Registered for Cash on Delivery';
+
       setStatusMessage({
-        text: `Thank you! Your order #${orderRecord.payHereOrderId || orderRecord.id} has been placed successfully and is now processing.`,
+        text: `Thank you! Your order #${orderRecord.payHereOrderId || orderRecord.id} has been placed successfully (${methodLabel}) and is now processing.`,
         type: 'success'
       });
 
@@ -878,66 +1186,7 @@ export default function BuyerDashboardPage() {
           </div>
         )}
 
-        {/* Navigation Tabs Bar */}
-        <div className="flex items-center justify-between pb-3 border-b border-stone-200 gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                activeTab === 'orders'
-                  ? 'bg-[#2E4D38] text-white shadow-xs'
-                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>Orders ({orders.length})</span>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('articles')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                activeTab === 'articles'
-                  ? 'bg-[#2E4D38] text-white shadow-xs'
-                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Blogs</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('cart')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                activeTab === 'cart'
-                  ? 'bg-[#2E4D38] text-white shadow-xs'
-                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Cart & Checkout ({cartCount})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                activeTab === 'profile'
-                  ? 'bg-[#2E4D38] text-white shadow-xs'
-                  : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>My Profile</span>
-            </button>
-          </div>
-
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-[#2E4D38] text-[#2E4D38] hover:bg-[#edf5ee] text-xs font-bold uppercase tracking-wider transition"
-          >
-            <span>Browse Catalog</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
 
         {/* TAB 1: RECENT ORDERS & PRODUCT REVIEWS */}
         {activeTab === 'orders' && (
@@ -972,234 +1221,510 @@ export default function BuyerDashboardPage() {
             )}
 
             {loadingOrders ? (
-              <div className="py-12 text-center text-stone-400 text-xs">Loading orders...</div>
+              <div className="py-16 text-center text-stone-400 text-xs flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-[#2E4D38]" />
+                <span>Loading your orders...</span>
+              </div>
             ) : orders.length === 0 ? (
-              <div className="py-12 text-center text-stone-400">
-                <Package className="w-8 h-8 mx-auto text-stone-300 mb-2" />
-                <p className="text-sm font-medium text-stone-600">No orders placed yet</p>
-                <Link href="/shop" className="text-xs text-[#2E4D38] font-bold hover:underline mt-1 inline-block">
+              <div className="py-16 text-center text-stone-400">
+                <Package className="w-10 h-10 mx-auto text-stone-300 mb-2" />
+                <p className="text-sm font-medium text-stone-700">No orders placed yet</p>
+                <p className="text-xs text-stone-400 mt-1">Browse our botanical apothecary and place your first natural herbal order.</p>
+                <Link href="/shop" className="text-xs text-[#2E4D38] font-bold hover:underline mt-3 inline-block">
                   Explore Herbal Catalog &rarr;
                 </Link>
               </div>
             ) : (
-              <div className="space-y-5">
-                {orders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="p-5 rounded-2xl border border-stone-200/90 hover:border-[#2E4D38]/40 transition bg-[#FBFBFA]/80 space-y-4"
-                  >
-                    {/* Order Header Summary */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-200/60">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-stone-900">
-                            {order.payHereOrderId || order.id}
-                          </span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                            {order.orderStatus || 'Delivered'}
-                          </span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800">
-                            {order.paymentStatus || 'Paid'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-stone-500 mt-1 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-stone-400" />
-                          <span>
-                            Placed on {new Date(order.createdAt).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </span>
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-[#2E4D38]">
-                          ${order.totalAmount?.toFixed(2) || '67.97'}
-                        </div>
-                        <div className="text-[11px] text-stone-400">Total Paid</div>
-                      </div>
-                    </div>
-
-                    {/* Shipping Method and Delivery Address Summary */}
-                    <div className="p-3 bg-stone-50/80 rounded-xl border border-stone-200/60 text-xs grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Shipping Method</span>
-                        <div className="flex items-center gap-1.5 mt-0.5 font-semibold text-[#2E4D38]">
-                          <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
-                          <span>{order.shippingMethod || 'Standard Shipping'}</span>
-                          <span className="text-[11px] font-normal text-stone-500">
-                            ({order.shippingCost === 0 || !order.shippingCost ? 'Free' : `$${order.shippingCost.toFixed(2)}`})
-                          </span>
-                        </div>
-                      </div>
-                      {order.shippingAddress && (
-                        <div>
-                          <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Delivery Address</span>
-                          <span className="text-stone-700 mt-0.5 block">{order.shippingAddress}</span>
-                        </div>
+              <div className="space-y-4">
+                {/* Search, Filter & Quick Toggle Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-stone-50/80 rounded-xl border border-stone-200/80">
+                  <div className="flex items-center gap-2 flex-1 max-w-md">
+                    <div className="relative w-full">
+                      <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        value={orderSearchTerm}
+                        onChange={(e) => setOrderSearchTerm(e.target.value)}
+                        placeholder="Search by Order #, product, or tracking..."
+                        className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-white border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                      />
+                      {orderSearchTerm && (
+                        <button
+                          onClick={() => setOrderSearchTerm('')}
+                          className="absolute right-2.5 top-2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
+                  </div>
 
-                    {/* Shipment Tracking Information Banner if Shipped */}
-                    {order.trackingNumber && (
-                      <div className="p-3.5 bg-[#edf5ee] border border-[#bcd6be] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-[#24492d] text-white flex items-center justify-center flex-shrink-0 shadow-2xs">
-                            <Truck className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-[#1c3f24] text-xs">
-                                Shipment Dispatched ({order.shippingCarrier || 'Courier Express'})
-                              </span>
-                              <span className="px-1.5 py-0.2 bg-[#24492d] text-white text-[9px] font-bold rounded">
-                                {order.orderStatus || 'Shipped'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-stone-600 text-[11px]">Tracking Number:</span>
-                              <span className="font-mono font-bold text-[#1c3f24] bg-white px-2 py-0.5 rounded border border-[#c5dec7]">
-                                {order.trackingNumber}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Status Filter Buttons */}
+                    <div className="flex items-center bg-white p-0.5 rounded-lg border border-stone-200 text-[11px] font-semibold">
+                      {(['ALL', 'Processing', 'Shipped', 'Delivered'] as const).map((filterKey) => (
                         <button
-                          type="button"
-                          onClick={() => {
-                            if (order.trackingNumber) {
-                              navigator.clipboard.writeText(order.trackingNumber);
-                              alert('Tracking number copied to clipboard: ' + order.trackingNumber);
-                            }
-                          }}
-                          className="text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] bg-white border border-[#24492d]/30 px-2.5 py-1 rounded-lg hover:bg-[#e4f0e5] transition shadow-2xs self-start sm:self-auto cursor-pointer"
+                          key={filterKey}
+                          onClick={() => setOrderStatusFilter(filterKey)}
+                          className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                            orderStatusFilter === filterKey
+                              ? 'bg-[#2E4D38] text-white shadow-2xs'
+                              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                          }`}
                         >
-                          Copy Tracking #
+                          {filterKey === 'ALL' ? `All (${orders.length})` : filterKey}
                         </button>
-                      </div>
-                    )}
+                      ))}
+                    </div>
 
-                    {/* Order Items & Review Action */}
-                    <div className="space-y-3 pt-1">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                        Purchased Items (Review to help fellow shoppers):
-                      </p>
-
-                      {(() => {
-                        const itemsList = (order.items && order.items.length > 0) 
-                          ? order.items 
-                          : (order.orderItems && order.orderItems.length > 0) 
-                          ? order.orderItems 
-                          : [];
-
-                        if (itemsList.length === 0) {
-                          return (
-                            <p className="text-xs text-stone-400 italic py-1">Order processed.</p>
-                          );
-                        }
-
-                        return itemsList.map((item) => {
-                          const userReview = buyerReviews[item.productId] || buyerReviewsList.find(r => r.productId === item.productId);
-                          const isReviewed = Boolean(userReview) || reviewedProductIds.includes(item.productId);
-
-                        return (
-                          <div
-                            key={item.id}
-                            className="p-4 rounded-xl bg-white border border-stone-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
-                          >
-                            <div className="space-y-1">
-                              <h4 className="font-serif text-sm font-bold text-stone-900">
-                                {item.productName}
-                              </h4>
-                              <p className="text-xs text-stone-500">
-                                Qty: {item.quantity} · ${item.unitPrice?.toFixed(2)} each
-                              </p>
-
-                              {isReviewed && userReview && (
-                                <div className="mt-2 p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-100/90 space-y-1 max-w-md">
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center text-amber-500">
-                                      {Array.from({ length: 5 }).map((_, sIdx) => (
-                                        <Star
-                                          key={sIdx}
-                                          className={`w-3.5 h-3.5 ${
-                                            sIdx < userReview.rating
-                                              ? 'fill-amber-400 text-amber-400'
-                                              : 'text-stone-300'
-                                          }`}
-                                        />
-                                      ))}
-                                    </div>
-                                    <span className="text-[11px] font-bold text-emerald-900">
-                                      Your Review ({userReview.rating}/5)
-                                    </span>
-                                  </div>
-                                  {userReview.comment && (
-                                    <p className="text-xs text-stone-700 italic line-clamp-2">
-                                      "{userReview.comment}"
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="self-end sm:self-center">
-                              {isReviewed ? (
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenViewReview(item.productId, item.productName, userReview)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-bold transition shadow-2xs cursor-pointer"
-                                    title="View published review"
-                                  >
-                                    <Eye className="w-3.5 h-3.5 text-stone-500" />
-                                    <span>View</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEditReview(item.productId, item.productName, userReview)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[#2E4D38]/30 bg-emerald-50 hover:bg-emerald-100 text-[#2E4D38] text-xs font-bold transition shadow-2xs cursor-pointer"
-                                    title="Edit your review"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5 text-[#2E4D38]" />
-                                    <span>Edit</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteReview(item.productId, item.productName, userReview?.id)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition shadow-2xs cursor-pointer"
-                                    title="Delete your review"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenReview(item.productId, item.productName)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2E4D38] bg-emerald-50/50 hover:bg-emerald-100 text-[#2E4D38] text-xs font-bold transition shadow-2xs cursor-pointer"
-                                >
-                                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                  <span>Write Review</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAllOrders(filteredOrders)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition cursor-pointer"
+                      title={expandedOrderIds.length === filteredOrders.length ? "Collapse all order details" : "Expand all order details"}
+                    >
+                      {expandedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? (
+                        <>
+                          <ChevronUp className="w-3.5 h-3.5 text-stone-500" />
+                          <span>Collapse All</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3.5 h-3.5 text-stone-500" />
+                          <span>Expand All</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {filteredOrders.length === 0 ? (
+                  <div className="py-12 text-center text-stone-400 bg-stone-50/50 rounded-2xl border border-stone-200">
+                    <p className="text-xs font-medium text-stone-600">No orders match your filter criteria.</p>
+                    <button
+                      onClick={() => { setOrderSearchTerm(''); setOrderStatusFilter('ALL'); }}
+                      className="text-xs text-[#2E4D38] font-bold hover:underline mt-1 cursor-pointer"
+                    >
+                      Clear search filters
+                    </button>
+                  </div>
+                ) : (
+                  /* ORDERS TABLE */
+                  <div className="rounded-2xl border border-stone-200 overflow-hidden shadow-2xs bg-white">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse min-w-[760px]">
+                        <thead>
+                          <tr className="bg-[#f7f9f7] border-b border-stone-200 text-stone-700 font-bold uppercase tracking-wider text-[11px]">
+                            <th className="py-3.5 px-4 font-semibold">Order Ref & Date</th>
+                            <th className="py-3.5 px-4 font-semibold">Items</th>
+                            <th className="py-3.5 px-4 font-semibold">Shipment & Delivery</th>
+                            <th className="py-3.5 px-4 font-semibold">Total</th>
+                            <th className="py-3.5 px-4 font-semibold">Fulfillment</th>
+                            <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-200/80">
+                          {filteredOrders.map((order) => {
+                            const isExpanded = expandedOrderIds.includes(order.id);
+                            const itemsList = (order.items && order.items.length > 0)
+                              ? order.items
+                              : (order.orderItems && order.orderItems.length > 0)
+                              ? order.orderItems
+                              : [];
+                            const totalItemCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0);
+
+                            return (
+                              <React.Fragment key={order.id}>
+                                {/* Primary Order Row */}
+                                <tr className={`hover:bg-[#fbfcfb] transition ${isExpanded ? 'bg-[#f8faf8]' : 'bg-white'}`}>
+                                  {/* Col 1: Order Reference & Date */}
+                                  <td className="py-3.5 px-4 align-top">
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleOrderExpanded(order.id)}
+                                          className="font-mono text-xs font-bold text-stone-900 hover:text-[#2E4D38] transition flex items-center gap-1 group text-left cursor-pointer"
+                                        >
+                                          <span>{order.payHereOrderId || order.id}</span>
+                                        </button>
+                                      </div>
+                                      <div className="flex items-center gap-1 text-[11px] text-stone-500">
+                                        <Clock className="w-3 h-3 text-stone-400 flex-shrink-0" />
+                                        <span>
+                                          {new Date(order.createdAt).toLocaleDateString(undefined, {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric'
+                                          })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Col 2: Items Summary */}
+                                  <td className="py-3.5 px-4 align-top max-w-[240px]">
+                                    <div className="space-y-1">
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2E4D38] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                        <Package className="w-3 h-3" />
+                                        <span>{totalItemCount || itemsList.length} item{totalItemCount === 1 ? '' : 's'}</span>
+                                      </span>
+                                      <div className="text-[11px] text-stone-700 truncate" title={itemsList.map(i => `${i.productName} (x${i.quantity})`).join(', ')}>
+                                        {itemsList.length > 0 
+                                          ? itemsList.map(i => `${i.productName} (x${i.quantity})`).join(', ') 
+                                          : 'Standard remedy package'}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Col 3: Shipment & Delivery */}
+                                  <td className="py-3.5 px-4 align-top max-w-[200px]">
+                                    <div className="space-y-1">
+                                      {order.trackingNumber ? (
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="font-mono text-[11px] font-bold text-[#1c3f24] bg-[#edf5ee] px-2 py-0.5 rounded border border-[#c5dec7]">
+                                            {order.trackingNumber}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleCopyTracking(order.trackingNumber!)}
+                                            className="p-1 rounded text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                                            title="Copy tracking number"
+                                          >
+                                            {copiedTracking === order.trackingNumber ? (
+                                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                            ) : (
+                                              <Copy className="w-3.5 h-3.5" />
+                                            )}
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="text-[11px] text-stone-500 flex items-center gap-1">
+                                          <Truck className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
+                                          <span>{order.shippingMethod || 'Standard Delivery'}</span>
+                                        </div>
+                                      )}
+                                      {order.shippingAddress && (
+                                        <div className="text-[11px] text-stone-500 truncate" title={order.shippingAddress}>
+                                          {order.shippingAddress}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Col 4: Total & Payment */}
+                                  <td className="py-3.5 px-4 align-top">
+                                    <div className="space-y-1">
+                                      <div className="font-bold text-sm text-[#2E4D38]">
+                                        ${order.totalAmount?.toFixed(2) || '0.00'}
+                                      </div>
+                                      <div>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                          (order.paymentStatus || 'Paid').toLowerCase().includes('paid')
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : 'bg-amber-100 text-amber-800'
+                                        }`}>
+                                          {order.paymentStatus || 'Paid'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Col 5: Fulfillment Status */}
+                                  <td className="py-3.5 px-4 align-top">
+                                    {(() => {
+                                      const st = (order.orderStatus || 'Processing').toLowerCase();
+                                      if (st.includes('deliver')) {
+                                        return (
+                                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                            <span>Delivered</span>
+                                          </span>
+                                        );
+                                      }
+                                      if (st.includes('ship')) {
+                                        return (
+                                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                            <Truck className="w-3 h-3 text-blue-600" />
+                                            <span>Shipped</span>
+                                          </span>
+                                        );
+                                      }
+                                      if (st.includes('cancel')) {
+                                        return (
+                                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                            <X className="w-3 h-3 text-rose-600" />
+                                            <span>Cancelled</span>
+                                          </span>
+                                        );
+                                      }
+                                      return (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                          <Clock className="w-3 h-3 text-amber-600" />
+                                          <span>Processing</span>
+                                        </span>
+                                      );
+                                    })()}
+                                  </td>
+
+                                  {/* Col 6: Actions */}
+                                  <td className="py-3.5 px-4 align-top text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleOrderExpanded(order.id)}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+                                          isExpanded 
+                                            ? 'bg-[#2E4D38] text-white border-[#2E4D38]' 
+                                            : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                                        }`}
+                                      >
+                                        <span>Details</span>
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-3.5 h-3.5" />
+                                        ) : (
+                                          <ChevronDown className="w-3.5 h-3.5" />
+                                        )}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedTrackingOrder(order)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[#1c3f24] text-xs font-semibold transition cursor-pointer"
+                                        title="Track Order & Shipment"
+                                      >
+                                        <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                                        <span>Track</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedOrderReceipt(order)}
+                                        className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 hover:text-stone-900 transition cursor-pointer"
+                                        title="View Printable Receipt"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* Expanded Detail Sub-Panel */}
+                                {isExpanded && (
+                                  <tr className="bg-[#fbfbfa]">
+                                    <td colSpan={6} className="p-0 border-b border-stone-200">
+                                      <div className="p-5 sm:p-6 bg-stone-50/70 border-t border-stone-200/60 space-y-4">
+                                        
+                                        {/* Row 1: Shipping and Delivery Cards */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                          {/* Shipping Address */}
+                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
+                                              Delivery Destination
+                                            </span>
+                                            <p className="font-semibold text-stone-900 text-xs">
+                                              {order.customerName || user?.fullName || 'Customer'}
+                                            </p>
+                                            <p className="text-stone-600 text-xs leading-relaxed">
+                                              {order.shippingAddress || 'Address on file'}
+                                            </p>
+                                          </div>
+
+                                          {/* Shipping Courier & Method */}
+                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
+                                              Shipping Courier & Method
+                                            </span>
+                                            <p className="font-semibold text-stone-900 text-xs flex items-center gap-1.5">
+                                              <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
+                                              <span>{order.shippingMethod || 'Standard Delivery'}</span>
+                                            </p>
+                                            <p className="text-stone-600 text-xs">
+                                              Shipping Fee: {order.shippingCost === 0 || !order.shippingCost ? 'Free' : `$${order.shippingCost.toFixed(2)}`}
+                                            </p>
+                                          </div>
+
+                                          {/* Tracking / Dispatch info */}
+                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
+                                              Shipment Tracking
+                                            </span>
+                                            {order.trackingNumber ? (
+                                              <div className="space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-mono font-bold text-xs text-[#1c3f24] bg-[#edf5ee] px-2 py-0.5 rounded border border-[#c5dec7]">
+                                                    {order.trackingNumber}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleCopyTracking(order.trackingNumber!)}
+                                                    className="text-[11px] font-semibold text-[#2E4D38] hover:underline cursor-pointer flex items-center gap-1"
+                                                  >
+                                                    {copiedTracking === order.trackingNumber ? (
+                                                      <span className="text-emerald-700">Copied!</span>
+                                                    ) : (
+                                                      <span>Copy #</span>
+                                                    )}
+                                                  </button>
+                                                </div>
+                                                <p className="text-[11px] text-stone-500">
+                                                  Carrier: {order.shippingCarrier || 'Courier Express'}
+                                                </p>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setSelectedTrackingOrder(order)}
+                                                  className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-[#2E4D38] hover:bg-[#233d2c] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                                                >
+                                                  <Truck className="w-3.5 h-3.5" />
+                                                  <span>Track Package Dialog</span>
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <div className="space-y-2">
+                                                <p className="text-xs text-stone-500">
+                                                  Tracking will appear once shipment is dispatched.
+                                                </p>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setSelectedTrackingOrder(order)}
+                                                  className="w-full py-1.5 px-2.5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-[11px] font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                                >
+                                                  <Truck className="w-3.5 h-3.5 text-stone-500" />
+                                                  <span>Tracking Status</span>
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Row 2: Purchased Items Sub-Table with Review Actions */}
+                                        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs">
+                                          <div className="px-4 py-2.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between">
+                                            <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                                              Purchased Items in this Order ({itemsList.length})
+                                            </span>
+                                            <span className="text-[11px] text-stone-500">
+                                              Click &quot;Write Review&quot; to review each herbal remedy
+                                            </span>
+                                          </div>
+
+                                          <div className="divide-y divide-stone-100">
+                                            {itemsList.map((item) => {
+                                              // Find review specifically associated with THIS order
+                                              const itemOrderKey1 = `${order.id}:::${item.productId}`;
+                                              const itemOrderKey2 = order.payHereOrderId ? `${order.payHereOrderId}:::${item.productId}` : '';
+                                              const userReview = orderReviews[itemOrderKey1] || (itemOrderKey2 ? orderReviews[itemOrderKey2] : null) || buyerReviewsList.find(r => r.orderId && (r.orderId === order.id || r.orderId === order.payHereOrderId) && r.productId === item.productId);
+                                              const isReviewed = Boolean(userReview);
+
+                                              return (
+                                                <div
+                                                  key={item.id}
+                                                  className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/50 transition"
+                                                >
+                                                  <div className="space-y-1">
+                                                    <Link
+                                                      href={`/shop/${item.productId}`}
+                                                      className="font-serif text-xs sm:text-sm font-bold text-stone-900 hover:text-[#2E4D38] hover:underline transition"
+                                                    >
+                                                      {item.productName}
+                                                    </Link>
+                                                    <div className="text-xs text-stone-500 flex items-center gap-3">
+                                                      <span>Qty: <strong className="text-stone-800">{item.quantity}</strong></span>
+                                                      <span>Unit Price: <strong className="text-stone-800">${item.unitPrice?.toFixed(2)}</strong></span>
+                                                      <span>Item Total: <strong className="text-[#2E4D38]">${((item.totalPrice || (item.unitPrice * item.quantity)) || 0).toFixed(2)}</strong></span>
+                                                    </div>
+
+                                                    {/* If user reviewed this item FOR THIS SPECIFIC ORDER */}
+                                                    {isReviewed && userReview && (
+                                                      <div className="mt-1.5 p-2 rounded-lg bg-emerald-50/70 border border-emerald-100/90 flex items-center gap-2 text-xs">
+                                                        <div className="flex items-center text-amber-500">
+                                                          {Array.from({ length: 5 }).map((_, sIdx) => (
+                                                            <Star
+                                                              key={sIdx}
+                                                              className={`w-3 h-3 ${
+                                                                sIdx < userReview.rating
+                                                                  ? 'fill-amber-400 text-amber-400'
+                                                                  : 'text-stone-300'
+                                                              }`}
+                                                            />
+                                                          ))}
+                                                        </div>
+                                                        <span className="font-semibold text-emerald-900 text-[11px]">
+                                                          Reviewed ({userReview.rating}/5):
+                                                        </span>
+                                                        <span className="text-stone-600 italic truncate max-w-xs">
+                                                          &quot;{userReview.comment}&quot;
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  </div>
+
+                                                  <div className="self-end sm:self-center flex-shrink-0">
+                                                    {isReviewed && userReview ? (
+                                                      <div className="flex items-center gap-1.5">
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleOpenViewReview(userReview)}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition cursor-pointer"
+                                                          title="View review"
+                                                        >
+                                                          <Eye className="w-3 h-3 text-stone-500" />
+                                                          <span>View</span>
+                                                        </button>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleOpenEditReview(userReview)}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#2E4D38]/30 bg-emerald-50 hover:bg-emerald-100 text-[#2E4D38] text-xs font-semibold transition cursor-pointer"
+                                                          title="Edit review"
+                                                        >
+                                                          <Edit3 className="w-3 h-3 text-[#2E4D38]" />
+                                                          <span>Edit</span>
+                                                        </button>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleDeleteReview(userReview)}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition cursor-pointer"
+                                                          title="Delete review"
+                                                        >
+                                                          <Trash2 className="w-3 h-3 text-rose-600" />
+                                                          <span>Delete</span>
+                                                        </button>
+                                                      </div>
+                                                    ) : (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleOpenReview(item.productId, item.productName, order.id, order.payHereOrderId || order.id)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2E4D38] bg-[#edf5ee] hover:bg-[#deede0] text-[#2E4D38] text-xs font-bold transition shadow-2xs cursor-pointer"
+                                                      >
+                                                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                        <span>Write Review</span>
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
-            {/* Dedicated Section: My Published Reviews & Community Feedback */}
+            {/* 
+            Dedicated Section: My Published Reviews & Community Feedback
+            Commented out per user request:
             <div className="pt-6 border-t border-stone-200/80 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
@@ -1274,20 +1799,26 @@ export default function BuyerDashboardPage() {
                         </div>
                       </div>
 
-                      {/* Review Action Buttons: View, Edit, Delete */}
                       <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                        <Link
-                          href={`/shop/${rev.productId}`}
-                          className="text-[11px] font-medium text-[#2E4D38] hover:underline flex items-center gap-1"
-                        >
-                          <span>View in Shop</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/shop/${rev.productId}`}
+                            className="text-[11px] font-medium text-[#2E4D38] hover:underline flex items-center gap-1"
+                          >
+                            <span>View in Shop</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </Link>
+                          {rev.orderId && (
+                            <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                              Order #{rev.orderRef || rev.orderId}
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleOpenViewReview(rev.productId, rev.productName, rev)}
+                            onClick={() => handleOpenViewReview(rev)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition cursor-pointer"
                             title="View full review"
                           >
@@ -1297,7 +1828,7 @@ export default function BuyerDashboardPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleOpenEditReview(rev.productId, rev.productName, rev)}
+                            onClick={() => handleOpenEditReview(rev)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#2E4D38]/30 bg-emerald-50 hover:bg-emerald-100 text-[#2E4D38] text-xs font-semibold transition cursor-pointer"
                             title="Edit your review"
                           >
@@ -1307,7 +1838,7 @@ export default function BuyerDashboardPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDeleteReview(rev.productId, rev.productName, rev.id)}
+                            onClick={() => handleDeleteReview(rev)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition cursor-pointer"
                             title="Delete your review"
                           >
@@ -1321,6 +1852,7 @@ export default function BuyerDashboardPage() {
                 </div>
               )}
             </div>
+            */}
           </div>
         )}
 
@@ -1660,6 +2192,127 @@ export default function BuyerDashboardPage() {
                         />
                       </div>
 
+                      {/* Payment Method Selector & Interactive Details Form */}
+                      <div className="space-y-3.5 border-t border-stone-200 pt-4 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">Payment Method</span>
+                          <span className="text-[11px] text-stone-500 flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-emerald-700" />
+                            <span>256-Bit Encrypted</span>
+                          </span>
+                        </div>
+
+                        {/* Payment Methods Section (PayHere Gateway Primary) */}
+                        <div className="space-y-3">
+                          {/* PRIMARY: PayHere Gateway */}
+                          <label className={`block p-4 rounded-2xl border cursor-pointer transition-all ${
+                            paymentMethod === 'payhere'
+                              ? 'border-[#24492d] bg-gradient-to-br from-[#f4f8f4] to-white text-[#1c3f24] shadow-xs ring-2 ring-[#24492d]/25'
+                              : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                          }`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="radio"
+                                  name="buyer-payment"
+                                  checked={paymentMethod === 'payhere'}
+                                  onChange={() => setPaymentMethod('payhere')}
+                                  className="mt-1 text-[#24492d] focus:ring-[#24492d] w-4 h-4 cursor-pointer"
+                                />
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-bold text-stone-900 leading-tight">PayHere Online Gateway</span>
+                                    <span className="text-[10px] bg-[#24492d] text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      Primary &bull; Instant
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                                    Credit / Debit Cards (Visa, Mastercard, Amex), Mobile Wallets (FriMi, Genie, eZ Cash) &amp; Internet Banking.
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-blue-700 shadow-2xs">VISA</span>
+                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-rose-600 shadow-2xs">MC</span>
+                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-emerald-700 shadow-2xs">LKR</span>
+                              </div>
+                            </div>
+
+                            {paymentMethod === 'payhere' && (
+                              <div className="mt-3.5 pt-3.5 border-t border-[#d8e6da] space-y-2.5 text-xs">
+                                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
+                                  <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                  <span>Central Bank Approved &bull; 256-Bit SSL Encrypted &bull; 3D Secure Bank OTP</span>
+                                </div>
+                                
+                                <p className="text-[11px] text-stone-600 leading-relaxed bg-[#f9fbf9] p-3 rounded-xl border border-[#cfe0d1]">
+                                  <strong>No manual card entry needed in this form!</strong> When you click <strong>Place Order &amp; Pay with PayHere</strong> below, PayHere&apos;s certified secure payment modal will open on your screen to enter your card details or select your bank app. Your card numbers are never stored on our servers.
+                                </p>
+
+                                {/* Supported Payment Badges */}
+                                <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[10px] font-bold text-stone-600">
+                                  <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Visa / Mastercard</span>
+                                  <span className="bg-white px-2 py-0.5 rounded border border-stone-200">American Express</span>
+                                  <span className="bg-white px-2 py-0.5 rounded border border-stone-200">FriMi</span>
+                                  <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Genie</span>
+                                  <span className="bg-white px-2 py-0.5 rounded border border-stone-200">eZ Cash / mCash</span>
+                                  <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Sampath / ComBank</span>
+                                </div>
+                              </div>
+                            )}
+                          </label>
+
+                          {/* SECONDARY: Cash on Delivery */}
+                          <label className={`block p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                            paymentMethod === 'cod'
+                              ? 'border-[#24492d] bg-[#f4f8f4] text-[#1c3f24] shadow-xs ring-1 ring-[#24492d]'
+                              : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                          }`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  name="buyer-payment"
+                                  checked={paymentMethod === 'cod'}
+                                  onChange={() => setPaymentMethod('cod')}
+                                  className="text-[#24492d] focus:ring-[#24492d] w-4 h-4 cursor-pointer"
+                                />
+                                <div>
+                                  <span className="text-xs sm:text-sm font-bold leading-tight block">Cash on Botanical Delivery</span>
+                                  <span className="text-[11px] text-stone-500">Pay cash in hand upon physical arrival and inspection of your order.</span>
+                                </div>
+                              </div>
+                              <Banknote className="w-5 h-5 text-emerald-700 flex-shrink-0" />
+                            </div>
+                          </label>
+
+                          {/* TERTIARY: PayPal Express */}
+                          <label className={`block p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                            paymentMethod === 'paypal'
+                              ? 'border-[#24492d] bg-[#f4f8f4] text-[#1c3f24] shadow-xs ring-1 ring-[#24492d]'
+                              : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                          }`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  name="buyer-payment"
+                                  checked={paymentMethod === 'paypal'}
+                                  onChange={() => setPaymentMethod('paypal')}
+                                  className="text-[#24492d] focus:ring-[#24492d] w-4 h-4 cursor-pointer"
+                                />
+                                <div>
+                                  <span className="text-xs sm:text-sm font-bold leading-tight block">PayPal Express Checkout</span>
+                                  <span className="text-[11px] text-stone-500">For international customers paying with PayPal balance.</span>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-bold text-sky-700 font-mono bg-sky-50 px-2 py-0.5 rounded border border-sky-200">PAYPAL</span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
                       <div className="pt-2">
                         <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-600">
                           <input
@@ -1781,7 +2434,17 @@ export default function BuyerDashboardPage() {
                       className="w-full py-3.5 px-6 rounded-2xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-wider uppercase shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       <Lock className="w-4 h-4" />
-                      <span>{placingOrder ? 'Processing Order...' : `Place Botanical Order ($${total.toFixed(2)})`}</span>
+                      <span>
+                        {placingOrder 
+                          ? 'Processing Order...' 
+                          : paymentMethod === 'payhere'
+                          ? `Place Order & Pay with PayHere ($${total.toFixed(2)})`
+                          : paymentMethod === 'paypal'
+                          ? `Proceed to PayPal ($${total.toFixed(2)})`
+                          : paymentMethod === 'cod'
+                          ? `Confirm Cash on Delivery ($${total.toFixed(2)})`
+                          : `Place Botanical Order ($${total.toFixed(2)})`}
+                      </span>
                     </button>
 
                     <div className="pt-2 text-center text-[10px] text-stone-400 space-y-1">
@@ -1979,9 +2642,14 @@ export default function BuyerDashboardPage() {
               </button>
             </div>
 
-            <p className="text-xs text-stone-600 mb-4">
-              Reviewing: <strong className="text-stone-900 font-semibold">{reviewModalProduct.name}</strong>
-            </p>
+            <div className="text-xs text-stone-600 mb-4 flex items-center gap-2 flex-wrap">
+              <span>Reviewing: <strong className="text-stone-900 font-semibold">{reviewModalProduct.name}</strong></span>
+              {reviewModalProduct.orderRef && (
+                <span className="px-2 py-0.5 rounded bg-emerald-50 text-[#2E4D38] border border-emerald-200 text-[11px] font-semibold">
+                  Order #{reviewModalProduct.orderRef}
+                </span>
+              )}
+            </div>
 
             <form onSubmit={handleSubmitReview} className="space-y-4">
               <div>
@@ -2108,7 +2776,7 @@ export default function BuyerDashboardPage() {
                     onClick={() => {
                       const v = viewingReview;
                       setViewingReview(null);
-                      handleOpenEditReview(v.productId, v.productName);
+                      handleOpenEditReview(v);
                     }}
                     className="px-3.5 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-700 text-xs font-bold transition cursor-pointer flex items-center gap-1"
                   >
@@ -2470,6 +3138,302 @@ export default function BuyerDashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ORDER RECEIPT / INVOICE VIEW */}
+      {selectedOrderReceipt && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-stone-200">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Arboveya Botanical Dispensary
+                </span>
+                <h3 className="font-serif text-lg sm:text-xl font-bold text-stone-900 mt-1">
+                  Order Invoice & Receipt
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedOrderReceipt(null)}
+                className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold">Order Reference</span>
+                <span className="font-mono font-bold text-stone-900 text-sm">{selectedOrderReceipt.payHereOrderId || selectedOrderReceipt.id}</span>
+              </div>
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold">Date Placed</span>
+                <span className="text-stone-800">{new Date(selectedOrderReceipt.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              </div>
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold">Payment Status</span>
+                <span className="text-emerald-700 font-bold uppercase">{selectedOrderReceipt.paymentStatus || 'Paid'}</span>
+              </div>
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold">Fulfillment Status</span>
+                <span className="text-stone-800 font-semibold">{selectedOrderReceipt.orderStatus || 'Processing'}</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-1">
+              <span className="text-stone-400 block text-[10px] uppercase font-bold">Delivery Address</span>
+              <p className="font-semibold text-stone-900">{selectedOrderReceipt.customerName || user?.fullName || 'Customer'}</p>
+              <p className="text-stone-600">{selectedOrderReceipt.shippingAddress || 'Address on file'}</p>
+            </div>
+
+            {/* Itemized Table */}
+            <div className="rounded-xl border border-stone-200 overflow-hidden text-xs">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50 text-stone-500 uppercase text-[10px] font-bold border-b border-stone-200">
+                  <tr>
+                    <th className="py-2.5 px-3">Item Description</th>
+                    <th className="py-2.5 px-3 text-center">Qty</th>
+                    <th className="py-2.5 px-3 text-right">Price</th>
+                    <th className="py-2.5 px-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {((selectedOrderReceipt.items && selectedOrderReceipt.items.length > 0)
+                    ? selectedOrderReceipt.items
+                    : (selectedOrderReceipt.orderItems && selectedOrderReceipt.orderItems.length > 0)
+                    ? selectedOrderReceipt.orderItems
+                    : []).map((item) => (
+                    <tr key={item.id}>
+                      <td className="py-2.5 px-3 font-medium text-stone-900">{item.productName}</td>
+                      <td className="py-2.5 px-3 text-center text-stone-600">{item.quantity}</td>
+                      <td className="py-2.5 px-3 text-right text-stone-600">${item.unitPrice?.toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-right font-semibold text-stone-900">${((item.totalPrice || (item.unitPrice * item.quantity)) || 0).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals Summary */}
+            <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 space-y-2 text-xs">
+              <div className="flex justify-between text-stone-600">
+                <span>Shipping Method:</span>
+                <span>{selectedOrderReceipt.shippingMethod || 'Standard Delivery'} ({selectedOrderReceipt.shippingCost === 0 || !selectedOrderReceipt.shippingCost ? 'FREE' : `$${selectedOrderReceipt.shippingCost.toFixed(2)}`})</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-[#1c3f24] border-t border-stone-200 pt-2">
+                <span>Total Paid:</span>
+                <span>${selectedOrderReceipt.totalAmount?.toFixed(2) || '0.00'}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setSelectedOrderReceipt(null)}
+                className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Invoice</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: BUYER ORDER TRACKING DIALOG ================= */}
+      {selectedTrackingOrder && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedTrackingOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-6">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#2E4D38] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 inline-block mb-1">
+                  Arboveya Parcel Tracking
+                </span>
+                <h3 className="text-lg font-serif font-bold text-stone-900 flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-[#2E4D38]" />
+                  <span>Shipment & Delivery Details</span>
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5 font-mono">
+                  Order Ref: {selectedTrackingOrder.payHereOrderId || selectedTrackingOrder.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTrackingOrder(null)}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tracking Status Card */}
+            <div className="p-4 rounded-2xl bg-[#f8faf8] border border-emerald-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Status</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>{selectedTrackingOrder.orderStatus || 'Processing'}</span>
+                  </span>
+                </div>
+                {selectedTrackingOrder.shippingCarrier && (
+                  <div className="text-right">
+                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Carrier</span>
+                    <span className="text-xs font-bold text-stone-800">{selectedTrackingOrder.shippingCarrier}</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedTrackingOrder.trackingNumber ? (
+                <div className="pt-2 border-t border-emerald-100/70 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Tracking Number</span>
+                    <span className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
+                      {selectedTrackingOrder.trackingNumber}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyTracking(selectedTrackingOrder.trackingNumber!)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  >
+                    {copiedTracking === selectedTrackingOrder.trackingNumber ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy #</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-emerald-100/70 text-xs text-stone-600">
+                  <p>Your herbal remedies are currently being freshly packaged and formulated. A carrier tracking number will appear here as soon as dispatched.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Visual Shipment Timeline Stepper */}
+            <div className="space-y-3 pt-1">
+              <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block">Delivery Progress</span>
+              
+              <div className="relative pl-6 space-y-5 border-l-2 border-stone-200">
+                {/* Step 1: Order Confirmed */}
+                <div className="relative">
+                  <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white">
+                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-stone-900">Order Confirmed & Paid</p>
+                    <p className="text-[11px] text-stone-500">
+                      {new Date(selectedTrackingOrder.createdAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 2: Packaging */}
+                <div className="relative">
+                  <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white">
+                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-stone-900">Packaged & Quality Inspected</p>
+                    <p className="text-[11px] text-stone-500">Botanical batch quality sealed</p>
+                  </div>
+                </div>
+
+                {/* Step 3: Shipped / In Transit */}
+                <div className="relative">
+                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full flex items-center justify-center ${
+                    selectedTrackingOrder.orderStatus === 'Shipped' || selectedTrackingOrder.orderStatus === 'Delivered' || selectedTrackingOrder.trackingNumber
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-stone-300 text-stone-500'
+                  }`}>
+                    {selectedTrackingOrder.orderStatus === 'Shipped' || selectedTrackingOrder.orderStatus === 'Delivered' || selectedTrackingOrder.trackingNumber ? (
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-stone-900">
+                      Dispatched with {selectedTrackingOrder.shippingCarrier || 'Courier'}
+                    </p>
+                    <p className="text-[11px] text-stone-500">
+                      {selectedTrackingOrder.trackingNumber 
+                        ? `Tracking ID: ${selectedTrackingOrder.trackingNumber}` 
+                        : 'Scheduled for dispatch within 1-2 business days'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 4: Delivered */}
+                <div className="relative">
+                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full flex items-center justify-center ${
+                    selectedTrackingOrder.orderStatus === 'Delivered'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-stone-200'
+                  }`}>
+                    {selectedTrackingOrder.orderStatus === 'Delivered' ? (
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`text-xs font-bold ${selectedTrackingOrder.orderStatus === 'Delivered' ? 'text-emerald-800' : 'text-stone-400'}`}>
+                      Delivered to Customer
+                    </p>
+                    <p className="text-[11px] text-stone-400">
+                      {selectedTrackingOrder.shippingAddress || 'Customer shipping address'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Destination Address Info */}
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/80 text-xs space-y-1">
+              <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Shipping Destination</span>
+              <p className="font-semibold text-stone-900">{selectedTrackingOrder.customerName || user?.fullName || 'Customer'}</p>
+              <p className="text-stone-600 leading-relaxed text-[11px]">{selectedTrackingOrder.shippingAddress || 'Address on file'}</p>
+            </div>
+
+            {/* Dialog Footer */}
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedTrackingOrder(null)}
+                className="px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                Close Tracking
+              </button>
+            </div>
+
           </div>
         </div>
       )}

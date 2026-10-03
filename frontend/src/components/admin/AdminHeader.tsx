@@ -68,8 +68,7 @@ export default function AdminHeader({
   }, [user, loading]);
 
   const handleSignOut = () => {
-    logout();
-    window.location.replace('/');
+    logout('/');
   };
 
   const adminDisplayName = user?.fullName || `${user?.firstName || 'System'} ${user?.lastName || 'Admin'}`.trim();

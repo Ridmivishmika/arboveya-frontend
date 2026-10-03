@@ -116,14 +116,26 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
-            const mapped: ProductReview[] = data.map((r: any) => ({
-              id: r.id,
-              authorName: r.authorName || r.userFullName || 'Verified Customer',
-              rating: r.rating || 5,
-              date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'Recently',
-              comment: r.comment ? r.comment.replace(/^\[.*?\]\s*/, '') : '',
-              verified: true
-            }));
+            const mapped: ProductReview[] = data.map((r: any) => {
+              let cleanComment = r.comment || '';
+              let orderRef = r.orderId || null;
+              const orderMatch = cleanComment.match(/^\[Order:([^\]]+)\]\s*/i);
+              if (orderMatch) {
+                orderRef = orderRef || orderMatch[1].trim();
+                cleanComment = cleanComment.substring(orderMatch[0].length).trim();
+              }
+              cleanComment = cleanComment.replace(/^\[.*?\]\s*/, '').trim();
+
+              return {
+                id: r.id,
+                authorName: r.authorName || r.userFullName || 'Verified Customer',
+                rating: r.rating || 5,
+                date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'Recently',
+                comment: cleanComment,
+                verified: true,
+                orderId: orderRef
+              };
+            });
             setReviews(mapped);
           }
         }
@@ -867,6 +879,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                                 <span>Verified Customer</span>
                               </span>
                             )}
+                            {rev.orderId && (
+                              <span className="inline-flex items-center text-[10px] text-stone-600 font-mono bg-stone-100 border border-stone-200 px-1.5 py-0.5 rounded">
+                                Order #{rev.orderId}
+                              </span>
+                            )}
                           </div>
                           <span className="text-[11px] text-[#859c89]">{rev.date}</span>
                         </div>
@@ -881,7 +898,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                   </div>
                 )}
 
-                {/* Write a Review Section (Registered Customers Only) */}
+                {/* 
+                Write a Review Section (Commented out per user request - reviews are submitted via Buyer Portal orders)
                 {user ? (
                   <div className="mt-8 pt-6 border-t border-[#e5ebe5]">
                     <h4 className="font-serif text-sm font-bold text-[#1c3f24] mb-3">
@@ -995,6 +1013,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                     </div>
                   </div>
                 )}
+                */}
               </div>
             )}
 

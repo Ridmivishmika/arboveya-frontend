@@ -35,7 +35,8 @@ import {
   Tag,
   Info,
   Calendar,
-  Send
+  Send,
+  RefreshCw
 } from 'lucide-react';
 import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 
@@ -609,24 +610,27 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   };
 
   // =========================================================================
-  // VIEW: SINGLE ORDER DETAILS (Screenshots 2, 3, 5)
+  // RENDER MAIN VIEW (Supports both Order Details & Table, with Modals)
   // =========================================================================
-  if (activeOrderDetails) {
-    const o = activeOrderDetails;
-    const firstItem = o.items[0] || {
-      id: 'default',
-      productName: 'Botanical Herbal Remedy',
-      productImageUrl: '/images/gotu-kola-tea.jpg',
-      weight: '25g',
-      itemId: '395462678513',
-      quantity: 1,
-      availableStock: 9,
-      unitPrice: o.subtotal,
-      totalPrice: o.subtotal
-    };
+  return (
+    <>
+      {activeOrderDetails ? (
+        (() => {
+          const o = activeOrderDetails;
+          const firstItem = o.items[0] || {
+            id: 'default',
+            productName: 'Botanical Herbal Remedy',
+            productImageUrl: '/images/gotu-kola-tea.jpg',
+            weight: '25g',
+            itemId: '395462678513',
+            quantity: 1,
+            availableStock: 9,
+            unitPrice: o.subtotal,
+            totalPrice: o.subtotal
+          };
 
-    return (
-      <div className="w-full bg-[#f8f9fa] min-h-screen py-6 px-4 sm:px-6 lg:px-8 font-sans animate-in fade-in duration-150 text-[#181818]">
+          return (
+            <div className="w-full bg-[#f8f9fa] min-h-screen py-6 px-4 sm:px-6 lg:px-8 font-sans animate-in fade-in duration-150 text-[#181818]">
         <div className="max-w-7xl mx-auto space-y-6">
           
           {/* Breadcrumbs & Header Actions */}
@@ -701,14 +705,15 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                   <span>Print packing</span>
                 </button>
 
-                {/* 2. Add tracking number (opens tracking dialog) */}
+                {/* 2. Tracking button (opens tracking dialog) */}
                 <button
+                  type="button"
                   onClick={() => handleOpenTrackingModal(o)}
                   className="px-4 py-2 rounded-full bg-[#0053a0] hover:bg-[#004280] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                  title="Add or edit tracking details"
+                  title="View, add or edit tracking details"
                 >
                   <Truck className="w-3.5 h-3.5" />
-                  <span>{o.trackingNumber ? 'Edit tracking number' : 'Add tracking number'}</span>
+                  <span>{o.trackingNumber ? `Tracking (${o.trackingNumber})` : 'Add tracking'}</span>
                 </button>
 
                 {/* 3. Mark as shipped */}
@@ -882,30 +887,47 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                         Tracking
                       </span>
                       {o.trackingNumber ? (
-                        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1.5">
+                        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Tracking Active</span>
                             </span>
                             <button
+                              type="button"
                               onClick={() => handleOpenTrackingModal(o)}
-                              className="text-xs font-bold text-[#0053a0] hover:underline cursor-pointer"
+                              className="text-xs font-bold text-[#0053a0] hover:underline cursor-pointer flex items-center gap-1"
                             >
-                              Edit tracking
+                              <Truck className="w-3.5 h-3.5" />
+                              <span>View / Edit tracking</span>
                             </button>
                           </div>
-                          <p className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
-                            {o.trackingNumber}
-                          </p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
+                              {o.trackingNumber}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (o.trackingNumber) {
+                                  navigator.clipboard.writeText(o.trackingNumber);
+                                  alert(`Tracking number ${o.trackingNumber} copied to clipboard!`);
+                                }
+                              }}
+                              className="text-[11px] text-[#0053a0] hover:underline cursor-pointer font-medium"
+                            >
+                              Copy #
+                            </button>
+                          </div>
                           <p className="text-[11px] text-stone-500">
                             Carrier: <strong className="text-stone-700">{o.shippingCarrier || 'Sri Lanka Post'}</strong>
                           </p>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <p className="text-stone-400 font-mono text-xs">--</p>
+                          <p className="text-stone-400 font-mono text-xs">No tracking information added yet.</p>
                           <button
+                            type="button"
                             onClick={() => handleOpenTrackingModal(o)}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0053a0] hover:bg-[#004280] text-white text-xs font-bold transition shadow-xs cursor-pointer"
                           >
@@ -1065,14 +1087,11 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
 
         </div>
       </div>
-    );
-  }
-
-  // =========================================================================
-  // VIEW: MAIN "MANAGE ALL ORDERS" TABLE (Screenshot 1)
-  // =========================================================================
-  return (
-    <div className="w-full bg-[#f8f9fa] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans text-[#181818]">
+          );
+        })()
+      ) : (
+        /* VIEW: MAIN "MANAGE ALL ORDERS" TABLE (Screenshot 1) */
+        <div className="w-full bg-[#f8f9fa] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans text-[#181818]">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Main Grid: Collapsible Sidebar + Content Area */}
@@ -1498,29 +1517,66 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         </div>
 
       </div>
+    </div>
+      )}
 
       {/* ================= MODAL: ADD OR EDIT TRACKING (Screenshot 4) ================= */}
       {trackingModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTrackingModalOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-6">
             
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-stone-100">
               <div>
-                <h3 className="text-lg font-bold text-stone-900">
-                  Add or edit tracking numbers
+                <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-[#0053a0]" />
+                  <span>{trackingModalOrder.trackingNumber ? 'Order Tracking & Shipment' : 'Add Tracking Number'}</span>
                 </h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Enter the tracking details for your item. We&apos;ll share these details with the buyer.
+                  Order #{trackingModalOrder.orderNumber} &bull; Buyer: <strong className="text-stone-800">{trackingModalOrder.customerName}</strong>
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setTrackingModalOrder(null)}
-                className="p-1 rounded-full text-stone-400 hover:text-stone-700 transition"
+                className="p-1 rounded-full text-stone-400 hover:text-stone-700 transition cursor-pointer"
+                title="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* If tracking already active, show prominent status banner */}
+            {trackingModalOrder.trackingNumber && (
+              <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between gap-3 text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Package In Transit</span>
+                  </div>
+                  <p className="font-mono text-xs font-bold text-[#1c3f24]">
+                    {trackingModalOrder.trackingNumber} ({trackingModalOrder.shippingCarrier || 'Sri Lanka Post'})
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (trackingModalOrder.trackingNumber) {
+                      navigator.clipboard.writeText(trackingModalOrder.trackingNumber);
+                      alert(`Tracking number ${trackingModalOrder.trackingNumber} copied to clipboard!`);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] shadow-2xs transition cursor-pointer"
+                >
+                  Copy #
+                </button>
+              </div>
+            )}
 
             {/* Modal Body: Left Inputs + Right Product Preview */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
@@ -1529,20 +1585,23 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Tracking number
+                    Tracking number *
                   </label>
                   <input
                     type="text"
                     value={trackingNumberInput}
                     onChange={(e) => setTrackingNumberInput(e.target.value)}
                     placeholder="e.g. LA000853771LK"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-mono font-medium"
                   />
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    The buyer will see this code to track their herbal parcel live.
+                  </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Carrier
+                    Shipping Carrier
                   </label>
                   <input
                     type="text"
@@ -1551,16 +1610,40 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                     placeholder="e.g. Sri Lanka Post, DHL Express, USPS"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
+                  
+                  {/* Quick Select Chips */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {['Sri Lanka Post', 'DHL Express', 'FedEx', 'USPS', 'UPS'].map((carrierName) => (
+                      <button
+                        key={carrierName}
+                        type="button"
+                        onClick={() => setCarrierInput(carrierName)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border transition cursor-pointer ${
+                          carrierInput === carrierName
+                            ? 'bg-[#0053a0] text-white border-[#0053a0]'
+                            : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                        }`}
+                      >
+                        {carrierName}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* Right Product Summary Preview */}
-              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2 text-xs">
-                <p className="font-bold text-stone-900">
-                  Buyer: <span className="text-blue-600 font-semibold">{trackingModalOrder.buyerUsername}</span>
-                </p>
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2.5 text-xs">
+                <div>
+                  <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Recipient</span>
+                  <p className="font-bold text-stone-900">
+                    {trackingModalOrder.customerName} <span className="text-blue-600 font-normal">(@{trackingModalOrder.buyerUsername})</span>
+                  </p>
+                  <p className="text-stone-500 text-[11px] leading-tight mt-0.5 truncate">
+                    {trackingModalOrder.shippingCity}, {trackingModalOrder.shippingCountry}
+                  </p>
+                </div>
 
-                <div className="flex items-start gap-2.5 pt-1">
+                <div className="flex items-start gap-2.5 pt-1.5 border-t border-stone-200/60">
                   <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-stone-200 bg-white flex-shrink-0">
                     <Image
                       src={resolveBackendImageUrl(trackingModalOrder.items[0]?.productImageUrl, '/images/gotu-kola-tea.jpg')}
@@ -1578,8 +1661,8 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                     <p className="text-[10px] text-stone-400 font-mono">
                       Order #: {trackingModalOrder.orderNumber}
                     </p>
-                    <p className="text-[10px] text-stone-400 font-mono">
-                      Item #: {trackingModalOrder.items[0]?.itemId || '395462678513'}
+                    <p className="text-[10px] text-emerald-700 font-medium">
+                      Est. Delivery: {trackingModalOrder.estimatedDelivery || '14 - 21 days'}
                     </p>
                   </div>
                 </div>
@@ -1600,9 +1683,16 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                 type="button"
                 disabled={!trackingNumberInput.trim() || isSubmittingTracking}
                 onClick={handleSaveTracking}
-                className="px-6 py-2 rounded-full bg-[#0053a0] hover:bg-[#004280] disabled:opacity-50 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                className="px-6 py-2 rounded-full bg-[#0053a0] hover:bg-[#004280] disabled:opacity-50 text-white text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
               >
-                {isSubmittingTracking ? 'Saving...' : 'Save and continue'}
+                {isSubmittingTracking ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Tracking Information</span>
+                )}
               </button>
             </div>
 
@@ -1726,6 +1816,6 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         </div>
       )}
 
-    </div>
+    </>
   );
 }

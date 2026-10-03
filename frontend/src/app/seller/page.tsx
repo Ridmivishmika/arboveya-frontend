@@ -248,8 +248,7 @@ export default function SellerDashboardPage() {
   const isApproved = user?.isSellerApproved ?? true;
 
   const handleSignOut = () => {
-    logout();
-    window.location.replace('/');
+    logout('/');
   };
 
   const fetchSellerProducts = async () => {

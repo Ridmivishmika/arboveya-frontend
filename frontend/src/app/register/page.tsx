@@ -291,7 +291,7 @@ function RegisterForm() {
                   >
                     {ALLOWED_BUYER_COUNTRIES.map((c) => (
                       <option key={c.code} value={c.name}>
-                        {c.flag} {c.name} ({c.dialCode}) - {c.region}
+                        {c.name}
                       </option>
                     ))}
                   </select>

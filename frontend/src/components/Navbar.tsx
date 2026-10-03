@@ -173,10 +173,9 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
   }, [pathname]);
 
   const handleSignOut = () => {
-    logout();
     setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
-    window.location.replace('/');
+    logout('/');
   };
 
   const isSellerStudio = pathname?.startsWith('/seller');
