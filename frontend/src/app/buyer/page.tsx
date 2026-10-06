@@ -992,7 +992,7 @@ export default function BuyerDashboardPage() {
               order_id: pDetails.orderId,
               items: pDetails.items,
               amount: Number(pDetails.amount).toFixed(2),
-              currency: pDetails.currency || 'USD',
+              currency: pDetails.currency || 'LKR',
               hash: pDetails.hash,
               first_name: pDetails.firstName,
               last_name: pDetails.lastName,
@@ -2430,7 +2430,7 @@ export default function BuyerDashboardPage() {
                       <span>
                         {placingOrder 
                           ? 'PROCESSING PAYHERE TRANSACTION...' 
-                          : `PAY $${total.toFixed(2)} WITH PAYHERE`}
+                          : `PAY LKR ${total.toFixed(2)} WITH PAYHERE`}
                       </span>
                     </button>
 

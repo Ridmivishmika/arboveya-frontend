@@ -123,9 +123,14 @@ export default function CheckoutClient() {
       address: details.address,
       city: details.city,
       country: details.country,
+      delivery_address: details.deliveryAddress || details.address,
+      delivery_city: details.deliveryCity || details.city,
+      delivery_country: details.deliveryCountry || details.country,
+      custom_1: details.custom1 || '',
+      custom_2: details.custom2 || '',
       order_id: details.orderId,
       items: details.items,
-      currency: details.currency || 'USD',
+      currency: details.currency || 'LKR',
       amount: Number(details.amount).toFixed(2),
       hash: details.hash
     };
@@ -315,7 +320,7 @@ export default function CheckoutClient() {
         order_id: details.orderId,
         items: details.items,
         amount: Number(details.amount).toFixed(2),
-        currency: details.currency || 'USD',
+        currency: details.currency || 'LKR',
         hash: details.hash,
         first_name: details.firstName,
         last_name: details.lastName,
@@ -323,7 +328,12 @@ export default function CheckoutClient() {
         phone: details.phone,
         address: details.address,
         city: details.city,
-        country: details.country
+        country: details.country,
+        delivery_address: details.deliveryAddress || details.address,
+        delivery_city: details.deliveryCity || details.city,
+        delivery_country: details.deliveryCountry || details.country,
+        custom_1: details.custom1 || '',
+        custom_2: details.custom2 || ''
       };
 
       window.payhere.startPayment(paymentObj);
@@ -812,14 +822,14 @@ export default function CheckoutClient() {
                       </button>
                     </div>
 
-                    {/* USD Foreign Customer Payout Feature Card */}
+                    {/* LKR Currency Support Card */}
                     <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-900 to-[#1c3f24] text-white space-y-1.5 shadow-sm">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
                         <Banknote className="w-4 h-4" />
-                        <span>Direct USD Foreign Payouts Support</span>
+                        <span>Direct LKR Currency Payments</span>
                       </div>
                       <p className="text-[11px] text-emerald-100/90 leading-relaxed">
-                        Foreign customer payments are collected securely in <strong>USD ($)</strong> and settled directly into our USD Bank Account without LKR conversion losses.
+                        Orders are processed in <strong>LKR (Rs.)</strong> via PayHere and settled directly into our local bank account.
                       </p>
                     </div>
 
@@ -914,8 +924,8 @@ export default function CheckoutClient() {
                 {placingOrder 
                   ? 'COMMUNICATING WITH PAYHERE...' 
                   : payHereMode === 'redirect'
-                  ? `REDIRECT TO PAYHERE ($${total.toFixed(2)} USD)`
-                  : `PAY $${total.toFixed(2)} USD WITH PAYHERE`}
+                  ? `REDIRECT TO PAYHERE (LKR ${total.toFixed(2)})`
+                  : `PAY LKR ${total.toFixed(2)} WITH PAYHERE`}
               </span>
             </button>
 
