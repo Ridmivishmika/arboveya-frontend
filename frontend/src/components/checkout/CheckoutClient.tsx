@@ -86,6 +86,19 @@ export default function CheckoutClient() {
     }
   }, [user]);
 
+  // Ensure PayHere 2.0 SDK script is attached to DOM
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.payhere) {
+      const existingScript = document.querySelector('script[src*="payhere-2.0.js"]');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://www.payhere.lk/lib/payhere-2.0.js';
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    }
+  }, []);
+
   // Check for PayHere redirect return / cancel URL query params
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -111,10 +124,11 @@ export default function CheckoutClient() {
     form.method = 'POST';
     form.action = details.actionUrl || (details.sandbox ? 'https://sandbox.payhere.lk/pay/checkout' : 'https://www.payhere.lk/pay/checkout');
 
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://arboveya.com';
     const fields: Record<string, any> = {
       merchant_id: details.merchantId,
-      return_url: details.returnUrl || `${window.location.origin}/checkout?status=success&order_id=${details.orderId}`,
-      cancel_url: details.cancelUrl || `${window.location.origin}/checkout?status=cancel`,
+      return_url: `${origin}/checkout?status=success&order_id=${details.orderId}`,
+      cancel_url: `${origin}/checkout?status=cancel`,
       notify_url: details.notifyUrl || '',
       first_name: details.firstName,
       last_name: details.lastName,
@@ -774,6 +788,17 @@ export default function CheckoutClient() {
                     </div>
                   </div>
 
+                  {/* Official PayHere Trust Banner from Knowledge Base */}
+                  <div className="pt-0.5 pb-0.5">
+                    <a href="https://www.payhere.lk" target="_blank" rel="noopener noreferrer" className="block">
+                      <img
+                        src="https://www.payhere.lk/downloads/images/payhere_long_banner.png"
+                        alt="PayHere Payment Gateway"
+                        className="w-full max-w-[380px] rounded-md shadow-2xs border border-stone-200/70"
+                      />
+                    </a>
+                  </div>
+
                   {/* PayHere Checkout Mode Selector */}
                   <div className="space-y-3 pt-1">
                     <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
@@ -840,6 +865,14 @@ export default function CheckoutClient() {
                         Your card and payment credentials (Card No, CVV, OTP) are processed directly within PayHere’s secure PCI-DSS Level 1 environment. Arboveya never stores your raw card data.
                       </span>
                     </div>
+
+                    {/* How It Works Notice */}
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-[#1c3f24] flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Payment Experience:</strong> When you click the <strong>&ldquo;PAY WITH PAYHERE&rdquo;</strong> button below, PayHere will immediately launch the secure onsite checkout popup to enter your card details.
+                      </span>
+                    </div>
                   </div>
 
                   {/* Trust Badges Footer */}
@@ -904,6 +937,14 @@ export default function CheckoutClient() {
                 *
               </span>
             </label>
+
+            {/* Error Notice Displayed Next to Button */}
+            {error && (
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs flex items-start gap-2 shadow-xs">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <span className="font-medium leading-relaxed">{error}</span>
+              </div>
+            )}
 
             {/* Cancel Notice from PayHere */}
             {cancelNotice && (
