@@ -17,9 +17,7 @@ import {
   AlertCircle,
   Banknote
 } from 'lucide-react';
-import { resolveBackendImageUrl } from '@/lib/api';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api";
+import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 
 declare global {
   interface Window {
@@ -328,8 +326,8 @@ export default function CheckoutClient() {
       const paymentObj = {
         sandbox: details.sandbox,
         merchant_id: details.merchantId,
-        return_url: undefined, // Must be undefined for popup mode per PayHere docs
-        cancel_url: undefined, // Must be undefined for popup mode per PayHere docs
+        return_url: details.returnUrl || '',
+        cancel_url: details.cancelUrl || '',
         notify_url: details.notifyUrl,
         order_id: details.orderId,
         items: details.items,

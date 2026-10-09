@@ -21,10 +21,10 @@ import {
 } from "@/types";
 import { fallbackSettings } from "./mockData";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://arboveya-api-fcbmdbcvh3bee9ge.uaenorth-01.azurewebsites.net/api";
 
 export function getBackendOrigin(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5287/api").replace(/\/api\/?$/, "");
+  return (process.env.NEXT_PUBLIC_API_URL || "https://arboveya-api-fcbmdbcvh3bee9ge.uaenorth-01.azurewebsites.net/api").replace(/\/api\/?$/, "");
 }
 
 /**
