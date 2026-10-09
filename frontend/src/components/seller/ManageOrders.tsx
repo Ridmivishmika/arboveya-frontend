@@ -31,6 +31,8 @@ import {
   Check,
   AlertCircle,
   ShieldAlert,
+  ShieldCheck,
+  Lock,
   DollarSign,
   Tag,
   Info,
@@ -64,7 +66,7 @@ export interface DetailedOrder {
   estimatedDelivery: string;
   orderStatus: 'Awaiting payment' | 'Awaiting shipment' | 'Paid and shipped' | 'Shipped' | 'Cancelled' | 'Delivered';
   paymentStatus: 'Paid' | 'Pending' | 'Refunded';
-  fundsStatus: 'On hold' | 'Released';
+  fundsStatus: 'On hold' | 'Released' | 'Cancelled / Withheld';
   customerName: string;
   buyerUsername: string;
   buyerFeedbackScore?: number;
@@ -152,7 +154,7 @@ const sampleOrdersData: DetailedOrder[] = [
     estimatedDelivery: 'Oct 10, 2026 - Oct 28, 2026',
     orderStatus: 'Shipped',
     paymentStatus: 'Paid',
-    fundsStatus: 'Released',
+    fundsStatus: 'On hold',
     customerName: 'David M Porterfield',
     buyerUsername: 'plantfish',
     buyerFeedbackScore: 42,
@@ -197,7 +199,7 @@ const sampleOrdersData: DetailedOrder[] = [
     datePaid: '2026-09-20T17:15:00Z',
     shipByDate: 'Sep 24',
     estimatedDelivery: 'Oct 8, 2026 - Oct 25, 2026',
-    orderStatus: 'Shipped',
+    orderStatus: 'Delivered',
     paymentStatus: 'Paid',
     fundsStatus: 'Released',
     customerName: 'Robert Pell',
@@ -267,6 +269,13 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   const [noteModalOrder, setNoteModalOrder] = useState<DetailedOrder | null>(null);
   const [noteText, setNoteText] = useState('');
 
+  // Refund modal state
+  const [refundModalOrder, setRefundModalOrder] = useState<DetailedOrder | null>(null);
+  const [refundReasonInput, setRefundReasonInput] = useState('Customer requested return/refund');
+  const [refundAmountInput, setRefundAmountInput] = useState<number | string>('');
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+
   const [activeDropdownOrderId, setActiveDropdownOrderId] = useState<string | null>(null);
   const [detailsActionDropdownOpen, setDetailsActionDropdownOpen] = useState(false);
   const [howToShipOpen, setHowToShipOpen] = useState(true);
@@ -310,7 +319,9 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
               ? 'Shipped'
               : (o.orderStatus || 'Awaiting shipment'),
           paymentStatus: o.paymentStatus || 'Paid',
-          fundsStatus: o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered' ? 'Released' : 'On hold',
+          fundsStatus: (o.paymentStatus === 'Refunded' || o.orderStatus === 'Cancelled')
+            ? 'Cancelled / Withheld'
+            : (o.orderStatus === 'Delivered' && (o.paymentStatus === 'Paid' || !o.paymentStatus) ? 'Released' : 'On hold'),
           customerName: o.customerName || 'Valued Buyer',
           buyerUsername: (o.customerName ? o.customerName.toLowerCase().replace(/\s+/g, '') : 'buyer') + Math.floor(Math.random() * 90 + 10),
           buyerFeedbackScore: Math.floor(Math.random() * 50) + 5,
@@ -389,7 +400,9 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             estimatedDelivery: '14 - 21 business days',
             orderStatus: resolvedStatus,
             paymentStatus: o.paymentStatus || 'Paid',
-            fundsStatus: resolvedStatus === 'Shipped' || resolvedStatus === 'Delivered' ? 'Released' : 'On hold',
+            fundsStatus: (o.paymentStatus === 'Refunded' || resolvedStatus === 'Cancelled')
+              ? 'Cancelled / Withheld'
+              : (resolvedStatus === 'Delivered' && (o.paymentStatus === 'Paid' || !o.paymentStatus) ? 'Released' : 'On hold'),
             customerName: o.customerName || 'Valued Buyer',
             buyerUsername: (o.customerName ? o.customerName.toLowerCase().replace(/\s+/g, '') : 'buyer') + Math.floor(Math.random() * 90 + 10),
             buyerFeedbackScore: Math.floor(Math.random() * 50) + 5,
@@ -532,7 +545,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           shippingCarrier: carrierInput.trim(),
           orderStatus: 'Shipped',
           carrierScanDate: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-          fundsStatus: 'Released'
+          fundsStatus: 'On hold'
         };
       }
       return o;
@@ -551,7 +564,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         return {
           ...o,
           orderStatus: newStatus,
-          fundsStatus: 'Released',
+          fundsStatus: newStatus === 'Delivered' ? 'Released' : 'On hold',
           carrierScanDate: o.carrierScanDate || new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
         };
       }
@@ -592,6 +605,58 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
       }
     } catch (err) {
       console.warn('Backend order status update warning:', err);
+    }
+  };
+
+  // Process order refund (refunds buyer via PayHere, restores inventory, withholds seller payout)
+  const handleProcessRefund = async () => {
+    if (!refundModalOrder) return;
+    setIsSubmittingRefund(true);
+    setRefundError(null);
+
+    try {
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '');
+      const parsedAmount = typeof refundAmountInput === 'number'
+        ? refundAmountInput
+        : (refundAmountInput ? parseFloat(refundAmountInput) : refundModalOrder.totalAmount);
+
+      const res = await fetch(`${API_BASE_URL}/orders/${refundModalOrder.id}/refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+        },
+        body: JSON.stringify({
+          reason: refundReasonInput || 'Customer requested return/refund',
+          amount: isNaN(parsedAmount) ? refundModalOrder.totalAmount : parsedAmount
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Failed to process refund');
+      }
+
+      // Update local state
+      setLocalOrders(prev => prev.map(o => {
+        if (o.id === refundModalOrder.id) {
+          return {
+            ...o,
+            orderStatus: 'Cancelled',
+            paymentStatus: 'Refunded',
+            fundsStatus: 'Cancelled / Withheld'
+          };
+        }
+        return o;
+      }));
+
+      onRefresh?.();
+      setRefundModalOrder(null);
+    } catch (err: any) {
+      console.error('Error processing refund:', err);
+      setRefundError(err?.message || 'Failed to process refund. Please verify backend connection and try again.');
+    } finally {
+      setIsSubmittingRefund(false);
     }
   };
 
@@ -1079,6 +1144,115 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                 <div className="flex justify-between items-center pt-1 text-sm font-bold text-stone-900">
                   <span>Order total</span>
                   <span>${o.totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Escrow & Seller Payout Card */}
+              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-4 text-xs">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                    <DollarSign className="w-4 h-4 text-emerald-700" />
+                    <span>Seller Escrow & Payout</span>
+                  </h3>
+                  {o.fundsStatus === 'Released' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                      <span>Released</span>
+                    </span>
+                  ) : o.fundsStatus === 'Cancelled / Withheld' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                      <AlertCircle className="w-3 h-3 text-rose-700" />
+                      <span>Withheld</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
+                      <Lock className="w-3 h-3 text-amber-700" />
+                      <span>On Hold (In Escrow)</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Explanatory Banner */}
+                {o.fundsStatus === 'Released' ? (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <span>Delivery Confirmed — Payout Cleared!</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800/90 leading-relaxed">
+                      Customer delivery has been confirmed. Payout of <strong>${o.subtotal.toFixed(2)}</strong> is cleared and queued for bank disbursement according to your vendor settlement schedule.
+                    </p>
+                  </div>
+                ) : o.fundsStatus === 'Cancelled / Withheld' ? (
+                  <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                      <span>Order Cancelled & Refunded</span>
+                    </div>
+                    <p className="text-[11px] text-rose-800/90 leading-relaxed">
+                      Payment was refunded back to the buyer via PayHere. Seller disbursement is withheld and items were returned to stock.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                      <Lock className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
+                      <span>Funds Protected in Escrow</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800/90 leading-relaxed">
+                      Buyer payment is verified and secured in PayHere escrow. In accordance with Arboveya policy, funds are released to your seller balance <strong>after the order is marked Delivered</strong>.
+                    </p>
+                  </div>
+                )}
+
+                {/* Earnings Breakdown */}
+                <div className="space-y-2 pt-1 border-t border-stone-100 text-stone-600">
+                  <div className="flex justify-between items-center">
+                    <span>Buyer Paid</span>
+                    <span className="font-semibold text-stone-900">${o.totalAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Shipping Allocation</span>
+                    <span className="font-semibold text-stone-900">${o.shippingCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-stone-500">Platform Commission</span>
+                    <span className="text-emerald-700 font-semibold">$0.00 (0% Promo)</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-stone-200 text-xs font-bold text-stone-900">
+                    <span>Estimated Net Seller Payout</span>
+                    <span className="text-sm font-black text-emerald-800">${o.subtotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Escrow Actions */}
+                <div className="pt-2 space-y-2">
+                  {o.fundsStatus === 'On hold' && o.orderStatus !== 'Delivered' && (
+                    <button
+                      onClick={() => handleUpdateOrderStatus(o.id, 'Delivered')}
+                      className="w-full py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Confirm delivery to release seller funds"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Confirm Delivery & Release Payout</span>
+                    </button>
+                  )}
+
+                  {o.orderStatus !== 'Cancelled' && o.paymentStatus !== 'Refunded' && (
+                    <button
+                      onClick={() => {
+                        setRefundModalOrder(o);
+                        setRefundAmountInput(o.totalAmount);
+                        setRefundReasonInput('Customer requested return/refund');
+                        setRefundError(null);
+                      }}
+                      className="w-full py-2 rounded-full border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Issue full or partial refund to buyer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Issue Refund / Cancel Order</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1810,6 +1984,136 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                 className="px-4 py-1.5 rounded-full bg-stone-900 text-white text-xs font-bold"
               >
                 Save Note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PROCESS REFUND ================= */}
+      {refundModalOrder && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmittingRefund) setRefundModalOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center">
+                  <RotateCcw className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">
+                    Process Customer Refund
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Order #{refundModalOrder.orderNumber} &bull; Buyer: <strong className="text-stone-800">{refundModalOrder.customerName}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSubmittingRefund && setRefundModalOrder(null)}
+                disabled={isSubmittingRefund}
+                className="p-1 rounded-full text-stone-400 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Refund Policy / Notice Callout */}
+            <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-2xl space-y-1.5 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>PayHere Refund & Escrow Policy</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-rose-800/90 pl-1 leading-relaxed">
+                <li>Funds will be refunded to the buyer's original payment method via PayHere (typically 5–10 business days).</li>
+                <li>Seller payout escrow will be marked <strong>Cancelled / Withheld</strong> (no vendor disbursement).</li>
+                <li>Reserved botanical items will be automatically restocked in the store catalog.</li>
+                <li>Formal refund receipts will be dispatched via email to both buyer and seller.</li>
+              </ul>
+            </div>
+
+            {/* Inputs Form */}
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-stone-700 mb-1">
+                  Refund Reason
+                </label>
+                <select
+                  value={refundReasonInput}
+                  onChange={(e) => setRefundReasonInput(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600"
+                >
+                  <option value="Customer requested return/refund">Customer requested return/refund</option>
+                  <option value="Item damaged or defective in transit">Item damaged or defective in transit</option>
+                  <option value="Out of stock / unable to fulfill remedy">Out of stock / unable to fulfill remedy</option>
+                  <option value="Buyer cancelled prior to dispatch">Buyer cancelled prior to dispatch</option>
+                  <option value="Other / Mutual agreement">Other / Mutual agreement</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-stone-700 mb-1">
+                  Refund Amount ($ USD)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={refundModalOrder.totalAmount}
+                    value={refundAmountInput}
+                    onChange={(e) => setRefundAmountInput(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 focus:outline-none focus:border-stone-600 font-medium"
+                    placeholder={refundModalOrder.totalAmount.toFixed(2)}
+                  />
+                </div>
+                <p className="text-[11px] text-stone-400 mt-1">
+                  Total order charge: ${refundModalOrder.totalAmount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {refundError && (
+              <div className="p-3 bg-rose-100/80 border border-rose-300 text-rose-900 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" />
+                <span>{refundError}</span>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setRefundModalOrder(null)}
+                disabled={isSubmittingRefund}
+                className="px-4 py-2 rounded-full border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProcessRefund}
+                disabled={isSubmittingRefund}
+                className="px-5 py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingRefund ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing Refund...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Confirm & Process Refund</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

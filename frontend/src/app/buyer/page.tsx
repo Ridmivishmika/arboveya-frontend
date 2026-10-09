@@ -1355,9 +1355,11 @@ export default function BuyerDashboardPage() {
                                       </div>
                                       <div>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                          (order.paymentStatus || 'Paid').toLowerCase().includes('paid')
-                                            ? 'bg-emerald-100 text-emerald-800'
-                                            : 'bg-amber-100 text-amber-800'
+                                          (order.paymentStatus || 'Paid').toLowerCase().includes('refund')
+                                            ? 'bg-rose-100 text-rose-800'
+                                            : (order.paymentStatus || 'Paid').toLowerCase().includes('paid')
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-amber-100 text-amber-800'
                                         }`}>
                                           {order.paymentStatus || 'Paid'}
                                         </span>
