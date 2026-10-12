@@ -118,14 +118,39 @@ function formatEstimatedDeliveryDate(order?: { estimatedDeliveryDate?: string; c
   });
 }
 
-function isOrderRefundEligible(order?: { orderStatus?: string; estimatedDeliveryDate?: string; createdAt?: string } | null): boolean {
+function getNonDeliveryRefundEligibleDate(order?: { estimatedDeliveryDate?: string; createdAt?: string } | null): Date {
+  const estDate = getEstimatedDeliveryDate(order);
+  const eligible = new Date(estDate.getTime());
+  eligible.setDate(eligible.getDate() + 14); // 2 weeks (14 days) after estimated delivery date
+  return eligible;
+}
+
+function formatNonDeliveryRefundEligibleDate(order?: { estimatedDeliveryDate?: string; createdAt?: string } | null): string {
+  if (!order) return 'Pending';
+  const d = getNonDeliveryRefundEligibleDate(order);
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function isOrderRefundEligible(order?: { orderStatus?: string; estimatedDeliveryDate?: string; createdAt?: string; paymentStatus?: string; refundStatus?: string } | null): boolean {
   if (!order) return false;
+  // If refund is already requested or refunded, do not allow requesting again
+  if (order.refundStatus === 'Requested' || order.refundStatus === 'Refunded') return false;
+  const payStatus = (order.paymentStatus || '').toLowerCase();
+  if (payStatus.includes('refund')) return false;
+
   const status = (order.orderStatus || '').toLowerCase();
   const isDelivered = status.includes('deliver');
+  // 1. If package IS delivered: refund is open immediately for buyers (damaged items, returns, etc.)
   if (isDelivered) return true;
 
-  const estDate = getEstimatedDeliveryDate(order);
-  return Date.now() >= estDate.getTime();
+  // 2. If package is NOT delivered at estimated delivery time:
+  // Count two weeks (14 days) from estimated delivery date. Refund opens only after those two weeks pass.
+  const eligibleDate = getNonDeliveryRefundEligibleDate(order);
+  return Date.now() >= eligibleDate.getTime();
 }
 
 export default function BuyerDashboardPage() {
@@ -1522,7 +1547,7 @@ export default function BuyerDashboardPage() {
                                              setRefundReasonOption(
                                                (order.orderStatus || '').toLowerCase().includes('deliver')
                                                  ? 'Damaged or defective items received'
-                                                 : 'Package not delivered within estimated delivery time'
+                                                 : 'Package not delivered within estimated delivery time (14+ days overdue)'
                                              );
                                              setRefundDetailsInput('');
                                              setRefundErrorMessage(null);
@@ -1533,6 +1558,14 @@ export default function BuyerDashboardPage() {
                                            <RotateCcw className="w-3 h-3 text-amber-700" />
                                            <span>Request Refund</span>
                                          </button>
+                                       ) : !((order.orderStatus || '').toLowerCase().includes('deliver')) && (order.paymentStatus || '').toLowerCase() === 'paid' && !(order.orderStatus || '').toLowerCase().includes('cancel') ? (
+                                         <span
+                                           className="inline-flex items-center gap-1 text-[10px] font-medium text-stone-600 bg-stone-100 px-2 py-1 rounded-lg border border-stone-200"
+                                           title={`Per Arboveya Guarantee, refund requests for undelivered packages open 2 weeks after estimated delivery date (${formatNonDeliveryRefundEligibleDate(order)}).`}
+                                         >
+                                           <Clock className="w-3 h-3 text-stone-400" />
+                                           <span>Refund opens {formatNonDeliveryRefundEligibleDate(order)}</span>
+                                         </span>
                                        ) : null}
 
                                        <button
@@ -2967,13 +3000,25 @@ export default function BuyerDashboardPage() {
                 <span>Arboveya Buyer Protection Policy</span>
               </div>
               <p className="text-[11px] leading-relaxed text-amber-800">
-                You are protected by Arboveya buyer guarantee. Since order payments are deposited directly into the merchant's PayHere account, upon submitting this request the merchant will review and manually issue the refund directly through PayHere back to your payment method.
+                {(refundModalOrder.orderStatus || '').toLowerCase().includes('deliver')
+                  ? 'Your order is recorded as delivered. If your items arrived damaged, defective, or incorrect, you can request a return or refund below.'
+                  : 'Your package is past its estimated delivery date and has exceeded the mandatory 2-week (14 days) transit grace period. You are now fully eligible to submit a refund request for non-delivery.'}
               </p>
-              <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-stone-700">Estimated Delivery Date:</span>
-                <span className="font-bold text-[#1c3f24]">
-                  {formatEstimatedDeliveryDate(refundModalOrder)}
-                </span>
+              <div className="pt-1.5 border-t border-amber-200/60 space-y-1 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-700">Estimated Delivery Date:</span>
+                  <span className="font-bold text-[#1c3f24]">
+                    {formatEstimatedDeliveryDate(refundModalOrder)}
+                  </span>
+                </div>
+                {!((refundModalOrder.orderStatus || '').toLowerCase().includes('deliver')) && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-stone-700">Refund Window Opened:</span>
+                    <span className="font-bold text-amber-800">
+                      {formatNonDeliveryRefundEligibleDate(refundModalOrder)} (2 weeks post-estimate)
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

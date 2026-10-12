@@ -91,6 +91,8 @@ export interface DetailedOrder {
   shippedAt?: string;
   carrierScanDate?: string;
   estimatedDeliveryDate?: string;
+  payHereOrderId?: string;
+  paymentId?: string;
   refundStatus?: string;
   refundReason?: string;
   refundRequestedAt?: string;
@@ -333,6 +335,8 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         return {
           id: o.id || `ord-${idx}`,
           orderNumber: o.payHereOrderId || o.orderNumber || `13-${Math.floor(10000 + Math.random() * 90000)}-${Math.floor(10000 + Math.random() * 90000)}`,
+          payHereOrderId: o.payHereOrderId || undefined,
+          paymentId: o.paymentId || undefined,
           salesRecordNo: `${236 - idx}`,
           createdAt: o.createdAt || new Date().toISOString(),
           datePaid: o.createdAt || new Date().toISOString(),
@@ -426,6 +430,8 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           return {
             id: o.id || `ord-${idx}`,
             orderNumber: o.payHereOrderId || o.orderNumber || `13-${Math.floor(10000 + Math.random() * 90000)}-${Math.floor(10000 + Math.random() * 90000)}`,
+            payHereOrderId: o.payHereOrderId || existing?.payHereOrderId || undefined,
+            paymentId: o.paymentId || existing?.paymentId || undefined,
             salesRecordNo: `${236 - idx}`,
             createdAt: o.createdAt || new Date().toISOString(),
             datePaid: o.createdAt || new Date().toISOString(),
@@ -704,6 +710,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           amount: isNaN(parsedAmount) ? refundModalOrder.totalAmount : parsedAmount,
           autoRefundSandbox: autoRefundSandbox,
           payHereRefundId: autoRefundSandbox ? undefined : (payHereRefundRefInput.trim() || undefined),
+          paymentId: refundModalOrder.paymentId || (payHereRefundRefInput.trim() || undefined),
           notes: sellerRefundNotesInput.trim() || undefined
         })
       });
@@ -2350,11 +2357,44 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                   </button>
                 </div>
 
+                {/* PayHere Transaction Reference Info Card */}
+                <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-700 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-stone-600">PayHere Order Reference:</span>
+                    <span className="font-mono font-bold text-stone-900">{refundModalOrder.payHereOrderId || refundModalOrder.orderNumber}</span>
+                  </div>
+                  {refundModalOrder.paymentId ? (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-stone-600">PayHere Payment ID:</span>
+                      <span className="font-mono font-bold text-[#2E4D38] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {refundModalOrder.paymentId}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between text-[11px] text-stone-500">
+                      <span>PayHere Payment ID:</span>
+                      <span className="italic text-[10px]">Captured on live IPN callback</span>
+                    </div>
+                  )}
+                  <div className="pt-1.5 border-t border-stone-200/60 flex items-center justify-between text-[11px]">
+                    <span className="text-stone-600">PayHere Merchant Portal:</span>
+                    <a
+                      href="https://merchant.payhere.lk"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#2E4D38] font-bold hover:underline inline-flex items-center gap-1"
+                    >
+                      <span>merchant.payhere.lk</span>
+                      <span>&rarr;</span>
+                    </a>
+                  </div>
+                </div>
+
                 {/* Refund Mode Selection */}
                 <div className="space-y-2">
                   <span className="block text-xs font-bold text-stone-800">Choose Refund Method</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* Option 1: Automated Sandbox */}
+                    {/* Option 1: Automated PayHere API */}
                     <div
                       onClick={() => setAutoRefundSandbox(true)}
                       className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
@@ -2367,19 +2407,16 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5 font-bold text-xs text-stone-900">
                             <Zap className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>Auto PayHere Sandbox</span>
+                            <span>Auto PayHere API</span>
                           </div>
-                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900">
-                            Recommended
-                          </span>
                         </div>
                         <p className="text-[11px] text-stone-600 leading-snug">
-                          Automatically execute refund via PayHere Sandbox mode and generate instant receipt.
+                          Calls PayHere automated refund API. Requires PAYHERE_APP_ID &amp; SECRET configured on server.
                         </p>
                       </div>
                     </div>
 
-                    {/* Option 2: Manual PayHere */}
+                    {/* Option 2: Manual PayHere Portal */}
                     <div
                       onClick={() => setAutoRefundSandbox(false)}
                       className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
@@ -2394,9 +2431,12 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                             <RotateCcw className="w-3.5 h-3.5 text-stone-600" />
                             <span>Manual Portal Entry</span>
                           </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">
+                            Recommended
+                          </span>
                         </div>
                         <p className="text-[11px] text-stone-600 leading-snug">
-                          For refunds already initiated manually inside merchant.payhere.lk.
+                          Issue refund directly inside merchant.payhere.lk (Payments &gt; Refund) and paste the reference.
                         </p>
                       </div>
                     </div>
@@ -2407,15 +2447,24 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                 <div className="space-y-4 text-xs">
                   {/* Manual reference input if manual mode */}
                   {!autoRefundSandbox && (
-                    <div>
-                      <label className="block font-semibold text-stone-700 mb-1">
+                    <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2">
+                      <div className="text-[11px] text-amber-900">
+                        <strong>Steps to refund in PayHere Portal:</strong>
+                        <ol className="list-decimal list-inside mt-1 space-y-0.5 text-amber-800">
+                          <li>Log in to <a href="https://merchant.payhere.lk" target="_blank" rel="noopener noreferrer" className="underline font-semibold">merchant.payhere.lk</a></li>
+                          <li>Go to <strong>Payments</strong> and search for order <strong>#{refundModalOrder.payHereOrderId || refundModalOrder.orderNumber}</strong></li>
+                          <li>Click <strong>Refund</strong> and complete the reversal</li>
+                          <li>Copy the PayHere Refund Reference number and paste it below:</li>
+                        </ol>
+                      </div>
+                      <label className="block font-semibold text-stone-700">
                         PayHere Refund Reference / Transaction ID <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={payHereRefundRefInput}
                         onChange={(e) => setPayHereRefundRefInput(e.target.value)}
-                        placeholder="e.g. 320000849201"
+                        placeholder="e.g. 320000849201 or PH-REF-..."
                         className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600 font-mono text-xs"
                       />
                     </div>
