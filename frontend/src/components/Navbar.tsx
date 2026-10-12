@@ -580,8 +580,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
           <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 justify-end">
             
             {/* Search Bar in Buyer Dashboard */}
-            <div className="hidden xl:block w-44 2xl:w-56 mr-1">
-              <NavbarSearch variant="desktop" placeholder="Search store..." />
+            <div className="hidden xl:block w-36 2xl:w-44 mr-1">
+              <NavbarSearch variant="compact" placeholder="Search store..." />
             </div>
 
             {/* Single Store button */}

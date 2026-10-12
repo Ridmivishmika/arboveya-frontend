@@ -10,12 +10,8 @@ import {
   Lock, 
   ArrowLeft, 
   ShoppingBag, 
-  UserPlus, 
-  LogIn, 
-  ShieldCheck, 
   User,
-  AlertCircle,
-  Banknote
+  AlertCircle
 } from 'lucide-react';
 import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 
@@ -404,7 +400,7 @@ export default function CheckoutClient() {
           </h1>
 
           <p className="text-sm text-[#526a57] leading-relaxed">
-            Your herbal wellness order has been placed successfully. A confirmation receipt and dispatch tracking updates will be emailed to <span className="font-bold text-[#1c3f24]">{orderSuccess.customerEmail}</span>.
+            Your herbal wellness order has been placed successfully.
           </p>
 
           <div className="p-4 bg-white rounded-xl border border-[#ccdacc] text-left text-xs space-y-2.5">
@@ -456,56 +452,6 @@ export default function CheckoutClient() {
     );
   }
 
-  // 2. Auth Gate Screen: User must register or login before checkout
-  if (!authLoading && !user) {
-    return (
-      <div className="min-h-screen bg-white text-[#1c3f24] py-16 px-4">
-        <div className="max-w-lg mx-auto bg-[#fafcfa] border border-[#e0eae0] p-8 sm:p-10 rounded-2xl text-center space-y-6 shadow-sm">
-          <div className="w-16 h-16 bg-[#edf5ee] text-[#24492d] rounded-full flex items-center justify-center mx-auto">
-            <Lock className="w-8 h-8" />
-          </div>
-
-          <div>
-            <h2 className="font-serif text-2xl font-bold text-[#1c3f24]">
-              Account Registration Required
-            </h2>
-            <p className="text-xs sm:text-sm text-[#556e59] mt-2 max-w-md mx-auto leading-relaxed">
-              To protect your payment, track your package, and receive herbal wellness delivery updates, checkout is exclusively available for registered Arboveya members.
-            </p>
-          </div>
-
-          <div className="p-4 bg-white rounded-xl border border-[#dce7dc] text-left text-xs space-y-2">
-            <div className="flex justify-between font-semibold text-[#1c3f24]">
-              <span>Cart Items:</span>
-              <span>{cart.length} item(s)</span>
-            </div>
-            <div className="flex justify-between font-bold text-[#24492d] border-t border-[#edf3ed] pt-2">
-              <span>Subtotal:</span>
-              <span>${subtotal.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <Link
-              href="/register?redirect=/checkout"
-              className="w-full py-3.5 px-6 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Register to Complete Checkout</span>
-            </Link>
-
-            <Link
-              href="/login?redirect=/checkout"
-              className="w-full py-3 px-6 rounded-xl border border-[#24492d] text-[#24492d] hover:bg-[#edf5ee] text-xs sm:text-sm font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Already have an account? Sign In</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // 3. Main Checkout Form Screen (Logged-in User)
   return (
@@ -751,145 +697,17 @@ export default function CheckoutClient() {
               </div>
             </div>
 
-            {/* Payment Method Selector & Interactive Details Form */}
-            <div className="space-y-3.5 border-t border-[#e2eae2] pt-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider">Payment Method</span>
-                <span className="text-[11px] text-[#556e59] flex items-center gap-1">
-                  <Lock className="w-3 h-3 text-emerald-700" />
-                  <span>256-Bit Encrypted</span>
-                </span>
+            {/* Payment Method */}
+            <div className="flex items-center justify-between py-2 border-t border-[#e2eae2] text-xs">
+              <div className="flex items-center gap-1.5 text-[#1c3f24] font-semibold">
+                <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                <span>PayHere Secure Payment</span>
               </div>
-
-              {/* Payment Methods Section (PayHere Gateway ONLY) */}
-              <div className="space-y-3.5">
-                <div className="p-4 sm:p-5 rounded-2xl border-2 border-[#24492d] bg-gradient-to-br from-[#f4f8f4] to-white shadow-xs space-y-4">
-                  {/* PayHere Gateway Header */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm sm:text-base font-bold text-stone-900 leading-tight">PayHere Secure Payment Gateway</span>
-                        <span className="text-[10px] bg-[#24492d] text-white font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                          Primary Gateway
-                        </span>
-                      </div>
-                      <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                        Pay securely with your Credit or Debit Card in Sri Lankan Rupees (LKR) or USD.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-blue-700 shadow-2xs">VISA</span>
-                      <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-rose-600 shadow-2xs">MC</span>
-                      <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-amber-700 shadow-2xs">AMEX</span>
-                      <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-emerald-700 shadow-2xs">LKR</span>
-                    </div>
-                  </div>
-
-                  {/* Official PayHere Trust Banner from Knowledge Base */}
-                  <div className="pt-0.5 pb-0.5">
-                    <a href="https://www.payhere.lk" target="_blank" rel="noopener noreferrer" className="block">
-                      <img
-                        src="https://www.payhere.lk/downloads/images/payhere_long_banner.png"
-                        alt="PayHere Payment Gateway"
-                        className="w-full max-w-[380px] rounded-md shadow-2xs border border-stone-200/70"
-                      />
-                    </a>
-                  </div>
-
-                  {/* PayHere Checkout Mode Selector */}
-                  <div className="space-y-3 pt-1">
-                    <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                      PayHere Checkout Experience
-                    </label>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setPayHereMode('popup')}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          payHereMode === 'popup'
-                            ? 'border-[#24492d] bg-[#24492d]/5 ring-1 ring-[#24492d]'
-                            : 'border-stone-200 bg-white hover:bg-stone-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-[#1c3f24]">Onsite Popup Modal</span>
-                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                            Recommended
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-stone-500 leading-snug">
-                          Pay directly inside the secure PayHere modal without navigating away from Arboveya.
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPayHereMode('redirect')}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          payHereMode === 'redirect'
-                            ? 'border-[#24492d] bg-[#24492d]/5 ring-1 ring-[#24492d]'
-                            : 'border-stone-200 bg-white hover:bg-stone-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-[#1c3f24]">Hosted Page Redirect</span>
-                          <span className="text-[10px] bg-stone-100 text-stone-700 font-bold px-2 py-0.5 rounded-full">
-                            Standard
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-stone-500 leading-snug">
-                          Redirects to the official PayHere gateway checkout page and returns upon completion.
-                        </p>
-                      </button>
-                    </div>
-
-                    {/* LKR Currency Support Card */}
-                    <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-900 to-[#1c3f24] text-white space-y-1.5 shadow-sm">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
-                        <Banknote className="w-4 h-4" />
-                        <span>Direct LKR Currency Payments</span>
-                      </div>
-                      <p className="text-[11px] text-emerald-100/90 leading-relaxed">
-                        Orders are processed in <strong>LKR (Rs.)</strong> via PayHere and settled directly into our local bank account.
-                      </p>
-                    </div>
-
-                    {/* Secure Handled Notice */}
-                    <div className="p-2.5 rounded-lg bg-stone-50 border border-stone-200 text-[11px] text-stone-600 flex items-start gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                      <span>
-                        Your card and payment credentials (Card No, CVV, OTP) are processed directly within PayHere’s secure PCI-DSS Level 1 environment. Arboveya never stores your raw card data.
-                      </span>
-                    </div>
-
-                    {/* How It Works Notice */}
-                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-[#1c3f24] flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                      <span>
-                        <strong>Payment Experience:</strong> When you click the <strong>&ldquo;PAY WITH PAYHERE&rdquo;</strong> button below, PayHere will immediately launch the secure onsite checkout popup to enter your card details.
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Trust Badges Footer */}
-                  <div className="pt-2 border-t border-[#d8e6da] space-y-2 text-xs">
-                    <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      <span>PayHere Verified &bull; 256-Bit SSL Encryption &bull; PCI-DSS Level 1 Certified</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[10px] font-bold text-stone-600">
-                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Visa / Mastercard</span>
-                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">American Express</span>
-                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">FriMi</span>
-                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Genie</span>
-                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">eZ Cash</span>
-                      <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Internet Banking</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-stone-600">
+                <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">VISA</span>
+                <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">MC</span>
+                <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">AMEX</span>
+                <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">LKR</span>
               </div>
             </div>
 

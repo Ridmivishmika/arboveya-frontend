@@ -86,8 +86,14 @@ export interface DetailedOrder {
   orderEarnings: number;
   trackingNumber?: string;
   shippingCarrier?: string;
+  trackingUrl?: string;
   shippedAt?: string;
   carrierScanDate?: string;
+  estimatedDeliveryDate?: string;
+  refundStatus?: string;
+  refundReason?: string;
+  refundRequestedAt?: string;
+  refundProcessedAt?: string;
   items: OrderItemDetail[];
   notes?: string[];
 }
@@ -260,6 +266,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   const [trackingModalOrder, setTrackingModalOrder] = useState<DetailedOrder | null>(null);
   const [trackingNumberInput, setTrackingNumberInput] = useState('');
   const [carrierInput, setCarrierInput] = useState('Sri Lanka Post');
+  const [trackingUrlInput, setTrackingUrlInput] = useState('');
   const [isSubmittingTracking, setIsSubmittingTracking] = useState(false);
 
   const [messageModalOrder, setMessageModalOrder] = useState<DetailedOrder | null>(null);
@@ -312,7 +319,10 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           createdAt: o.createdAt || new Date().toISOString(),
           datePaid: o.createdAt || new Date().toISOString(),
           shipByDate: 'Within 3 business days',
-          estimatedDelivery: '14 - 21 business days',
+          estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
+          estimatedDelivery: o.estimatedDeliveryDate
+            ? new Date(o.estimatedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : '14 - 21 business days',
           orderStatus: o.orderStatus === 'Delivered'
             ? 'Delivered'
             : (o.orderStatus === 'Shipped' || o.trackingNumber)
@@ -341,7 +351,12 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           orderEarnings: o.totalAmount ?? 0,
           trackingNumber: o.trackingNumber || undefined,
           shippingCarrier: o.shippingCarrier || undefined,
+          trackingUrl: o.trackingUrl || undefined,
           shippedAt: o.shippedAt || undefined,
+          refundStatus: o.refundStatus || 'None',
+          refundReason: o.refundReason || undefined,
+          refundRequestedAt: o.refundRequestedAt || undefined,
+          refundProcessedAt: o.refundProcessedAt || undefined,
           items: (o.orderItems || o.items || []).map((it: any, iIdx: number) => ({
             id: it.id || `item-${idx}-${iIdx}`,
             productName: it.productName || 'Botanical Herbal Remedy',
@@ -397,7 +412,10 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             createdAt: o.createdAt || new Date().toISOString(),
             datePaid: o.createdAt || new Date().toISOString(),
             shipByDate: 'Within 3 business days',
-            estimatedDelivery: '14 - 21 business days',
+            estimatedDeliveryDate: o.estimatedDeliveryDate || existing?.estimatedDeliveryDate || undefined,
+            estimatedDelivery: (o.estimatedDeliveryDate || existing?.estimatedDeliveryDate)
+              ? new Date(o.estimatedDeliveryDate || existing?.estimatedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+              : '14 - 21 business days',
             orderStatus: resolvedStatus,
             paymentStatus: o.paymentStatus || 'Paid',
             fundsStatus: (o.paymentStatus === 'Refunded' || resolvedStatus === 'Cancelled')
@@ -422,8 +440,13 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             orderEarnings: o.totalAmount ?? 0,
             trackingNumber: existing?.trackingNumber || o.trackingNumber || undefined,
             shippingCarrier: existing?.shippingCarrier || o.shippingCarrier || undefined,
+            trackingUrl: existing?.trackingUrl || o.trackingUrl || undefined,
             carrierScanDate: existing?.carrierScanDate || (resolvedStatus === 'Delivered' || resolvedStatus === 'Shipped' ? new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : undefined),
             shippedAt: o.shippedAt || undefined,
+            refundStatus: o.refundStatus || existing?.refundStatus || 'None',
+            refundReason: o.refundReason || existing?.refundReason || undefined,
+            refundRequestedAt: o.refundRequestedAt || existing?.refundRequestedAt || undefined,
+            refundProcessedAt: o.refundProcessedAt || existing?.refundProcessedAt || undefined,
             items: (o.orderItems || o.items || []).map((it: any, iIdx: number) => ({
               id: it.id || `item-${idx}-${iIdx}`,
               productName: it.productName || 'Botanical Herbal Remedy',
@@ -511,6 +534,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
     setTrackingModalOrder(order);
     setTrackingNumberInput(order.trackingNumber || '');
     setCarrierInput(order.shippingCarrier || 'Sri Lanka Post');
+    setTrackingUrlInput(order.trackingUrl || '');
   };
 
   // Save tracking number
@@ -529,6 +553,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         body: JSON.stringify({
           trackingNumber: trackingNumberInput.trim(),
           shippingCarrier: carrierInput.trim(),
+          trackingUrl: trackingUrlInput.trim() || undefined,
           orderStatus: 'Shipped'
         })
       });
@@ -543,6 +568,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           ...o,
           trackingNumber: trackingNumberInput.trim(),
           shippingCarrier: carrierInput.trim(),
+          trackingUrl: trackingUrlInput.trim() || undefined,
           orderStatus: 'Shipped',
           carrierScanDate: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
           fundsStatus: 'On hold'
@@ -1446,20 +1472,32 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
               </div>
 
               {/* Search input field with magnifying glass */}
-              <div className="relative flex-1 min-w-[180px] max-w-sm flex items-center">
+              <div className="relative w-44 sm:w-52 md:w-56 flex items-center">
                 <input
                   type="text"
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
                   placeholder="Search..."
-                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-600"
+                  className="w-full pl-3 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-600 transition"
                 />
-                <button
-                  type="button"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
-                >
-                  <Search className="w-4 h-4" />
-                </button>
+                {searchKeyword ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchKeyword('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 pointer-events-none"
+                    tabIndex={-1}
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               {/* Reset button */}
@@ -1543,7 +1581,12 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                             <td className="py-4 px-4 align-top space-y-2">
                               {/* Order Number, Status Badge & Buyer Name */}
                               <div className="flex items-center gap-2 flex-wrap">
-                                {order.orderStatus === 'Delivered' ? (
+                                {order.refundStatus === 'Requested' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                                    <AlertCircle className="w-3 h-3 text-amber-700" />
+                                    <span>Refund Requested</span>
+                                  </span>
+                                ) : order.orderStatus === 'Delivered' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
                                     <Check className="w-3 h-3" />
                                     <span>Delivered</span>
@@ -1570,6 +1613,30 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                                 <span className="text-stone-400">•</span>
                                 <span className="font-semibold text-stone-800">{order.customerName}</span>
                               </div>
+
+                              {/* Prominent Refund Alert Banner if Buyer Opened Refund */}
+                              {order.refundStatus === 'Requested' && (
+                                <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-300 flex items-center justify-between gap-3 text-xs">
+                                  <div className="flex items-center gap-1.5 text-amber-900">
+                                    <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                                    <span>
+                                      <strong>Buyer Opened Refund Request:</strong> &quot;{order.refundReason || 'Package not delivered or damaged'}&quot;
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRefundModalOrder(order);
+                                      setRefundReasonInput(order.refundReason || 'Customer requested return/refund');
+                                      setRefundAmountInput(order.totalAmount);
+                                      setRefundError(null);
+                                    }}
+                                    className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition cursor-pointer flex-shrink-0 shadow-2xs"
+                                  >
+                                    Process Refund
+                                  </button>
+                                </div>
+                              )}
 
                               {/* Product Thumbnail + Information */}
                               <div className="flex items-start gap-3 pt-1">
@@ -1602,9 +1669,20 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                                   {/* Tracking line & View Details */}
                                   <div className="pt-0.5 flex items-center gap-2 text-xs flex-wrap">
                                     {order.trackingNumber ? (
-                                      <div className="flex items-center gap-1.5 text-[11px]">
+                                      <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
                                         <span className="text-stone-500">Tracking:</span>
                                         <span className="font-mono font-bold text-stone-800">{order.trackingNumber}</span>
+                                        {order.trackingUrl && (
+                                          <a
+                                            href={order.trackingUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline flex items-center gap-0.5"
+                                          >
+                                            <span>Link</span>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </a>
+                                        )}
                                         <button
                                           onClick={() => handleOpenTrackingModal(order)}
                                           className="text-blue-600 underline font-semibold cursor-pointer"
@@ -1620,6 +1698,10 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                                         + Add tracking
                                       </button>
                                     )}
+                                    <span className="text-stone-300">•</span>
+                                    <span className="text-[11px] text-stone-500">
+                                      Est: {order.estimatedDelivery}
+                                    </span>
                                     <span className="text-stone-300">•</span>
                                     <button
                                       onClick={() => setSelectedOrderId(order.id)}
@@ -1802,6 +1884,22 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Tracking URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={trackingUrlInput}
+                    onChange={(e) => setTrackingUrlInput(e.target.value)}
+                    placeholder="https://t.17track.net/en#nums=... or carrier link"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-mono text-[11px]"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    Optional carrier URL. If left empty, Arboveya will auto-generate direct carrier links for the buyer.
+                  </p>
                 </div>
               </div>
 

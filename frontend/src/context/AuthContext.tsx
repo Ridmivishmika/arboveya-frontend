@@ -11,6 +11,7 @@ export interface UserProfile {
   email: string;
   role: 'Customer' | 'Seller' | 'Admin';
   address?: string;
+  zipCode?: string;
   nationality?: string;
   phoneNumber?: string;
   isSellerApproved?: boolean;
@@ -243,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: u.email,
         role: u.role,
         address: u.address || '',
+        zipCode: data.zipCode || u.zipCode || '',
         nationality: u.nationality || '',
         phoneNumber: u.phoneNumber || '',
         isSellerApproved: u.isSellerApproved ?? false,

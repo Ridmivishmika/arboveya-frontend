@@ -33,7 +33,10 @@ function RegisterForm() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [address, setAddress] = useState('');
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [zipCode, setZipCode] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(DEFAULT_COUNTRY);
   const [nationality, setNationality] = useState(DEFAULT_COUNTRY.name);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -83,6 +86,14 @@ function RegisterForm() {
       finalPhone = phoneCheck.fullInternationalNumber;
     }
 
+    const addressParts = [
+      addressLine1.trim(),
+      addressLine2.trim() || null,
+      city.trim() || null,
+      zipCode.trim() || null
+    ].filter(Boolean);
+    const compiledAddress = addressParts.join(', ');
+
     try {
       await register({
         firstName,
@@ -90,7 +101,8 @@ function RegisterForm() {
         email,
         password,
         role: selectedRole,
-        address,
+        address: compiledAddress,
+        zipCode: zipCode.trim(),
         nationality,
         phoneNumber: finalPhone,
         bankName: selectedRole === 'Seller' ? bankName.trim() : undefined,
@@ -261,19 +273,107 @@ function RegisterForm() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                {selectedRole === 'Seller' ? 'Business / Botanical Studio Address *' : 'Delivery Address *'}
-              </label>
-              <input
-                type="text"
-                required
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 Botanical Avenue, Suite 4"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-              />
-            </div>
+            {selectedRole === 'Customer' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Address Line 1 (1st Lane / Street Address) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addressLine1}
+                    onChange={(e) => setAddressLine1(e.target.value)}
+                    placeholder="e.g. 1st Lane, Temple Road / 123 Botanical Ave"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Address Line 2 (2nd Lane / Apartment / Suite){' '}
+                    <span className="text-stone-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressLine2}
+                    onChange={(e) => setAddressLine2(e.target.value)}
+                    placeholder="e.g. 2nd Lane, Suite 4B"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">City / Town *</label>
+                    <input
+                      type="text"
+                      required
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. Colombo, New York, London"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">ZIP / Postal Code *</label>
+                    <input
+                      type="text"
+                      required
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      placeholder="e.g. 10100 or 90210"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Business / Studio Address (1st Lane / Street Address) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addressLine1}
+                    onChange={(e) => setAddressLine1(e.target.value)}
+                    placeholder="e.g. 1st Lane, Organic Farm Road"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">
+                      Address Line 2 (2nd Lane / Unit){' '}
+                      <span className="text-stone-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressLine2}
+                      onChange={(e) => setAddressLine2(e.target.value)}
+                      placeholder="e.g. 2nd Lane, Suite 200"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">ZIP / Postal Code *</label>
+                    <input
+                      type="text"
+                      required
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      placeholder="e.g. 10100"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {selectedRole === 'Customer' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

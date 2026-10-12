@@ -10,7 +10,7 @@ import { getProducts, resolveBackendImageUrl } from '@/lib/api';
 
 interface NavbarSearchProps {
   placeholder?: string;
-  variant?: 'desktop' | 'mobile-bar' | 'mobile-drawer';
+  variant?: 'desktop' | 'compact' | 'mobile-bar' | 'mobile-drawer';
   autoFocus?: boolean;
   onClose?: () => void;
 }
@@ -23,6 +23,7 @@ export default function NavbarSearch({
 }: NavbarSearchProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const isCompact = variant === 'compact';
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
@@ -168,26 +169,30 @@ export default function NavbarSearch({
             placeholder={placeholder}
             autoComplete="off"
             spellCheck="false"
-            className={`w-full pl-9 sm:pl-10 pr-9 sm:pr-10 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 outline-none
-              bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white
-              border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d]
-              text-[#18311d] placeholder:text-[#6b8570]
-              focus:ring-2 focus:ring-[#24492d]/15 shadow-2xs`}
+            className={`w-full transition-all duration-200 outline-none rounded-full font-medium ${
+              isCompact
+                ? 'pl-7.5 pr-7 py-1 text-xs h-8 bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] placeholder:text-[11px] focus:ring-1 focus:ring-[#24492d]/20 shadow-2xs'
+                : 'pl-9 sm:pl-10 pr-9 sm:pr-10 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] focus:ring-2 focus:ring-[#24492d]/15 shadow-2xs'
+            }`}
           />
 
           {/* Left search icon button */}
           <button
             type="submit"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#46694c] hover:text-[#1c3f24] transition-colors p-0.5 cursor-pointer"
+            className={`absolute top-1/2 -translate-y-1/2 text-[#46694c] hover:text-[#1c3f24] transition-colors p-0.5 cursor-pointer ${
+              isCompact ? 'left-2.5' : 'left-3'
+            }`}
             title="Search"
           >
-            <Search className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            <Search className={isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4 sm:w-4.5 sm:h-4.5'} />
           </button>
 
           {/* Right action controls */}
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${
+            isCompact ? 'right-2' : 'right-2.5'
+          }`}>
             {isLoading && (
-              <Loader2 className="w-4 h-4 animate-spin text-[#24492d] mr-1" />
+              <Loader2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} animate-spin text-[#24492d] mr-1`} />
             )}
 
             {query && !isLoading && (
@@ -198,7 +203,7 @@ export default function NavbarSearch({
                 title="Clear search"
                 aria-label="Clear search"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className={isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
               </button>
             )}
 

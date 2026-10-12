@@ -47,7 +47,9 @@ import {
   CreditCard,
   Calendar,
   Banknote,
-  ShieldCheck
+  ShieldCheck,
+  RotateCcw,
+  ExternalLink
 } from 'lucide-react';
 
 interface OrderItem {
@@ -85,6 +87,12 @@ interface Order {
   trackingNumber?: string;
   shippingCarrier?: string;
   shippedAt?: string;
+  estimatedDeliveryDate?: string;
+  trackingUrl?: string;
+  refundStatus?: string;
+  refundReason?: string;
+  refundRequestedAt?: string;
+  refundProcessedAt?: string;
   items?: OrderItem[];
   orderItems?: OrderItem[];
 }
@@ -121,6 +129,52 @@ export default function BuyerDashboardPage() {
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
   const [selectedOrderReceipt, setSelectedOrderReceipt] = useState<Order | null>(null);
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
+
+  // Refund Modal State for Buyer
+  const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
+  const [refundReasonOption, setRefundReasonOption] = useState<string>('Package not delivered within estimated delivery time');
+  const [refundDetailsInput, setRefundDetailsInput] = useState<string>('');
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState<boolean>(false);
+  const [refundSuccessMessage, setRefundSuccessMessage] = useState<string | null>(null);
+  const [refundErrorMessage, setRefundErrorMessage] = useState<string | null>(null);
+
+  const handleRequestRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refundModalOrder) return;
+    setIsSubmittingRefund(true);
+    setRefundErrorMessage(null);
+
+    try {
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '');
+      const res = await fetch(`${API_BASE_URL}/orders/${refundModalOrder.id}/request-refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+        },
+        body: JSON.stringify({
+          reason: refundReasonOption,
+          details: refundDetailsInput.trim() || undefined
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to submit refund request.');
+      }
+
+      const updated: Order = await res.json();
+      setOrders(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o));
+      setRefundSuccessMessage(`Refund request submitted for Order #${refundModalOrder.payHereOrderId || refundModalOrder.id}. The seller has been notified to review and process your refund.`);
+      setRefundModalOrder(null);
+      setRefundDetailsInput('');
+      setTimeout(() => setRefundSuccessMessage(null), 6000);
+    } catch (err: any) {
+      setRefundErrorMessage(err?.message || 'Error submitting refund request. Please try again.');
+    } finally {
+      setIsSubmittingRefund(false);
+    }
+  };
 
   const handleCopyTracking = (tracking: string) => {
     if (!tracking) return;
@@ -631,7 +685,11 @@ export default function BuyerDashboardPage() {
   };
 
   // Review Handlers (Explicitly bound to order)
-  const handleOpenReview = (productId: string, productName: string, orderId: string, orderRef: string) => {
+  const handleOpenReview = (productId: string, productName: string, orderId: string, orderRef: string, orderStatus?: string) => {
+    if (orderStatus && !orderStatus.toLowerCase().includes('deliver')) {
+      alert('Reviews can only be submitted once your order has been delivered.');
+      return;
+    }
     setReviewModalProduct({ id: productId, name: productName, orderId, orderRef });
     setReviewRating(5);
     setReviewComment('');
@@ -1173,22 +1231,22 @@ export default function BuyerDashboardPage() {
               <div className="space-y-4">
                 {/* Search, Filter & Quick Toggle Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-stone-50/80 rounded-xl border border-stone-200/80">
-                  <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <div className="flex items-center gap-2 flex-1 sm:flex-none sm:w-60 max-w-xs">
                     <div className="relative w-full">
-                      <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
+                      <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-2" />
                       <input
                         type="text"
                         value={orderSearchTerm}
                         onChange={(e) => setOrderSearchTerm(e.target.value)}
-                        placeholder="Search by Order #, product, or tracking..."
-                        className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-white border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                        placeholder="Search orders, tracking..."
+                        className="w-full pl-8 pr-7 py-1 rounded-lg bg-white border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
                       />
                       {orderSearchTerm && (
                         <button
                           onClick={() => setOrderSearchTerm('')}
-                          className="absolute right-2.5 top-2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                          className="absolute right-2 top-1.5 text-stone-400 hover:text-stone-600 cursor-pointer"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-3 h-3" />
                         </button>
                       )}
                     </div>
@@ -1232,6 +1290,22 @@ export default function BuyerDashboardPage() {
                     </button>
                   </div>
                 </div>
+
+                {refundSuccessMessage && (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between gap-3 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>{refundSuccessMessage}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRefundSuccessMessage(null)}
+                      className="p-1 text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
 
                 {filteredOrders.length === 0 ? (
                   <div className="py-12 text-center text-stone-400 bg-stone-50/50 rounded-2xl border border-stone-200">
@@ -1313,8 +1387,8 @@ export default function BuyerDashboardPage() {
                                   </td>
 
                                   {/* Col 3: Shipment & Delivery */}
-                                  <td className="py-3.5 px-4 align-top max-w-[200px]">
-                                    <div className="space-y-1">
+                                  <td className="py-3.5 px-4 align-top max-w-[220px]">
+                                    <div className="space-y-1.5">
                                       {order.trackingNumber ? (
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                           <span className="font-mono text-[11px] font-bold text-[#1c3f24] bg-[#edf5ee] px-2 py-0.5 rounded border border-[#c5dec7]">
@@ -1332,6 +1406,16 @@ export default function BuyerDashboardPage() {
                                               <Copy className="w-3.5 h-3.5" />
                                             )}
                                           </button>
+                                          <a
+                                            href={order.trackingUrl || `https://t.17track.net/en#nums=${encodeURIComponent(order.trackingNumber)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-800 transition"
+                                            title="Open live courier tracking"
+                                          >
+                                            <span>Live Track</span>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </a>
                                         </div>
                                       ) : (
                                         <div className="text-[11px] text-stone-500 flex items-center gap-1">
@@ -1339,6 +1423,36 @@ export default function BuyerDashboardPage() {
                                           <span>{order.shippingMethod || 'Standard Delivery'}</span>
                                         </div>
                                       )}
+
+                                      {/* Estimated Delivery Date display */}
+                                      {order.estimatedDeliveryDate && (
+                                        <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-semibold bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-100">
+                                          <Calendar className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                                          <span>
+                                            Est: {new Date(order.estimatedDeliveryDate).toLocaleDateString(undefined, {
+                                              month: 'short',
+                                              day: 'numeric',
+                                              year: 'numeric'
+                                            })}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Refund Status Flag if active */}
+                                      {order.refundStatus === 'Requested' && (
+                                        <div className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                          <AlertCircle className="w-3 h-3 text-amber-600" />
+                                          <span>Refund Requested</span>
+                                        </div>
+                                      )}
+
+                                      {order.refundStatus === 'Refunded' && (
+                                        <div className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                          <CheckCircle2 className="w-3 h-3 text-rose-600" />
+                                          <span>Refund Completed</span>
+                                        </div>
+                                      )}
+
                                       {order.shippingAddress && (
                                         <div className="text-[11px] text-stone-500 truncate" title={order.shippingAddress}>
                                           {order.shippingAddress}
@@ -1453,8 +1567,9 @@ export default function BuyerDashboardPage() {
                                       <div className="p-5 sm:p-6 bg-stone-50/70 border-t border-stone-200/60 space-y-4">
                                         
                                         {/* Row 1: Shipping and Delivery Cards */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                          {/* Shipping Address */}
+                                        {/* Row 1: Shipping, Delivery, Tracking and Refund Cards */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                          {/* Card 1: Shipping Address */}
                                           <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
                                             <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
                                               Delivery Destination
@@ -1467,24 +1582,33 @@ export default function BuyerDashboardPage() {
                                             </p>
                                           </div>
 
-                                          {/* Shipping Courier & Method */}
-                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
+                                          {/* Card 2: Estimated Delivery Date Breakdown */}
+                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
                                             <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Shipping Courier & Method
+                                              Estimated Delivery Window
                                             </span>
                                             <p className="font-semibold text-stone-900 text-xs flex items-center gap-1.5">
-                                              <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
-                                              <span>{order.shippingMethod || 'Standard Delivery'}</span>
+                                              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                                              <span>
+                                                {order.estimatedDeliveryDate 
+                                                  ? new Date(order.estimatedDeliveryDate).toLocaleDateString(undefined, {
+                                                      month: 'short',
+                                                      day: 'numeric',
+                                                      year: 'numeric'
+                                                    })
+                                                  : '14 - 21 business days'}
+                                              </span>
                                             </p>
-                                            <p className="text-stone-600 text-xs">
-                                              Shipping Fee: {order.shippingCost === 0 || !order.shippingCost ? 'Free' : `$${order.shippingCost.toFixed(2)}`}
-                                            </p>
+                                            <div className="text-[10px] text-stone-500 bg-stone-50 p-1.5 rounded-lg border border-stone-100 space-y-0.5">
+                                              <div>Handling &amp; prep: <strong>7 days</strong></div>
+                                              <div>Transit + Buffer: <strong>14-19 days</strong></div>
+                                            </div>
                                           </div>
 
-                                          {/* Tracking / Dispatch info */}
+                                          {/* Card 3: Live Shipment Tracking */}
                                           <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
                                             <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Shipment Tracking
+                                              Carrier &amp; Tracking
                                             </span>
                                             {order.trackingNumber ? (
                                               <div className="space-y-1.5">
@@ -1507,19 +1631,30 @@ export default function BuyerDashboardPage() {
                                                 <p className="text-[11px] text-stone-500">
                                                   Carrier: {order.shippingCarrier || 'Courier Express'}
                                                 </p>
+                                                {order.trackingUrl && (
+                                                  <a
+                                                    href={order.trackingUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
+                                                  >
+                                                    <span>Open Carrier Tracking</span>
+                                                    <ExternalLink className="w-3 h-3" />
+                                                  </a>
+                                                )}
                                                 <button
                                                   type="button"
                                                   onClick={() => setSelectedTrackingOrder(order)}
-                                                  className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-[#2E4D38] hover:bg-[#233d2c] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                                                  className="mt-1 w-full py-1.5 px-2.5 rounded-lg bg-[#2E4D38] hover:bg-[#233d2c] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                                                 >
                                                   <Truck className="w-3.5 h-3.5" />
-                                                  <span>Track Package Dialog</span>
+                                                  <span>Track Progress Dialog</span>
                                                 </button>
                                               </div>
                                             ) : (
                                               <div className="space-y-2">
                                                 <p className="text-xs text-stone-500">
-                                                  Tracking will appear once shipment is dispatched.
+                                                  Dispatched once prepared by botanical seller.
                                                 </p>
                                                 <button
                                                   type="button"
@@ -1528,6 +1663,53 @@ export default function BuyerDashboardPage() {
                                                 >
                                                   <Truck className="w-3.5 h-3.5 text-stone-500" />
                                                   <span>Tracking Status</span>
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Card 4: Buyer Protection & Refund Guarantee */}
+                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
+                                              Order Protection &amp; Refunds
+                                            </span>
+                                            {order.refundStatus === 'Requested' ? (
+                                              <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+                                                <div className="font-bold flex items-center gap-1">
+                                                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                                  <span>Refund Requested</span>
+                                                </div>
+                                                <p className="text-[10px] text-amber-800 leading-tight">
+                                                  {order.refundReason || 'Under seller review'}. The seller will process your refund shortly.
+                                                </p>
+                                              </div>
+                                            ) : order.refundStatus === 'Refunded' || (order.paymentStatus || '').toLowerCase().includes('refund') ? (
+                                              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1">
+                                                <div className="font-bold flex items-center gap-1">
+                                                  <CheckCircle2 className="w-3.5 h-3.5 text-rose-600" />
+                                                  <span>Refund Processed</span>
+                                                </div>
+                                                <p className="text-[10px] text-rose-800 leading-tight">
+                                                  Payment returned to your payment card.
+                                                </p>
+                                              </div>
+                                            ) : (
+                                              <div className="space-y-1.5">
+                                                <p className="text-[11px] text-stone-600 leading-tight">
+                                                  Eligible if not delivered by estimated date or arrived damaged.
+                                                </p>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setRefundModalOrder(order);
+                                                    setRefundReasonOption('Package not delivered within estimated delivery time');
+                                                    setRefundDetailsInput('');
+                                                    setRefundErrorMessage(null);
+                                                  }}
+                                                  className="w-full py-1.5 px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1"
+                                                >
+                                                  <RotateCcw className="w-3 h-3 text-amber-700" />
+                                                  <span>Request Refund / Return</span>
                                                 </button>
                                               </div>
                                             )}
@@ -1541,12 +1723,15 @@ export default function BuyerDashboardPage() {
                                               Purchased Items in this Order ({itemsList.length})
                                             </span>
                                             <span className="text-[11px] text-stone-500">
-                                              Click &quot;Write Review&quot; to review each herbal remedy
+                                              {(order.orderStatus || '').toLowerCase().includes('deliver')
+                                                ? 'Click "Write Review" to review each herbal remedy'
+                                                : 'Reviews become available once the order is delivered'}
                                             </span>
                                           </div>
 
                                           <div className="divide-y divide-stone-100">
                                             {itemsList.map((item) => {
+                                              const isDelivered = (order.orderStatus || '').toLowerCase().includes('deliver');
                                               // Find review specifically associated with THIS order
                                               const itemOrderKey1 = `${order.id}:::${item.productId}`;
                                               const itemOrderKey2 = order.payHereOrderId ? `${order.payHereOrderId}:::${item.productId}` : '';
@@ -1627,15 +1812,23 @@ export default function BuyerDashboardPage() {
                                                           <span>Delete</span>
                                                         </button>
                                                       </div>
-                                                    ) : (
+                                                    ) : isDelivered ? (
                                                       <button
                                                         type="button"
-                                                        onClick={() => handleOpenReview(item.productId, item.productName, order.id, order.payHereOrderId || order.id)}
+                                                        onClick={() => handleOpenReview(item.productId, item.productName, order.id, order.payHereOrderId || order.id, order.orderStatus)}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2E4D38] bg-[#edf5ee] hover:bg-[#deede0] text-[#2E4D38] text-xs font-bold transition shadow-2xs cursor-pointer"
                                                       >
                                                         <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                                                         <span>Write Review</span>
                                                       </button>
+                                                    ) : (
+                                                      <span
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-400 text-[11px] font-medium"
+                                                        title="Reviews can only be written after your order is delivered."
+                                                      >
+                                                        <Clock className="w-3 h-3 text-stone-400" />
+                                                        <span>Review after delivery</span>
+                                                      </span>
                                                     )}
                                                   </div>
                                                 </div>
@@ -2117,14 +2310,14 @@ export default function BuyerDashboardPage() {
 
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                          Delivery Street Address *
+                          Delivery Street Address (1st Lane, 2nd Lane) *
                         </label>
                         <input
                           type="text"
                           required
                           value={shippingAddress}
                           onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="Apartment, suite, unit, building, street address"
+                          placeholder="e.g. 1st Lane, 2nd Lane, Suite / Apt, Zip Code"
                           className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                         />
                       </div>
@@ -3322,6 +3515,41 @@ export default function BuyerDashboardPage() {
               )}
             </div>
 
+            {/* Estimated Delivery Calculation Box */}
+            <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#1c3f24] flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span>Estimated Delivery Date</span>
+                </span>
+                <span className="font-bold text-xs sm:text-sm text-[#1c3f24]">
+                  {selectedTrackingOrder.estimatedDeliveryDate 
+                    ? new Date(selectedTrackingOrder.estimatedDeliveryDate).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                    : '14 - 21 business days'}
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-600 leading-relaxed">
+                Calculated timeline: <strong>Handling Fee / Preparation (1 week)</strong> + <strong>Transit Time</strong> + <strong>Courier Buffer (2 weeks)</strong>.
+              </p>
+              {selectedTrackingOrder.trackingUrl && (
+                <div className="pt-2 border-t border-emerald-200/60">
+                  <a
+                    href={selectedTrackingOrder.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 transition underline"
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Open Live Carrier Tracking Page ↗</span>
+                  </a>
+                </div>
+              )}
+            </div>
+
             {/* Visual Shipment Timeline Stepper */}
             <div className="space-y-3 pt-1">
               <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block">Delivery Progress</span>
@@ -3412,8 +3640,36 @@ export default function BuyerDashboardPage() {
               <p className="text-stone-600 leading-relaxed text-[11px]">{selectedTrackingOrder.shippingAddress || 'Address on file'}</p>
             </div>
 
-            {/* Dialog Footer */}
-            <div className="pt-2 flex items-center justify-end">
+            {/* Dialog Footer with Refund Option Access */}
+            <div className="pt-2 flex items-center justify-between gap-3">
+              {selectedTrackingOrder.refundStatus === 'Requested' ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Refund Pending Review</span>
+                </span>
+              ) : selectedTrackingOrder.refundStatus === 'Refunded' ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Refund Completed</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toRefund = selectedTrackingOrder;
+                    setSelectedTrackingOrder(null);
+                    setRefundModalOrder(toRefund);
+                    setRefundReasonOption('Package not delivered within estimated delivery time');
+                    setRefundDetailsInput('');
+                    setRefundErrorMessage(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Request Refund</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setSelectedTrackingOrder(null)}
@@ -3423,6 +3679,146 @@ export default function BuyerDashboardPage() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: BUYER REQUEST REFUND ================= */}
+      {refundModalOrder && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmittingRefund) setRefundModalOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+              <div>
+                <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5 text-amber-600" />
+                  <span>Request Order Refund</span>
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Order #{refundModalOrder.payHereOrderId || refundModalOrder.id} &bull; Total: <strong className="text-stone-800">${refundModalOrder.totalAmount?.toFixed(2)}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isSubmittingRefund}
+                onClick={() => setRefundModalOrder(null)}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Delivery & Protection Status Info */}
+            <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200/80 space-y-2 text-xs text-amber-900">
+              <div className="flex items-center gap-1.5 font-bold">
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                <span>Arboveya Buyer Protection Policy</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-amber-800">
+                You are protected by Arboveya buyer guarantee. You can request a full refund if your botanical package was not delivered within the estimated delivery date, or if the product arrived damaged / defective and requires return.
+              </p>
+              {refundModalOrder.estimatedDeliveryDate && (
+                <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-stone-700">Estimated Delivery Date:</span>
+                  <span className="font-bold text-[#1c3f24]">
+                    {new Date(refundModalOrder.estimatedDeliveryDate).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {refundErrorMessage && (
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{refundErrorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleRequestRefund} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-800 mb-1.5">
+                  Select Reason for Refund *
+                </label>
+                <div className="space-y-2">
+                  {[
+                    'Package not delivered within estimated delivery time',
+                    'Product arrived damaged or defective',
+                    'Wrong botanical item received',
+                    'Package lost or tracking stopped updating',
+                    'Other return request'
+                  ].map((option) => (
+                    <label
+                      key={option}
+                      className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer text-xs transition ${
+                        refundReasonOption === option
+                          ? 'border-[#2E4D38] bg-emerald-50/50 font-semibold text-[#1c3f24]'
+                          : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="refundReason"
+                        value={option}
+                        checked={refundReasonOption === option}
+                        onChange={(e) => setRefundReasonOption(e.target.value)}
+                        className="mt-0.5 text-[#2E4D38] focus:ring-[#2E4D38]"
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-800 mb-1">
+                  Additional Details / Description (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={refundDetailsInput}
+                  onChange={(e) => setRefundDetailsInput(e.target.value)}
+                  placeholder="Provide any additional details regarding your order or return condition..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-[#2E4D38] focus:ring-1 focus:ring-[#2E4D38]"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmittingRefund}
+                  onClick={() => setRefundModalOrder(null)}
+                  className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRefund}
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-60 cursor-pointer"
+                >
+                  {isSubmittingRefund ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Confirm &amp; Request Refund</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
