@@ -97,6 +97,37 @@ interface Order {
   orderItems?: OrderItem[];
 }
 
+function getEstimatedDeliveryDate(order?: { estimatedDeliveryDate?: string; createdAt?: string } | null): Date {
+  if (order?.estimatedDeliveryDate) {
+    const parsed = new Date(order.estimatedDeliveryDate);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  const created = order?.createdAt ? new Date(order.createdAt) : new Date();
+  const fallback = new Date(created);
+  fallback.setDate(fallback.getDate() + 21);
+  return fallback;
+}
+
+function formatEstimatedDeliveryDate(order?: { estimatedDeliveryDate?: string; createdAt?: string } | null): string {
+  if (!order) return 'Pending';
+  const d = getEstimatedDeliveryDate(order);
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function isOrderRefundEligible(order?: { orderStatus?: string; estimatedDeliveryDate?: string; createdAt?: string } | null): boolean {
+  if (!order) return false;
+  const status = (order.orderStatus || '').toLowerCase();
+  const isDelivered = status.includes('deliver');
+  if (isDelivered) return true;
+
+  const estDate = getEstimatedDeliveryDate(order);
+  return Date.now() >= estDate.getTime();
+}
+
 export default function BuyerDashboardPage() {
   const router = useRouter();
   const { user, logout, token, refreshUser, updateProfile, loading } = useAuth();
@@ -1425,18 +1456,12 @@ export default function BuyerDashboardPage() {
                                       )}
 
                                       {/* Estimated Delivery Date display */}
-                                      {order.estimatedDeliveryDate && (
-                                        <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-semibold bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-100">
-                                          <Calendar className="w-3 h-3 text-emerald-600 flex-shrink-0" />
-                                          <span>
-                                            Est: {new Date(order.estimatedDeliveryDate).toLocaleDateString(undefined, {
-                                              month: 'short',
-                                              day: 'numeric',
-                                              year: 'numeric'
-                                            })}
-                                          </span>
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-semibold bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-100">
+                                        <Calendar className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                                        <span>
+                                          Est: {formatEstimatedDeliveryDate(order)}
+                                        </span>
+                                      </div>
 
                                       {/* Refund Status Flag if active */}
                                       {order.refundStatus === 'Requested' && (
@@ -1582,27 +1607,17 @@ export default function BuyerDashboardPage() {
                                             </p>
                                           </div>
 
-                                          {/* Card 2: Estimated Delivery Date Breakdown */}
+                                          {/* Card 2: Estimated Delivery Date */}
                                           <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
                                             <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Estimated Delivery Window
+                                              Estimated Delivery Date
                                             </span>
                                             <p className="font-semibold text-stone-900 text-xs flex items-center gap-1.5">
                                               <Calendar className="w-3.5 h-3.5 text-emerald-600" />
                                               <span>
-                                                {order.estimatedDeliveryDate 
-                                                  ? new Date(order.estimatedDeliveryDate).toLocaleDateString(undefined, {
-                                                      month: 'short',
-                                                      day: 'numeric',
-                                                      year: 'numeric'
-                                                    })
-                                                  : '14 - 21 business days'}
+                                                {formatEstimatedDeliveryDate(order)}
                                               </span>
                                             </p>
-                                            <div className="text-[10px] text-stone-500 bg-stone-50 p-1.5 rounded-lg border border-stone-100 space-y-0.5">
-                                              <div>Handling &amp; prep: <strong>7 days</strong></div>
-                                              <div>Transit + Buffer: <strong>14-19 days</strong></div>
-                                            </div>
                                           </div>
 
                                           {/* Card 3: Live Shipment Tracking */}
@@ -1693,7 +1708,7 @@ export default function BuyerDashboardPage() {
                                                   Payment returned to your payment card.
                                                 </p>
                                               </div>
-                                            ) : (
+                                            ) : isOrderRefundEligible(order) ? (
                                               <div className="space-y-1.5">
                                                 <p className="text-[11px] text-stone-600 leading-tight">
                                                   Eligible if not delivered by estimated date or arrived damaged.
@@ -1702,15 +1717,25 @@ export default function BuyerDashboardPage() {
                                                   type="button"
                                                   onClick={() => {
                                                     setRefundModalOrder(order);
-                                                    setRefundReasonOption('Package not delivered within estimated delivery time');
+                                                    setRefundReasonOption(
+                                                      (order.orderStatus || '').toLowerCase().includes('deliver')
+                                                        ? 'Damaged or defective items received'
+                                                        : 'Package not delivered within estimated delivery time'
+                                                    );
                                                     setRefundDetailsInput('');
                                                     setRefundErrorMessage(null);
                                                   }}
-                                                  className="w-full py-1.5 px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1"
+                                                  className="w-full py-1.5 px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
                                                 >
                                                   <RotateCcw className="w-3 h-3 text-amber-700" />
                                                   <span>Request Refund / Return</span>
                                                 </button>
+                                              </div>
+                                            ) : (
+                                              <div className="space-y-1">
+                                                <p className="text-[11px] text-stone-500 leading-tight">
+                                                  Eligible once delivered or if not delivered by {formatEstimatedDeliveryDate(order)}.
+                                                </p>
                                               </div>
                                             )}
                                           </div>
@@ -1722,11 +1747,11 @@ export default function BuyerDashboardPage() {
                                             <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
                                               Purchased Items in this Order ({itemsList.length})
                                             </span>
-                                            <span className="text-[11px] text-stone-500">
-                                              {(order.orderStatus || '').toLowerCase().includes('deliver')
-                                                ? 'Click "Write Review" to review each herbal remedy'
-                                                : 'Reviews become available once the order is delivered'}
-                                            </span>
+                                            {(order.orderStatus || '').toLowerCase().includes('deliver') && (
+                                              <span className="text-[11px] text-stone-500">
+                                                Click &quot;Write Review&quot; to review each herbal remedy
+                                              </span>
+                                            )}
                                           </div>
 
                                           <div className="divide-y divide-stone-100">
@@ -3523,18 +3548,9 @@ export default function BuyerDashboardPage() {
                   <span>Estimated Delivery Date</span>
                 </span>
                 <span className="font-bold text-xs sm:text-sm text-[#1c3f24]">
-                  {selectedTrackingOrder.estimatedDeliveryDate 
-                    ? new Date(selectedTrackingOrder.estimatedDeliveryDate).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })
-                    : '14 - 21 business days'}
+                  {formatEstimatedDeliveryDate(selectedTrackingOrder)}
                 </span>
               </div>
-              <p className="text-[11px] text-stone-600 leading-relaxed">
-                Calculated timeline: <strong>Handling Fee / Preparation (1 week)</strong> + <strong>Transit Time</strong> + <strong>Courier Buffer (2 weeks)</strong>.
-              </p>
               {selectedTrackingOrder.trackingUrl && (
                 <div className="pt-2 border-t border-emerald-200/60">
                   <a
@@ -3652,14 +3668,18 @@ export default function BuyerDashboardPage() {
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Refund Completed</span>
                 </span>
-              ) : (
+              ) : isOrderRefundEligible(selectedTrackingOrder) ? (
                 <button
                   type="button"
                   onClick={() => {
                     const toRefund = selectedTrackingOrder;
                     setSelectedTrackingOrder(null);
                     setRefundModalOrder(toRefund);
-                    setRefundReasonOption('Package not delivered within estimated delivery time');
+                    setRefundReasonOption(
+                      (toRefund.orderStatus || '').toLowerCase().includes('deliver')
+                        ? 'Damaged or defective items received'
+                        : 'Package not delivered within estimated delivery time'
+                    );
                     setRefundDetailsInput('');
                     setRefundErrorMessage(null);
                   }}
@@ -3668,7 +3688,7 @@ export default function BuyerDashboardPage() {
                   <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
                   <span>Request Refund</span>
                 </button>
-              )}
+              ) : null}
 
               <button
                 type="button"
@@ -3722,18 +3742,12 @@ export default function BuyerDashboardPage() {
               <p className="text-[11px] leading-relaxed text-amber-800">
                 You are protected by Arboveya buyer guarantee. You can request a full refund if your botanical package was not delivered within the estimated delivery date, or if the product arrived damaged / defective and requires return.
               </p>
-              {refundModalOrder.estimatedDeliveryDate && (
-                <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
-                  <span className="font-semibold text-stone-700">Estimated Delivery Date:</span>
-                  <span className="font-bold text-[#1c3f24]">
-                    {new Date(refundModalOrder.estimatedDeliveryDate).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </span>
-                </div>
-              )}
+              <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-stone-700">Estimated Delivery Date:</span>
+                <span className="font-bold text-[#1c3f24]">
+                  {formatEstimatedDeliveryDate(refundModalOrder)}
+                </span>
+              </div>
             </div>
 
             {refundErrorMessage && (

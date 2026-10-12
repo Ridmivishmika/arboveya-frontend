@@ -322,7 +322,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
           estimatedDelivery: o.estimatedDeliveryDate
             ? new Date(o.estimatedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-            : '14 - 21 business days',
+            : new Date(new Date(o.createdAt || Date.now()).getTime() + 21 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
           orderStatus: o.orderStatus === 'Delivered'
             ? 'Delivered'
             : (o.orderStatus === 'Shipped' || o.trackingNumber)
@@ -415,7 +415,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             estimatedDeliveryDate: o.estimatedDeliveryDate || existing?.estimatedDeliveryDate || undefined,
             estimatedDelivery: (o.estimatedDeliveryDate || existing?.estimatedDeliveryDate)
               ? new Date(o.estimatedDeliveryDate || existing?.estimatedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-              : '14 - 21 business days',
+              : new Date(new Date(o.createdAt || Date.now()).getTime() + 21 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
             orderStatus: resolvedStatus,
             paymentStatus: o.paymentStatus || 'Paid',
             fundsStatus: (o.paymentStatus === 'Refunded' || resolvedStatus === 'Cancelled')
@@ -1934,7 +1934,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                       Order #: {trackingModalOrder.orderNumber}
                     </p>
                     <p className="text-[10px] text-emerald-700 font-medium">
-                      Est. Delivery: {trackingModalOrder.estimatedDelivery || '14 - 21 days'}
+                      Est. Delivery: {trackingModalOrder.estimatedDelivery || (trackingModalOrder.createdAt ? new Date(new Date(trackingModalOrder.createdAt).getTime() + 21 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Pending')}
                     </p>
                   </div>
                 </div>
