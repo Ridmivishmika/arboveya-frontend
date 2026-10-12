@@ -108,6 +108,24 @@ export default function CheckoutClient() {
           paymentMethodName: 'PayHere Secure Gateway (Redirect Mode)'
         });
         clearCart();
+
+        try {
+          const pendingId = sessionStorage.getItem(`arboveya_pending_order_${orderId}`);
+          if (pendingId) {
+            const actualPaymentId = params.get('payment_id') || undefined;
+            fetch(`${API_BASE_URL}/orders/${pendingId}/confirm-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
+              },
+              body: JSON.stringify({
+                payHereOrderId: orderId,
+                paymentId: actualPaymentId
+              })
+            }).catch(e => console.warn('Backend payment confirmation notice:', e));
+          }
+        } catch {}
       }
     }
   }, [clearCart]);
@@ -275,6 +293,9 @@ export default function CheckoutClient() {
 
       // Check user preference for popup vs redirect
       if (payHereMode === 'redirect' || typeof window === 'undefined' || !window.payhere) {
+        if (typeof window !== 'undefined' && details.orderId && orderData.id) {
+          sessionStorage.setItem(`arboveya_pending_order_${details.orderId}`, orderData.id);
+        }
         submitPayHereRedirect(details);
         return;
       }

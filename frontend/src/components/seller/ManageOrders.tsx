@@ -787,7 +787,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
       {activeOrderDetails ? (
         (() => {
           const o = activeOrderDetails;
-          const firstItem = o.items[0] || {
+          const allItems = (o.items && o.items.length > 0) ? o.items : [{
             id: 'default',
             productName: 'Botanical Herbal Remedy',
             productImageUrl: '/images/gotu-kola-tea.jpg',
@@ -797,7 +797,9 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             availableStock: 9,
             unitPrice: o.subtotal,
             totalPrice: o.subtotal
-          };
+          }];
+          const totalItemUnits = allItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
+          const firstItem = allItems[0];
 
           return (
             <div className="w-full bg-[#f8f9fa] min-h-screen py-6 px-4 sm:px-6 lg:px-8 font-sans animate-in fade-in duration-150 text-[#181818]">
@@ -832,20 +834,41 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                   </h1>
                 </div>
 
-                {/* Product Banner (Small image + Title) */}
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-stone-200 shadow-2xs">
-                  <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
-                    <Image
-                      src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
-                      alt={firstItem.productName}
-                      fill
-                      sizes="40px"
-                      className="object-cover"
-                    />
+                {/* Product Banner (Small image(s) + Title) */}
+                <div className="flex items-center justify-between gap-3 p-3.5 bg-white rounded-xl border border-stone-200 shadow-2xs flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center -space-x-3 overflow-hidden flex-shrink-0">
+                      {allItems.slice(0, 3).map((it, idx) => (
+                        <div key={it.id || idx} className="relative w-11 h-11 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 border-2 border-white shadow-2xs">
+                          <Image
+                            src={resolveBackendImageUrl(it.productImageUrl, '/images/gotu-kola-tea.jpg')}
+                            alt={it.productName}
+                            fill
+                            sizes="44px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ))}
+                      {allItems.length > 3 && (
+                        <div className="w-11 h-11 rounded-lg bg-stone-100 border-2 border-white flex items-center justify-center text-xs font-bold text-stone-600 shadow-2xs">
+                          +{allItems.length - 3}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-bold text-stone-900 line-clamp-1">
+                        {allItems.length === 1 ? allItems[0].productName : `${allItems[0].productName} + ${allItems.length - 1} other item(s)`}
+                      </h2>
+                      <p className="text-xs text-stone-500">
+                        {allItems.length} distinct product{allItems.length === 1 ? '' : 's'} · {totalItemUnits} total item unit{totalItemUnits === 1 ? '' : 's'}
+                      </p>
+                    </div>
                   </div>
-                  <h2 className="text-sm font-semibold text-stone-900 line-clamp-1">
-                    {firstItem.productName}
-                  </h2>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs font-bold text-[#1c3f24] bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                      ${o.subtotal.toFixed(2)} Subtotal
+                    </span>
+                  </div>
                 </div>
 
                 {/* Stepper Progress / Shipping Due Card */}
@@ -1107,67 +1130,117 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                       </div>
                     </div>
 
-                    {/* Item Details Card (Screenshot 2) */}
+                    {/* Item Details Card - Supports ALL ordered items */}
                     <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
-                      <h3 className="text-base font-bold text-stone-900">
-                        Item
-                      </h3>
-
-                      <div className="flex flex-col sm:flex-row gap-4 items-start pb-6 border-b border-stone-100">
-                        {/* Thumbnail Image */}
-                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
-                          <Image
-                            src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
-                            alt={firstItem.productName}
-                            fill
-                            sizes="96px"
-                            className="object-cover"
-                          />
-                        </div>
-
-                        {/* Item Description */}
-                        <div className="flex-1 space-y-1">
-                          <h4 className="text-sm sm:text-base font-bold text-stone-900 hover:text-blue-600 cursor-pointer">
-                            {firstItem.productName}
-                          </h4>
-                          <p className="text-xs font-bold text-stone-900">
-                            {firstItem.weight ? `Weight: ${firstItem.weight}` : 'Standard Unit'}
+                      <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                        <div>
+                          <h3 className="text-base font-bold text-stone-900">
+                            Ordered Items ({allItems.length})
+                          </h3>
+                          <p className="text-xs text-stone-500">
+                            Total {totalItemUnits} unit{totalItemUnits === 1 ? '' : 's'} across {allItems.length} botanical remedy listing{allItems.length === 1 ? '' : 's'}
                           </p>
-                          <p className="text-[11px] text-stone-400 font-mono">
-                            Item ID: {firstItem.itemId || '395462678513'}
-                          </p>
-                          <button
-                            onClick={() => handleOpenTrackingModal(o)}
-                            className="text-xs font-semibold text-blue-600 hover:underline block pt-1 cursor-pointer"
-                          >
-                            {o.trackingNumber ? `Tracking: ${o.trackingNumber}` : '+ Add tracking'}
-                          </button>
                         </div>
+                        <span className="text-xs font-semibold text-[#1c3f24] bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                          Subtotal: ${o.subtotal.toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* List of items */}
+                      <div className="divide-y divide-stone-100 space-y-4">
+                        {allItems.map((item, idx) => (
+                          <div key={item.id || idx} className={`flex flex-col sm:flex-row gap-4 items-start ${idx > 0 ? 'pt-4' : ''}`}>
+                            {/* Thumbnail Image */}
+                            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
+                              <Image
+                                src={resolveBackendImageUrl(item.productImageUrl, '/images/gotu-kola-tea.jpg')}
+                                alt={item.productName}
+                                fill
+                                sizes="96px"
+                                className="object-cover"
+                              />
+                            </div>
+
+                            {/* Item Description */}
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="text-sm sm:text-base font-bold text-stone-900 hover:text-blue-600 cursor-pointer">
+                                  {item.productName}
+                                </h4>
+                                <span className="font-mono text-sm font-bold text-stone-900">
+                                  ${(item.totalPrice || ((item.unitPrice || 0) * (item.quantity || 1))).toFixed(2)}
+                                </span>
+                              </div>
+                              <p className="text-xs font-bold text-stone-700">
+                                {item.weight ? `Weight: ${item.weight}` : 'Standard Unit'}
+                              </p>
+                              <div className="flex items-center gap-3 text-[11px] text-stone-500 flex-wrap">
+                                <span>Item ID: <span className="font-mono">{item.itemId || '395462678513'}</span></span>
+                                <span>•</span>
+                                <span>Quantity: <strong className="text-stone-800">{item.quantity}</strong></span>
+                                <span>•</span>
+                                <span>Unit Price: <strong className="text-stone-800">${(item.unitPrice || 0).toFixed(2)}</strong></span>
+                              </div>
+                              <button
+                                onClick={() => handleOpenTrackingModal(o)}
+                                className="text-xs font-semibold text-blue-600 hover:underline block pt-1 cursor-pointer"
+                              >
+                                {o.trackingNumber ? `Tracking: ${o.trackingNumber}` : '+ Add tracking'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
 
                       {/* Item Numbers Table */}
-                      <div className="overflow-x-auto text-xs">
+                      <div className="overflow-x-auto text-xs pt-2">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="text-stone-400 font-semibold uppercase text-[10px] border-b border-stone-100 pb-2">
-                              <th className="pb-2 font-normal">Quantity</th>
-                              <th className="pb-2 font-normal">Item price</th>
+                              <th className="pb-2 font-normal">Remedy Item</th>
+                              <th className="pb-2 font-normal text-center">Quantity</th>
+                              <th className="pb-2 font-normal text-right">Item price</th>
                               <th className="pb-2 font-normal text-right">Item total</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-stone-100">
-                            <tr>
-                              <td className="py-3 font-semibold text-stone-900">
-                                {firstItem.quantity}{' '}
-                                <span className="text-[11px] text-stone-400 font-normal">
-                                  ({firstItem.availableStock || 9} available)
-                                </span>
+                            {allItems.map((item, idx) => (
+                              <tr key={item.id || idx}>
+                                <td className="py-3 font-semibold text-stone-900 max-w-[280px]">
+                                  <div className="font-medium text-stone-900 truncate" title={item.productName}>
+                                    {item.productName}
+                                  </div>
+                                  <div className="text-[11px] text-stone-400 font-mono">
+                                    ID: {item.itemId || '395462678513'}
+                                  </div>
+                                </td>
+                                <td className="py-3 font-semibold text-stone-900 text-center">
+                                  {item.quantity}{' '}
+                                  <span className="text-[11px] text-stone-400 font-normal">
+                                    ({item.availableStock || 9} available)
+                                  </span>
+                                </td>
+                                <td className="py-3 font-semibold text-stone-900 text-right">
+                                  ${(item.unitPrice || 0).toFixed(2)}
+                                </td>
+                                <td className="py-3 font-bold text-stone-900 text-right">
+                                  ${(item.totalPrice || ((item.unitPrice || 0) * (item.quantity || 1))).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                            {/* Summary row */}
+                            <tr className="bg-stone-50/70 font-semibold">
+                              <td className="py-2.5 px-2 text-stone-600">
+                                Total ({totalItemUnits} unit{totalItemUnits === 1 ? '' : 's'})
                               </td>
-                              <td className="py-3 font-semibold text-stone-900">
-                                ${firstItem.unitPrice.toFixed(2)}
+                              <td className="py-2.5 text-center text-stone-800 font-bold">
+                                {totalItemUnits}
                               </td>
-                              <td className="py-3 font-bold text-stone-900 text-right">
-                                ${firstItem.totalPrice.toFixed(2)}
+                              <td className="py-2.5 text-right text-stone-500">
+                                Items Subtotal:
+                              </td>
+                              <td className="py-2.5 text-right font-bold text-stone-900">
+                                ${allItems.reduce((sum, it) => sum + (it.totalPrice || ((it.unitPrice || 0) * (it.quantity || 1))), 0).toFixed(2)}
                               </td>
                             </tr>
                           </tbody>
@@ -1701,6 +1774,19 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                                       >
                                         {firstItem.productName}
                                       </button>
+                                      {order.items && order.items.length > 1 && (
+                                        <div className="pt-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => setSelectedOrderId(order.id)}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
+                                            title="Click to view all items in this order"
+                                          >
+                                            <Package className="w-2.5 h-2.5 text-emerald-700" />
+                                            <span>+{order.items.length - 1} more remedy item{order.items.length - 1 > 1 ? 's' : ''} ({order.items.reduce((acc, it) => acc + (it.quantity || 1), 0)} units total)</span>
+                                          </button>
+                                        </div>
+                                      )}
                                       <p className="text-[11px] text-stone-400 font-mono">
                                         {firstItem.itemId || '395462678513'}
                                       </p>

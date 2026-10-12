@@ -1579,6 +1579,67 @@ export default function BuyerDashboardPage() {
                                      </div>
                                    </td>
                                  </tr>
+                                 {isExpanded && (
+                                   <tr className="bg-[#f7faf7] border-b border-stone-200">
+                                     <td colSpan={6} className="py-4 px-6">
+                                       <div className="bg-white rounded-xl border border-stone-200 p-4 shadow-2xs space-y-3">
+                                         <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 flex-wrap gap-2">
+                                           <div className="flex items-center gap-2">
+                                             <Package className="w-4 h-4 text-[#2E4D38]" />
+                                             <span className="font-bold text-xs text-stone-900">
+                                               Order Items ({itemsList.length} remedy product{itemsList.length === 1 ? '' : 's'} · {totalItemCount} unit{totalItemCount === 1 ? '' : 's'} total)
+                                             </span>
+                                           </div>
+                                           <div className="text-[11px] text-stone-500 font-mono">
+                                             Order Ref: <strong className="text-stone-800">{order.payHereOrderId || order.id}</strong>
+                                           </div>
+                                         </div>
+
+                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                           {itemsList.map((item, itIdx) => (
+                                             <div key={item.id || itIdx} className="flex items-center gap-3 p-3 rounded-xl bg-stone-50 border border-stone-100 hover:border-emerald-200 transition">
+                                               <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-stone-200 flex-shrink-0">
+                                                 <Image
+                                                   src={resolveBackendImageUrl(item.productImageUrl, '/images/gotu-kola-tea.jpg')}
+                                                   alt={item.productName || 'Remedy item'}
+                                                   fill
+                                                   sizes="48px"
+                                                   className="object-cover"
+                                                 />
+                                               </div>
+                                               <div className="min-w-0 flex-1 text-xs space-y-0.5">
+                                                 <div className="font-semibold text-stone-900 truncate" title={item.productName}>
+                                                   {item.productName}
+                                                 </div>
+                                                 <div className="text-stone-500 text-[11px]">
+                                                   Quantity: <strong className="text-stone-800">{item.quantity}</strong> {item.unitPrice ? `· $${item.unitPrice.toFixed(2)} each` : ''}
+                                                 </div>
+                                                 <div className="font-bold text-emerald-800 text-[11px]">
+                                                   Total: ${((item.quantity || 1) * (item.unitPrice || 0)).toFixed(2)}
+                                                 </div>
+                                               </div>
+                                             </div>
+                                           ))}
+                                         </div>
+
+                                         <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs flex-wrap gap-2 text-stone-600">
+                                           <div className="flex items-center gap-2">
+                                             <Truck className="w-3.5 h-3.5 text-stone-400" />
+                                             <span>Shipping: <strong>{order.shippingMethod || 'Standard Delivery'}</strong></span>
+                                             {order.trackingNumber && (
+                                               <span className="font-mono text-[11px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                                                 Tracking #{order.trackingNumber}
+                                               </span>
+                                             )}
+                                           </div>
+                                           <div className="font-bold text-stone-900">
+                                             Order Total: <span className="text-[#2E4D38] font-serif text-sm">${order.totalAmount?.toFixed(2) || '0.00'}</span>
+                                           </div>
+                                         </div>
+                                       </div>
+                                     </td>
+                                   </tr>
+                                 )}
                                </React.Fragment>
                             );
                           })}
