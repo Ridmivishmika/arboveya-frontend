@@ -159,7 +159,6 @@ export default function BuyerDashboardPage() {
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
   const [selectedOrderReceipt, setSelectedOrderReceipt] = useState<Order | null>(null);
-  const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
 
   // Refund Modal State for Buyer
   const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
@@ -964,36 +963,6 @@ export default function BuyerDashboardPage() {
       return;
     }
 
-    // Card Details Validation for PayHere Gateway
-    const cleanNum = cardNumber.replace(/\s+/g, '');
-    if (cleanNum.length < 15 || cleanNum.length > 16) {
-      setOrderError('Please enter a valid 15 or 16-digit credit/debit card number.');
-      return;
-    }
-    if (!cardHolder.trim()) {
-      setOrderError('Please enter the name on your card.');
-      return;
-    }
-    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-      setOrderError('Please enter a valid card expiration date (MM/YY).');
-      return;
-    }
-    const [expMonth, expYear] = cardExpiry.split('/').map(Number);
-    if (expMonth < 1 || expMonth > 12) {
-      setOrderError('Please enter a valid expiration month (01-12).');
-      return;
-    }
-    const currentYear = new Date().getFullYear() % 100;
-    const currentMonth = new Date().getMonth() + 1;
-    if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-      setOrderError('Your card expiration date has already passed.');
-      return;
-    }
-    if (cardCvc.length < 3 || cardCvc.length > 4) {
-      setOrderError('Please enter a valid 3 or 4-digit CVV / CVC code.');
-      return;
-    }
-
     try {
       setPlacingOrder(true);
       setOrderError(null);
@@ -1035,8 +1004,8 @@ export default function BuyerDashboardPage() {
 
       if (res.ok) {
         const data = await res.json();
-        const brand = detectCardBrand(cardNumber);
-        const cardLast4 = cardNumber.replace(/\s+/g, '').slice(-4);
+        const brand = cardNumber ? detectCardBrand(cardNumber) : 'VISA';
+        const cardLast4 = cardNumber ? cardNumber.replace(/\s+/g, '').slice(-4) : 'PAYH';
 
         const resolvedItems = (data.items && data.items.length > 0)
           ? data.items
@@ -1081,7 +1050,7 @@ export default function BuyerDashboardPage() {
               order_id: pDetails.orderId,
               items: pDetails.items,
               amount: Number(pDetails.amount).toFixed(2),
-              currency: pDetails.currency || 'LKR',
+              currency: pDetails.currency || 'USD',
               hash: pDetails.hash,
               first_name: pDetails.firstName,
               last_name: pDetails.lastName,
@@ -1300,25 +1269,6 @@ export default function BuyerDashboardPage() {
                         </button>
                       ))}
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAllOrders(filteredOrders)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition cursor-pointer"
-                      title={expandedOrderIds.length === filteredOrders.length ? "Collapse all order details" : "Expand all order details"}
-                    >
-                      {expandedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? (
-                        <>
-                          <ChevronUp className="w-3.5 h-3.5 text-stone-500" />
-                          <span>Collapse All</span>
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-3.5 h-3.5 text-stone-500" />
-                          <span>Expand All</span>
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
 
@@ -1403,21 +1353,39 @@ export default function BuyerDashboardPage() {
                                   </td>
 
                                   {/* Col 2: Items Summary */}
-                                  <td className="py-3.5 px-4 align-top max-w-[240px]">
-                                    <div className="space-y-1">
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2E4D38] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                        <Package className="w-3 h-3" />
-                                        <span>{totalItemCount || itemsList.length} item{totalItemCount === 1 ? '' : 's'}</span>
-                                      </span>
-                                      <div className="text-[11px] text-stone-700 truncate" title={itemsList.map(i => `${i.productName} (x${i.quantity})`).join(', ')}>
-                                        {itemsList.length > 0 
-                                          ? itemsList.map(i => `${i.productName} (x${i.quantity})`).join(', ') 
-                                          : 'Standard remedy package'}
-                                      </div>
-                                    </div>
-                                  </td>
+                                   <td className="py-3.5 px-4 align-top max-w-[260px]">
+                                     <div className="space-y-1.5">
+                                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2E4D38] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                         <Package className="w-3 h-3" />
+                                         <span>{totalItemCount || itemsList.length} item{totalItemCount === 1 ? '' : 's'}</span>
+                                       </span>
+                                       {itemsList.length > 0 ? (
+                                         <div className="space-y-1">
+                                           {itemsList.map((item, idx) => (
+                                             <div key={item.id || idx} className="text-xs text-stone-800 leading-snug">
+                                               {item.productId ? (
+                                                 <Link 
+                                                   href={`/shop/${item.productId}`}
+                                                   className="font-medium text-stone-900 hover:text-[#2E4D38] hover:underline"
+                                                 >
+                                                   {item.productName}
+                                                 </Link>
+                                               ) : (
+                                                 <span className="font-medium text-stone-900">{item.productName}</span>
+                                               )}
+                                               <span className="text-stone-500 text-[11px] ml-1.5">
+                                                 (Qty: {item.quantity}{item.unitPrice ? ` · $${item.unitPrice.toFixed(2)}` : ''})
+                                               </span>
+                                             </div>
+                                           ))}
+                                         </div>
+                                       ) : (
+                                         <div className="text-xs text-stone-500">Standard remedy package</div>
+                                       )}
+                                     </div>
+                                   </td>
 
-                                  {/* Col 3: Shipment & Delivery */}
+                                   {/* Col 3: Shipment & Delivery */}
                                   <td className="py-3.5 px-4 align-top max-w-[220px]">
                                     <div className="space-y-1.5">
                                       {order.trackingNumber ? (
@@ -1437,16 +1405,6 @@ export default function BuyerDashboardPage() {
                                               <Copy className="w-3.5 h-3.5" />
                                             )}
                                           </button>
-                                          <a
-                                            href={order.trackingUrl || `https://t.17track.net/en#nums=${encodeURIComponent(order.trackingNumber)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-800 transition"
-                                            title="Open live courier tracking"
-                                          >
-                                            <span>Live Track</span>
-                                            <ExternalLink className="w-2.5 h-2.5" />
-                                          </a>
                                         </div>
                                       ) : (
                                         <div className="text-[11px] text-stone-500 flex items-center gap-1">
@@ -1474,7 +1432,7 @@ export default function BuyerDashboardPage() {
                                       {order.refundStatus === 'Refunded' && (
                                         <div className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                                           <CheckCircle2 className="w-3 h-3 text-rose-600" />
-                                          <span>Refund Completed</span>
+                                          <span>Refunded via PayHere</span>
                                         </div>
                                       )}
 
@@ -1544,329 +1502,51 @@ export default function BuyerDashboardPage() {
                                   </td>
 
                                   {/* Col 6: Actions */}
-                                  <td className="py-3.5 px-4 align-top text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleOrderExpanded(order.id)}
-                                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
-                                          isExpanded 
-                                            ? 'bg-[#2E4D38] text-white border-[#2E4D38]' 
-                                            : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-                                        }`}
-                                      >
-                                        <span>Details</span>
-                                        {isExpanded ? (
-                                          <ChevronUp className="w-3.5 h-3.5" />
-                                        ) : (
-                                          <ChevronDown className="w-3.5 h-3.5" />
-                                        )}
-                                      </button>
+                                   <td className="py-3.5 px-4 align-top text-right">
+                                     <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                       {order.refundStatus === 'Requested' ? (
+                                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                                           <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                           <span>Refund Pending</span>
+                                         </span>
+                                       ) : order.refundStatus === 'Refunded' || (order.paymentStatus || '').toLowerCase().includes('refund') ? (
+                                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                                           <CheckCircle2 className="w-3.5 h-3.5 text-rose-600" />
+                                           <span>Refunded (PayHere)</span>
+                                         </span>
+                                       ) : isOrderRefundEligible(order) ? (
+                                         <button
+                                           type="button"
+                                           onClick={() => {
+                                             setRefundModalOrder(order);
+                                             setRefundReasonOption(
+                                               (order.orderStatus || '').toLowerCase().includes('deliver')
+                                                 ? 'Damaged or defective items received'
+                                                 : 'Package not delivered within estimated delivery time'
+                                             );
+                                             setRefundDetailsInput('');
+                                             setRefundErrorMessage(null);
+                                           }}
+                                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition cursor-pointer shadow-2xs"
+                                           title="Request Refund"
+                                         >
+                                           <RotateCcw className="w-3 h-3 text-amber-700" />
+                                           <span>Request Refund</span>
+                                         </button>
+                                       ) : null}
 
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedTrackingOrder(order)}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[#1c3f24] text-xs font-semibold transition cursor-pointer"
-                                        title="Track Order & Shipment"
-                                      >
-                                        <Truck className="w-3.5 h-3.5 text-[#2E4D38]" />
-                                        <span>Track</span>
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedOrderReceipt(order)}
-                                        className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 hover:text-stone-900 transition cursor-pointer"
-                                        title="View Printable Receipt"
-                                      >
-                                        <FileText className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-
-                                {/* Expanded Detail Sub-Panel */}
-                                {isExpanded && (
-                                  <tr className="bg-[#fbfbfa]">
-                                    <td colSpan={6} className="p-0 border-b border-stone-200">
-                                      <div className="p-5 sm:p-6 bg-stone-50/70 border-t border-stone-200/60 space-y-4">
-                                        
-                                        {/* Row 1: Shipping and Delivery Cards */}
-                                        {/* Row 1: Shipping, Delivery, Tracking and Refund Cards */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                                          {/* Card 1: Shipping Address */}
-                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
-                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Delivery Destination
-                                            </span>
-                                            <p className="font-semibold text-stone-900 text-xs">
-                                              {order.customerName || user?.fullName || 'Customer'}
-                                            </p>
-                                            <p className="text-stone-600 text-xs leading-relaxed">
-                                              {order.shippingAddress || 'Address on file'}
-                                            </p>
-                                          </div>
-
-                                          {/* Card 2: Estimated Delivery Date */}
-                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Estimated Delivery Date
-                                            </span>
-                                            <p className="font-semibold text-stone-900 text-xs flex items-center gap-1.5">
-                                              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                                              <span>
-                                                {formatEstimatedDeliveryDate(order)}
-                                              </span>
-                                            </p>
-                                          </div>
-
-                                          {/* Card 3: Live Shipment Tracking */}
-                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1">
-                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Carrier &amp; Tracking
-                                            </span>
-                                            {order.trackingNumber ? (
-                                              <div className="space-y-1.5">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="font-mono font-bold text-xs text-[#1c3f24] bg-[#edf5ee] px-2 py-0.5 rounded border border-[#c5dec7]">
-                                                    {order.trackingNumber}
-                                                  </span>
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => handleCopyTracking(order.trackingNumber!)}
-                                                    className="text-[11px] font-semibold text-[#2E4D38] hover:underline cursor-pointer flex items-center gap-1"
-                                                  >
-                                                    {copiedTracking === order.trackingNumber ? (
-                                                      <span className="text-emerald-700">Copied!</span>
-                                                    ) : (
-                                                      <span>Copy #</span>
-                                                    )}
-                                                  </button>
-                                                </div>
-                                                <p className="text-[11px] text-stone-500">
-                                                  Carrier: {order.shippingCarrier || 'Courier Express'}
-                                                </p>
-                                                {order.trackingUrl && (
-                                                  <a
-                                                    href={order.trackingUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
-                                                  >
-                                                    <span>Open Carrier Tracking</span>
-                                                    <ExternalLink className="w-3 h-3" />
-                                                  </a>
-                                                )}
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setSelectedTrackingOrder(order)}
-                                                  className="mt-1 w-full py-1.5 px-2.5 rounded-lg bg-[#2E4D38] hover:bg-[#233d2c] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                                                >
-                                                  <Truck className="w-3.5 h-3.5" />
-                                                  <span>Track Progress Dialog</span>
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <div className="space-y-2">
-                                                <p className="text-xs text-stone-500">
-                                                  Dispatched once prepared by botanical seller.
-                                                </p>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setSelectedTrackingOrder(order)}
-                                                  className="w-full py-1.5 px-2.5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-[11px] font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                                                >
-                                                  <Truck className="w-3.5 h-3.5 text-stone-500" />
-                                                  <span>Tracking Status</span>
-                                                </button>
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          {/* Card 4: Buyer Protection & Refund Guarantee */}
-                                          <div className="p-3.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs space-y-1.5">
-                                            <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
-                                              Order Protection &amp; Refunds
-                                            </span>
-                                            {order.refundStatus === 'Requested' ? (
-                                              <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
-                                                <div className="font-bold flex items-center gap-1">
-                                                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                                  <span>Refund Requested</span>
-                                                </div>
-                                                <p className="text-[10px] text-amber-800 leading-tight">
-                                                  {order.refundReason || 'Under seller review'}. The seller will process your refund shortly.
-                                                </p>
-                                              </div>
-                                            ) : order.refundStatus === 'Refunded' || (order.paymentStatus || '').toLowerCase().includes('refund') ? (
-                                              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1">
-                                                <div className="font-bold flex items-center gap-1">
-                                                  <CheckCircle2 className="w-3.5 h-3.5 text-rose-600" />
-                                                  <span>Refund Processed</span>
-                                                </div>
-                                                <p className="text-[10px] text-rose-800 leading-tight">
-                                                  Payment returned to your payment card.
-                                                </p>
-                                              </div>
-                                            ) : isOrderRefundEligible(order) ? (
-                                              <div className="space-y-1.5">
-                                                <p className="text-[11px] text-stone-600 leading-tight">
-                                                  Eligible if not delivered by estimated date or arrived damaged.
-                                                </p>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    setRefundModalOrder(order);
-                                                    setRefundReasonOption(
-                                                      (order.orderStatus || '').toLowerCase().includes('deliver')
-                                                        ? 'Damaged or defective items received'
-                                                        : 'Package not delivered within estimated delivery time'
-                                                    );
-                                                    setRefundDetailsInput('');
-                                                    setRefundErrorMessage(null);
-                                                  }}
-                                                  className="w-full py-1.5 px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
-                                                >
-                                                  <RotateCcw className="w-3 h-3 text-amber-700" />
-                                                  <span>Request Refund / Return</span>
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <div className="space-y-1">
-                                                <p className="text-[11px] text-stone-500 leading-tight">
-                                                  Eligible once delivered or if not delivered by {formatEstimatedDeliveryDate(order)}.
-                                                </p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        {/* Row 2: Purchased Items Sub-Table with Review Actions */}
-                                        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs">
-                                          <div className="px-4 py-2.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between">
-                                            <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-                                              Purchased Items in this Order ({itemsList.length})
-                                            </span>
-                                            {(order.orderStatus || '').toLowerCase().includes('deliver') && (
-                                              <span className="text-[11px] text-stone-500">
-                                                Click &quot;Write Review&quot; to review each herbal remedy
-                                              </span>
-                                            )}
-                                          </div>
-
-                                          <div className="divide-y divide-stone-100">
-                                            {itemsList.map((item) => {
-                                              const isDelivered = (order.orderStatus || '').toLowerCase().includes('deliver');
-                                              // Find review specifically associated with THIS order
-                                              const itemOrderKey1 = `${order.id}:::${item.productId}`;
-                                              const itemOrderKey2 = order.payHereOrderId ? `${order.payHereOrderId}:::${item.productId}` : '';
-                                              const userReview = orderReviews[itemOrderKey1] || (itemOrderKey2 ? orderReviews[itemOrderKey2] : null) || buyerReviewsList.find(r => r.orderId && (r.orderId === order.id || r.orderId === order.payHereOrderId) && r.productId === item.productId);
-                                              const isReviewed = Boolean(userReview);
-
-                                              return (
-                                                <div
-                                                  key={item.id}
-                                                  className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/50 transition"
-                                                >
-                                                  <div className="space-y-1">
-                                                    <Link
-                                                      href={`/shop/${item.productId}`}
-                                                      className="font-serif text-xs sm:text-sm font-bold text-stone-900 hover:text-[#2E4D38] hover:underline transition"
-                                                    >
-                                                      {item.productName}
-                                                    </Link>
-                                                    <div className="text-xs text-stone-500 flex items-center gap-3">
-                                                      <span>Qty: <strong className="text-stone-800">{item.quantity}</strong></span>
-                                                      <span>Unit Price: <strong className="text-stone-800">${item.unitPrice?.toFixed(2)}</strong></span>
-                                                      <span>Item Total: <strong className="text-[#2E4D38]">${((item.totalPrice || (item.unitPrice * item.quantity)) || 0).toFixed(2)}</strong></span>
-                                                    </div>
-
-                                                    {/* If user reviewed this item FOR THIS SPECIFIC ORDER */}
-                                                    {isReviewed && userReview && (
-                                                      <div className="mt-1.5 p-2 rounded-lg bg-emerald-50/70 border border-emerald-100/90 flex items-center gap-2 text-xs">
-                                                        <div className="flex items-center text-amber-500">
-                                                          {Array.from({ length: 5 }).map((_, sIdx) => (
-                                                            <Star
-                                                              key={sIdx}
-                                                              className={`w-3 h-3 ${
-                                                                sIdx < userReview.rating
-                                                                  ? 'fill-amber-400 text-amber-400'
-                                                                  : 'text-stone-300'
-                                                              }`}
-                                                            />
-                                                          ))}
-                                                        </div>
-                                                        <span className="font-semibold text-emerald-900 text-[11px]">
-                                                          Reviewed ({userReview.rating}/5):
-                                                        </span>
-                                                        <span className="text-stone-600 italic truncate max-w-xs">
-                                                          &quot;{userReview.comment}&quot;
-                                                        </span>
-                                                      </div>
-                                                    )}
-                                                  </div>
-
-                                                  <div className="self-end sm:self-center flex-shrink-0">
-                                                    {isReviewed && userReview ? (
-                                                      <div className="flex items-center gap-1.5">
-                                                        <button
-                                                          type="button"
-                                                          onClick={() => handleOpenViewReview(userReview)}
-                                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition cursor-pointer"
-                                                          title="View review"
-                                                        >
-                                                          <Eye className="w-3 h-3 text-stone-500" />
-                                                          <span>View</span>
-                                                        </button>
-                                                        <button
-                                                          type="button"
-                                                          onClick={() => handleOpenEditReview(userReview)}
-                                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#2E4D38]/30 bg-emerald-50 hover:bg-emerald-100 text-[#2E4D38] text-xs font-semibold transition cursor-pointer"
-                                                          title="Edit review"
-                                                        >
-                                                          <Edit3 className="w-3 h-3 text-[#2E4D38]" />
-                                                          <span>Edit</span>
-                                                        </button>
-                                                        <button
-                                                          type="button"
-                                                          onClick={() => handleDeleteReview(userReview)}
-                                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition cursor-pointer"
-                                                          title="Delete review"
-                                                        >
-                                                          <Trash2 className="w-3 h-3 text-rose-600" />
-                                                          <span>Delete</span>
-                                                        </button>
-                                                      </div>
-                                                    ) : isDelivered ? (
-                                                      <button
-                                                        type="button"
-                                                        onClick={() => handleOpenReview(item.productId, item.productName, order.id, order.payHereOrderId || order.id, order.orderStatus)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2E4D38] bg-[#edf5ee] hover:bg-[#deede0] text-[#2E4D38] text-xs font-bold transition shadow-2xs cursor-pointer"
-                                                      >
-                                                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                                        <span>Write Review</span>
-                                                      </button>
-                                                    ) : (
-                                                      <span
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-400 text-[11px] font-medium"
-                                                        title="Reviews can only be written after your order is delivered."
-                                                      >
-                                                        <Clock className="w-3 h-3 text-stone-400" />
-                                                        <span>Review after delivery</span>
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        </div>
-
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
+                                       <button
+                                         type="button"
+                                         onClick={() => setSelectedOrderReceipt(order)}
+                                         className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 hover:text-stone-900 transition cursor-pointer"
+                                         title="View Printable Receipt"
+                                       >
+                                         <FileText className="w-3.5 h-3.5" />
+                                       </button>
+                                     </div>
+                                   </td>
+                                 </tr>
+                               </React.Fragment>
                             );
                           })}
                         </tbody>
@@ -2108,21 +1788,6 @@ export default function BuyerDashboardPage() {
         {/* TAB 3: VIEW FULL CART, SHIPPING ADDRESS & PLACE ORDER */}
         {activeTab === 'cart' && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-stone-200">
-              <div>
-                <h2 className="font-serif text-xl font-bold text-stone-900">Cart & Botanical Checkout</h2>
-                <p className="text-xs text-stone-500">Review your herbal remedies, confirm delivery details, and place your order directly.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveTab('orders')}
-                  className="px-3.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-semibold transition cursor-pointer"
-                >
-                  &larr; Back to Orders
-                </button>
-              </div>
-            </div>
-
             {cart.length === 0 ? (
               <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center space-y-4 shadow-sm">
                 <div className="w-16 h-16 rounded-full bg-[#edf5ee] text-[#24492d] flex items-center justify-center mx-auto">
@@ -2347,185 +2012,6 @@ export default function BuyerDashboardPage() {
                         />
                       </div>
 
-                      {/* Payment Method Selector & Interactive Details Form */}
-                      <div className="space-y-3.5 border-t border-stone-200 pt-4 mt-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">Payment Method</span>
-                          <span className="text-[11px] text-stone-500 flex items-center gap-1">
-                            <Lock className="w-3 h-3 text-emerald-700" />
-                            <span>256-Bit Encrypted</span>
-                          </span>
-                        </div>
-
-                        {/* Payment Methods Section (PayHere Gateway ONLY) */}
-                        <div className="space-y-3.5">
-                          <div className="p-4 sm:p-5 rounded-2xl border-2 border-[#24492d] bg-gradient-to-br from-[#f4f8f4] to-white shadow-xs space-y-4">
-                            {/* PayHere Gateway Header */}
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-sm sm:text-base font-bold text-stone-900 leading-tight">PayHere Secure Payment Gateway</span>
-                                  <span className="text-[10px] bg-[#24492d] text-white font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                                    Primary Gateway
-                                  </span>
-                                </div>
-                                <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                                  Pay securely with your Credit or Debit Card in Sri Lankan Rupees (LKR) or USD.
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-blue-700 shadow-2xs">VISA</span>
-                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-rose-600 shadow-2xs">MC</span>
-                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-amber-700 shadow-2xs">AMEX</span>
-                                <span className="px-2 py-0.5 bg-white border border-stone-200 rounded font-bold text-[10px] text-emerald-700 shadow-2xs">LKR</span>
-                              </div>
-                            </div>
-
-                            {/* Interactive Botanical Card Preview */}
-                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#1a3821] via-[#24492d] to-[#122818] p-4 text-white shadow-md">
-                              <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none" />
-                              <div className="absolute top-2 right-2 text-white/10 text-4xl font-serif select-none pointer-events-none">🌿</div>
-                              
-                              <div className="flex justify-between items-center mb-3">
-                                <div className="flex items-center gap-2">
-                                  {/* Golden Chip */}
-                                  <div className="w-8 h-6 rounded bg-gradient-to-tr from-amber-400 to-amber-200 border border-amber-500/50 shadow-xs flex items-center justify-center">
-                                    <div className="w-4 h-3 border border-amber-800/40 rounded-xs" />
-                                  </div>
-                                  {/* Contactless Icon */}
-                                  <svg className="w-4 h-4 text-emerald-200/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-                                    <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-                                  </svg>
-                                </div>
-                                
-                                {/* Detected Brand Badge */}
-                                <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-white/15 border border-white/20 backdrop-blur-xs font-bold">
-                                  {detectCardBrand(cardNumber).toUpperCase()}
-                                </span>
-                              </div>
-
-                              {/* Card Number Display */}
-                              <div className="font-mono text-sm sm:text-base tracking-[0.18em] font-semibold text-emerald-50 mb-3">
-                                {cardNumber || '•••• •••• •••• ••••'}
-                              </div>
-
-                              {/* Cardholder & Expiry Row */}
-                              <div className="flex justify-between items-end text-[10px] uppercase tracking-wider text-emerald-100/80">
-                                <div>
-                                  <div className="text-[8px] text-emerald-300/80 font-medium">Cardholder</div>
-                                  <div className="font-semibold text-white tracking-normal truncate max-w-[170px]">
-                                    {cardHolder || shippingFullName || 'CUSTOMER NAME'}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-[8px] text-emerald-300/80 font-medium">Expires</div>
-                                  <div className="font-mono font-semibold text-white">
-                                    {cardExpiry || 'MM/YY'}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Card Input Fields */}
-                            <div className="space-y-3 pt-1">
-                              {/* Card Number */}
-                              <div>
-                                <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                                  Card Number *
-                                </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={cardNumber}
-                                    onChange={handleCardNumberChange}
-                                    placeholder="4111 2222 3333 4444"
-                                    maxLength={19}
-                                    className="w-full pl-9 pr-12 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs"
-                                  />
-                                  <CreditCard className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-stone-500 uppercase">
-                                    {detectCardBrand(cardNumber)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Cardholder Name */}
-                              <div>
-                                <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                                  Name on Card *
-                                </label>
-                                <input
-                                  type="text"
-                                  value={cardHolder}
-                                  onChange={(e) => setCardHolder(e.target.value)}
-                                  placeholder="e.g. John Doe"
-                                  className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs"
-                                />
-                              </div>
-
-                              {/* Expiry & CVV */}
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                                    Expiry Date (MM/YY) *
-                                  </label>
-                                  <div className="relative">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={cardExpiry}
-                                      onChange={handleExpiryChange}
-                                      placeholder="MM/YY"
-                                      maxLength={5}
-                                      className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs text-center"
-                                    />
-                                    <Calendar className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                                    Security CVV *
-                                  </label>
-                                  <div className="relative">
-                                    <input
-                                      type="password"
-                                      inputMode="numeric"
-                                      value={cardCvc}
-                                      onChange={handleCvcChange}
-                                      placeholder="123"
-                                      maxLength={4}
-                                      className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 focus:border-[#24492d] bg-white shadow-xs text-center"
-                                    />
-                                    <Lock className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Trust Badges Footer */}
-                            <div className="pt-2 border-t border-[#d8e6da] space-y-2 text-xs">
-                              <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
-                                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                                <span>PayHere Verified &bull; 256-Bit SSL Encryption &bull; PCI-DSS Level 1 Certified</span>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[10px] font-bold text-stone-600">
-                                <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Visa / Mastercard</span>
-                                <span className="bg-white px-2 py-0.5 rounded border border-stone-200">American Express</span>
-                                <span className="bg-white px-2 py-0.5 rounded border border-stone-200">FriMi</span>
-                                <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Genie</span>
-                                <span className="bg-white px-2 py-0.5 rounded border border-stone-200">eZ Cash</span>
-                                <span className="bg-white px-2 py-0.5 rounded border border-stone-200">Internet Banking</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="pt-2">
                         <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-600">
                           <input
@@ -2534,7 +2020,7 @@ export default function BuyerDashboardPage() {
                             onChange={(e) => setAgreeTerms(e.target.checked)}
                             className="rounded text-[#24492d] focus:ring-[#24492d]"
                           />
-                          <span>I agree to Arboveya botanical quality terms & dispatch conditions.</span>
+                          <span>I agree to Arboveya quality terms & dispatch conditions.</span>
                         </label>
                       </div>
                     </form>
@@ -2649,15 +2135,10 @@ export default function BuyerDashboardPage() {
                       <Lock className="w-4 h-4" />
                       <span>
                         {placingOrder 
-                          ? 'PROCESSING PAYHERE TRANSACTION...' 
-                          : `PAY LKR ${total.toFixed(2)} WITH PAYHERE`}
+                          ? 'PROCESSING TRANSACTION...' 
+                          : `Pay $${total.toFixed(2)}`}
                       </span>
                     </button>
-
-                    <div className="pt-2 text-center text-[10px] text-stone-400 space-y-1">
-                      <p>🔒 256-Bit SSL Encrypted Botanical Dispensary Checkout</p>
-                      <p>🌿 100% Certified Organic Harvest Guarantee</p>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -2682,13 +2163,6 @@ export default function BuyerDashboardPage() {
                       Manage your personal info and default shipping delivery address.
                     </p>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Verified Buyer Account</span>
-                  </span>
                 </div>
               </div>
 
@@ -3356,7 +2830,7 @@ export default function BuyerDashboardPage() {
             <div className="flex items-center justify-between pb-4 border-b border-stone-200">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Arboveya Botanical Dispensary
+                  Arboveya
                 </span>
                 <h3 className="font-serif text-lg sm:text-xl font-bold text-stone-900 mt-1">
                   Order Invoice & Receipt
@@ -3456,253 +2930,6 @@ export default function BuyerDashboardPage() {
         </div>
       )}
 
-      {/* ================= MODAL: BUYER ORDER TRACKING DIALOG ================= */}
-      {selectedTrackingOrder && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedTrackingOrder(null);
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
-        >
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-6">
-            
-            {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-[#2E4D38] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 inline-block mb-1">
-                  Arboveya Parcel Tracking
-                </span>
-                <h3 className="text-lg font-serif font-bold text-stone-900 flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-[#2E4D38]" />
-                  <span>Shipment & Delivery Details</span>
-                </h3>
-                <p className="text-xs text-stone-500 mt-0.5 font-mono">
-                  Order Ref: {selectedTrackingOrder.payHereOrderId || selectedTrackingOrder.id}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedTrackingOrder(null)}
-                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Tracking Status Card */}
-            <div className="p-4 rounded-2xl bg-[#f8faf8] border border-emerald-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Status</span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>{selectedTrackingOrder.orderStatus || 'Processing'}</span>
-                  </span>
-                </div>
-                {selectedTrackingOrder.shippingCarrier && (
-                  <div className="text-right">
-                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Carrier</span>
-                    <span className="text-xs font-bold text-stone-800">{selectedTrackingOrder.shippingCarrier}</span>
-                  </div>
-                )}
-              </div>
-
-              {selectedTrackingOrder.trackingNumber ? (
-                <div className="pt-2 border-t border-emerald-100/70 flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Tracking Number</span>
-                    <span className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
-                      {selectedTrackingOrder.trackingNumber}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyTracking(selectedTrackingOrder.trackingNumber!)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
-                  >
-                    {copiedTracking === selectedTrackingOrder.trackingNumber ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy #</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="pt-2 border-t border-emerald-100/70 text-xs text-stone-600">
-                  <p>Your herbal remedies are currently being freshly packaged and formulated. A carrier tracking number will appear here as soon as dispatched.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Estimated Delivery Calculation Box */}
-            <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-[#1c3f24] flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-emerald-600" />
-                  <span>Estimated Delivery Date</span>
-                </span>
-                <span className="font-bold text-xs sm:text-sm text-[#1c3f24]">
-                  {formatEstimatedDeliveryDate(selectedTrackingOrder)}
-                </span>
-              </div>
-              {selectedTrackingOrder.trackingUrl && (
-                <div className="pt-2 border-t border-emerald-200/60">
-                  <a
-                    href={selectedTrackingOrder.trackingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 transition underline"
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>Open Live Carrier Tracking Page ↗</span>
-                  </a>
-                </div>
-              )}
-            </div>
-
-            {/* Visual Shipment Timeline Stepper */}
-            <div className="space-y-3 pt-1">
-              <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block">Delivery Progress</span>
-              
-              <div className="relative pl-6 space-y-5 border-l-2 border-stone-200">
-                {/* Step 1: Order Confirmed */}
-                <div className="relative">
-                  <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white">
-                    <Check className="w-2.5 h-2.5 stroke-[3]" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-stone-900">Order Confirmed & Paid</p>
-                    <p className="text-[11px] text-stone-500">
-                      {new Date(selectedTrackingOrder.createdAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 2: Packaging */}
-                <div className="relative">
-                  <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white">
-                    <Check className="w-2.5 h-2.5 stroke-[3]" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-stone-900">Packaged & Quality Inspected</p>
-                    <p className="text-[11px] text-stone-500">Botanical batch quality sealed</p>
-                  </div>
-                </div>
-
-                {/* Step 3: Shipped / In Transit */}
-                <div className="relative">
-                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full flex items-center justify-center ${
-                    selectedTrackingOrder.orderStatus === 'Shipped' || selectedTrackingOrder.orderStatus === 'Delivered' || selectedTrackingOrder.trackingNumber
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-stone-300 text-stone-500'
-                  }`}>
-                    {selectedTrackingOrder.orderStatus === 'Shipped' || selectedTrackingOrder.orderStatus === 'Delivered' || selectedTrackingOrder.trackingNumber ? (
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                    ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-stone-900">
-                      Dispatched with {selectedTrackingOrder.shippingCarrier || 'Courier'}
-                    </p>
-                    <p className="text-[11px] text-stone-500">
-                      {selectedTrackingOrder.trackingNumber 
-                        ? `Tracking ID: ${selectedTrackingOrder.trackingNumber}` 
-                        : 'Scheduled for dispatch within 1-2 business days'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 4: Delivered */}
-                <div className="relative">
-                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full flex items-center justify-center ${
-                    selectedTrackingOrder.orderStatus === 'Delivered'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-stone-200'
-                  }`}>
-                    {selectedTrackingOrder.orderStatus === 'Delivered' ? (
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                    ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
-                    )}
-                  </div>
-                  <div>
-                    <p className={`text-xs font-bold ${selectedTrackingOrder.orderStatus === 'Delivered' ? 'text-emerald-800' : 'text-stone-400'}`}>
-                      Delivered to Customer
-                    </p>
-                    <p className="text-[11px] text-stone-400">
-                      {selectedTrackingOrder.shippingAddress || 'Customer shipping address'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Destination Address Info */}
-            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/80 text-xs space-y-1">
-              <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Shipping Destination</span>
-              <p className="font-semibold text-stone-900">{selectedTrackingOrder.customerName || user?.fullName || 'Customer'}</p>
-              <p className="text-stone-600 leading-relaxed text-[11px]">{selectedTrackingOrder.shippingAddress || 'Address on file'}</p>
-            </div>
-
-            {/* Dialog Footer with Refund Option Access */}
-            <div className="pt-2 flex items-center justify-between gap-3">
-              {selectedTrackingOrder.refundStatus === 'Requested' ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Refund Pending Review</span>
-                </span>
-              ) : selectedTrackingOrder.refundStatus === 'Refunded' ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Refund Completed</span>
-                </span>
-              ) : isOrderRefundEligible(selectedTrackingOrder) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const toRefund = selectedTrackingOrder;
-                    setSelectedTrackingOrder(null);
-                    setRefundModalOrder(toRefund);
-                    setRefundReasonOption(
-                      (toRefund.orderStatus || '').toLowerCase().includes('deliver')
-                        ? 'Damaged or defective items received'
-                        : 'Package not delivered within estimated delivery time'
-                    );
-                    setRefundDetailsInput('');
-                    setRefundErrorMessage(null);
-                  }}
-                  className="px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition cursor-pointer flex items-center gap-1"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Request Refund</span>
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => setSelectedTrackingOrder(null)}
-                className="px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition cursor-pointer shadow-xs"
-              >
-                Close Tracking
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
       {/* ================= MODAL: BUYER REQUEST REFUND ================= */}
       {refundModalOrder && (
         <div 
@@ -3740,7 +2967,7 @@ export default function BuyerDashboardPage() {
                 <span>Arboveya Buyer Protection Policy</span>
               </div>
               <p className="text-[11px] leading-relaxed text-amber-800">
-                You are protected by Arboveya buyer guarantee. You can request a full refund if your botanical package was not delivered within the estimated delivery date, or if the product arrived damaged / defective and requires return.
+                You are protected by Arboveya buyer guarantee. Since order payments are deposited directly into the merchant's PayHere account, upon submitting this request the merchant will review and manually issue the refund directly through PayHere back to your payment method.
               </p>
               <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-stone-700">Estimated Delivery Date:</span>

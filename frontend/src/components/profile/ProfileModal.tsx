@@ -125,9 +125,6 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                 <h3 className="font-serif text-xl font-bold text-stone-900">
                   Update Account Profile
                 </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#edf5ee] text-[#1c3f24] border border-[#cbe0ce]">
-                  {isSeller ? 'Seller Profile' : 'Buyer Profile'}
-                </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
                 Manage your name, contact phone, delivery address, and preferences

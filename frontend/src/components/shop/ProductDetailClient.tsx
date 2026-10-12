@@ -582,7 +582,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 <p className="text-xs text-stone-600 leading-relaxed">
                   {user.role === 'Admin' 
                     ? "You are viewing this botanical product's specifications and details as an Arboveya Administrator."
-                    : "You are viewing this botanical product's specifications and ingredients as an Arboveya Herbal Merchant."}
+                    : "You are viewing this botanical product's specifications and ingredients as an Arboveya Merchant."}
                   <strong className="text-[#1c3f24] font-semibold block mt-1">
                     Purchasing products is disabled for {user.role === 'Admin' ? 'administrator' : 'seller'} accounts.
                   </strong>

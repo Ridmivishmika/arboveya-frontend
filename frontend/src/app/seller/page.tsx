@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -44,7 +44,8 @@ import {
   User,
   Phone,
   MapPin,
-  Globe
+  Globe,
+  Search
 } from 'lucide-react';
 
 interface SellerOrderItem {
@@ -188,6 +189,18 @@ export default function SellerDashboardPage() {
 
   // Product State
   const [products, setProducts] = useState<Product[]>([]);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearchTerm.trim()) return products;
+    const q = productSearchTerm.toLowerCase();
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      (p.categoryName && p.categoryName.toLowerCase().includes(q)) ||
+      (p.wellnessNeedName && p.wellnessNeedName.toLowerCase().includes(q)) ||
+      (p.description && p.description.toLowerCase().includes(q))
+    );
+  }, [products, productSearchTerm]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -460,8 +473,8 @@ export default function SellerDashboardPage() {
       isFreeShipping: input.isFreeShipping,
       shippingCost: input.shippingCost,
       returnPolicy: input.returnPolicy || undefined,
-      shippingOptions: input.shippingOptions 
-        ? (typeof input.shippingOptions === 'string' ? input.shippingOptions : JSON.stringify(input.shippingOptions)) 
+      shippingOptions: input.shippingOptions
+        ? (typeof input.shippingOptions === 'string' ? input.shippingOptions : JSON.stringify(input.shippingOptions))
         : undefined,
       variants: cleanedVariants.length > 0 ? cleanedVariants : undefined,
     };
@@ -551,19 +564,19 @@ export default function SellerDashboardPage() {
 
       if (res.ok) {
         const updatedOrder = await res.json();
-        setOrders(prev => prev.map(o => o.id === orderId ? { 
-          ...o, 
-          ...updatedOrder, 
-          trackingNumber: trackingNumberInput.trim(), 
-          shippingCarrier: carrierInput.trim(), 
-          orderStatus: 'Shipped' 
+        setOrders(prev => prev.map(o => o.id === orderId ? {
+          ...o,
+          ...updatedOrder,
+          trackingNumber: trackingNumberInput.trim(),
+          shippingCarrier: carrierInput.trim(),
+          orderStatus: 'Shipped'
         } : o));
       } else {
-        setOrders(prev => prev.map(o => o.id === orderId ? { 
-          ...o, 
-          trackingNumber: trackingNumberInput.trim(), 
-          shippingCarrier: carrierInput.trim(), 
-          orderStatus: 'Shipped' 
+        setOrders(prev => prev.map(o => o.id === orderId ? {
+          ...o,
+          trackingNumber: trackingNumberInput.trim(),
+          shippingCarrier: carrierInput.trim(),
+          orderStatus: 'Shipped'
         } : o));
       }
       setTrackingSuccessMsg(`Tracking number updated! Order marked as Shipped.`);
@@ -571,11 +584,11 @@ export default function SellerDashboardPage() {
       setTrackingNumberInput('');
     } catch (err) {
       console.warn('Fallback tracking update:', err);
-      setOrders(prev => prev.map(o => o.id === orderId ? { 
-        ...o, 
-        trackingNumber: trackingNumberInput.trim(), 
-        shippingCarrier: carrierInput.trim(), 
-        orderStatus: 'Shipped' 
+      setOrders(prev => prev.map(o => o.id === orderId ? {
+        ...o,
+        trackingNumber: trackingNumberInput.trim(),
+        shippingCarrier: carrierInput.trim(),
+        orderStatus: 'Shipped'
       } : o));
       setEditingTrackingOrderId(null);
     } finally {
@@ -815,6 +828,8 @@ export default function SellerDashboardPage() {
   const pendingCount = products.filter(p => p.approvalStatus?.toLowerCase() === 'pending').length;
   const approvedCount = products.filter(p => p.approvalStatus?.toLowerCase() === 'approved').length;
 
+
+
   return (
     <div className="min-h-screen bg-[#FBFBFA] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -883,12 +898,33 @@ export default function SellerDashboardPage() {
 
             {/* Product Inventory Table */}
             <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+              <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="font-serif text-lg font-bold text-stone-900">Your Botanical Products</h2>
                   <p className="text-xs text-stone-500">Monitor stock levels, approval statuses, and assigned categories.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Search Bar like Buyer Portal */}
+                  <div className="relative w-full sm:w-60">
+                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={productSearchTerm}
+                      onChange={(e) => setProductSearchTerm(e.target.value)}
+                      placeholder="Search your products..."
+                      className="w-full pl-8 pr-7 py-1.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#2E4D38] focus:bg-white transition"
+                    />
+                    {productSearchTerm && (
+                      <button
+                        onClick={() => setProductSearchTerm('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => setShowAddModal(true)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#253f2e] transition cursor-pointer"
@@ -937,7 +973,20 @@ export default function SellerDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
-                      {products.map((p) => (
+                      {filteredProducts.length === 0 && products.length > 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-stone-400">
+                            <p className="text-sm font-medium text-stone-600">No products match &quot;{productSearchTerm}&quot;</p>
+                            <button
+                              onClick={() => setProductSearchTerm('')}
+                              className="text-xs text-[#2E4D38] font-bold hover:underline mt-1 inline-block cursor-pointer"
+                            >
+                              Clear search filter
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredProducts.map((p) => (
                         <tr key={p.id} className="hover:bg-stone-50/50 transition">
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-3">
@@ -1054,7 +1103,8 @@ export default function SellerDashboardPage() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ))
+                    )}
                     </tbody>
                   </table>
                 </div>
@@ -1126,6 +1176,7 @@ export default function SellerDashboardPage() {
                               src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
                               alt={blog.title}
                               fill
+                              sizes="64px"
                               className="object-cover"
                             />
                           </div>
@@ -1284,10 +1335,6 @@ export default function SellerDashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#edf5ee] text-[#1c3f24] border border-[#bcd2bf]">
-                    <Sparkles className="w-3.5 h-3.5 text-[#2E4D38]" />
-                    <span>Herbal Artisan</span>
-                  </span>
                   {user?.bankAccountNumber && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -1298,7 +1345,7 @@ export default function SellerDashboardPage() {
               </div>
 
               <form onSubmit={handleSaveBankDetails} className="space-y-6">
-                
+
                 {/* Section 1: Merchant Identity & Contact */}
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-3 flex items-center gap-1.5">
@@ -1581,6 +1628,7 @@ export default function SellerDashboardPage() {
                         src={resolveBackendImageUrl(blogImageUrl, '/images/blog-moringa.jpg')}
                         alt="Blog preview"
                         fill
+                        sizes="(max-width: 768px) 100vw, 600px"
                         className="object-cover"
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -1652,11 +1700,10 @@ export default function SellerDashboardPage() {
                           key={preset.url}
                           type="button"
                           onClick={() => setBlogImageUrl(preset.url)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] border transition cursor-pointer ${
-                            blogImageUrl === preset.url
+                          className={`px-2.5 py-1 rounded-lg text-[11px] border transition cursor-pointer ${blogImageUrl === preset.url
                               ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
                               : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
-                          }`}
+                            }`}
                         >
                           {preset.label}
                         </button>
@@ -1709,6 +1756,7 @@ export default function SellerDashboardPage() {
                   alt={readingBlog.title}
                   fill
                   priority
+                  sizes="(max-width: 768px) 100vw, 700px"
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
@@ -1754,40 +1802,40 @@ export default function SellerDashboardPage() {
                   {readingBlog.content}
                 </div>
 
-              <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
-                <button
-                  onClick={() => setReadingBlog(null)}
-                  className="px-5 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200 transition"
-                >
-                  Close Preview
-                </button>
+                <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
+                  <button
+                    onClick={() => setReadingBlog(null)}
+                    className="px-5 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200 transition"
+                  >
+                    Close Preview
+                  </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const b = readingBlog;
-                      setReadingBlog(null);
-                      handleOpenEditBlog(b);
-                    }}
-                    className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition"
-                  >
-                    Edit Blog
-                  </button>
-                  <button
-                    onClick={() => {
-                      const b = readingBlog;
-                      setReadingBlog(null);
-                      handleDeleteBlog(b);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition"
-                  >
-                    Delete Blog
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const b = readingBlog;
+                        setReadingBlog(null);
+                        handleOpenEditBlog(b);
+                      }}
+                      className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition"
+                    >
+                      Edit Blog
+                    </button>
+                    <button
+                      onClick={() => {
+                        const b = readingBlog;
+                        setReadingBlog(null);
+                        handleDeleteBlog(b);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition"
+                    >
+                      Delete Blog
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
         )}
 
       </div>
@@ -1834,6 +1882,7 @@ export default function SellerDashboardPage() {
                   src={resolveBackendImageUrl(viewingProduct.imageUrl, '/images/gotu-kola-tea.jpg')}
                   alt={viewingProduct.name}
                   fill
+                  sizes="(max-width: 640px) 100vw, 250px"
                   className="object-cover"
                 />
               </div>

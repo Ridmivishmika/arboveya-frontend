@@ -38,7 +38,8 @@ import {
   Info,
   Calendar,
   Send,
-  RefreshCw
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 
@@ -66,7 +67,7 @@ export interface DetailedOrder {
   estimatedDelivery: string;
   orderStatus: 'Awaiting payment' | 'Awaiting shipment' | 'Paid and shipped' | 'Shipped' | 'Cancelled' | 'Delivered';
   paymentStatus: 'Paid' | 'Pending' | 'Refunded';
-  fundsStatus: 'On hold' | 'Released' | 'Cancelled / Withheld';
+  fundsStatus?: 'Directly Deposited' | 'Refunded' | 'Pending';
   customerName: string;
   buyerUsername: string;
   buyerFeedbackScore?: number;
@@ -117,7 +118,7 @@ const sampleOrdersData: DetailedOrder[] = [
     estimatedDelivery: 'Oct 20, 2026 - Nov 13, 2026',
     orderStatus: 'Awaiting shipment',
     paymentStatus: 'Paid',
-    fundsStatus: 'On hold',
+    fundsStatus: 'Directly Deposited',
     customerName: 'Oredi KM MC',
     buyerUsername: 'mkmemphis7',
     buyerFeedbackScore: 15,
@@ -160,7 +161,7 @@ const sampleOrdersData: DetailedOrder[] = [
     estimatedDelivery: 'Oct 10, 2026 - Oct 28, 2026',
     orderStatus: 'Shipped',
     paymentStatus: 'Paid',
-    fundsStatus: 'On hold',
+    fundsStatus: 'Directly Deposited',
     customerName: 'David M Porterfield',
     buyerUsername: 'plantfish',
     buyerFeedbackScore: 42,
@@ -207,7 +208,7 @@ const sampleOrdersData: DetailedOrder[] = [
     estimatedDelivery: 'Oct 8, 2026 - Oct 25, 2026',
     orderStatus: 'Delivered',
     paymentStatus: 'Paid',
-    fundsStatus: 'Released',
+    fundsStatus: 'Directly Deposited',
     customerName: 'Robert Pell',
     buyerUsername: 'walnutpancakes',
     buyerFeedbackScore: 89,
@@ -251,7 +252,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarFilter, setSidebarFilter] = useState<'all' | 'awaiting_payment' | 'awaiting_shipment' | 'paid_and_shipped' | 'archived'>('all');
-  
+
   // Filter bar states
   const [statusFilter, setStatusFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('last_90');
@@ -276,12 +277,29 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   const [noteModalOrder, setNoteModalOrder] = useState<DetailedOrder | null>(null);
   const [noteText, setNoteText] = useState('');
 
-  // Refund modal state
+  // Refund modal state (PayHere Sandbox Automated & Direct Refund)
   const [refundModalOrder, setRefundModalOrder] = useState<DetailedOrder | null>(null);
   const [refundReasonInput, setRefundReasonInput] = useState('Customer requested return/refund');
   const [refundAmountInput, setRefundAmountInput] = useState<number | string>('');
+  const [payHereRefundRefInput, setPayHereRefundRefInput] = useState('');
+  const [sellerRefundNotesInput, setSellerRefundNotesInput] = useState('');
+  const [autoRefundSandbox, setAutoRefundSandbox] = useState(true);
+  const [showRefundConfirmBox, setShowRefundConfirmBox] = useState(false);
+  const [refundSuccessResult, setRefundSuccessResult] = useState<{ refundId: string; amount: number; orderNumber: string } | null>(null);
   const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
+
+  const handleOpenRefundModal = (o: DetailedOrder) => {
+    setRefundModalOrder(o);
+    setRefundAmountInput(o.totalAmount);
+    setRefundReasonInput(o.refundReason || 'Customer requested return/refund');
+    setPayHereRefundRefInput('');
+    setSellerRefundNotesInput('');
+    setAutoRefundSandbox(true);
+    setShowRefundConfirmBox(false);
+    setRefundSuccessResult(null);
+    setRefundError(null);
+  };
 
   const [activeDropdownOrderId, setActiveDropdownOrderId] = useState<string | null>(null);
   const [detailsActionDropdownOpen, setDetailsActionDropdownOpen] = useState(false);
@@ -330,8 +348,8 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
               : (o.orderStatus || 'Awaiting shipment'),
           paymentStatus: o.paymentStatus || 'Paid',
           fundsStatus: (o.paymentStatus === 'Refunded' || o.orderStatus === 'Cancelled')
-            ? 'Cancelled / Withheld'
-            : (o.orderStatus === 'Delivered' && (o.paymentStatus === 'Paid' || !o.paymentStatus) ? 'Released' : 'On hold'),
+            ? 'Refunded'
+            : (o.paymentStatus === 'Refunded' ? 'Refunded' : 'Directly Deposited'),
           customerName: o.customerName || 'Valued Buyer',
           buyerUsername: (o.customerName ? o.customerName.toLowerCase().replace(/\s+/g, '') : 'buyer') + Math.floor(Math.random() * 90 + 10),
           buyerFeedbackScore: Math.floor(Math.random() * 50) + 5,
@@ -419,8 +437,8 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             orderStatus: resolvedStatus,
             paymentStatus: o.paymentStatus || 'Paid',
             fundsStatus: (o.paymentStatus === 'Refunded' || resolvedStatus === 'Cancelled')
-              ? 'Cancelled / Withheld'
-              : (resolvedStatus === 'Delivered' && (o.paymentStatus === 'Paid' || !o.paymentStatus) ? 'Released' : 'On hold'),
+              ? 'Refunded'
+              : (o.paymentStatus === 'Paid' ? 'Directly Deposited' : 'Pending'),
             customerName: o.customerName || 'Valued Buyer',
             buyerUsername: (o.customerName ? o.customerName.toLowerCase().replace(/\s+/g, '') : 'buyer') + Math.floor(Math.random() * 90 + 10),
             buyerFeedbackScore: Math.floor(Math.random() * 50) + 5,
@@ -571,7 +589,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           trackingUrl: trackingUrlInput.trim() || undefined,
           orderStatus: 'Shipped',
           carrierScanDate: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-          fundsStatus: 'On hold'
+          fundsStatus: 'Directly Deposited'
         };
       }
       return o;
@@ -590,7 +608,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         return {
           ...o,
           orderStatus: newStatus,
-          fundsStatus: newStatus === 'Delivered' ? 'Released' : 'On hold',
+          fundsStatus: o.paymentStatus === 'Refunded' ? 'Refunded' : 'Directly Deposited',
           carrierScanDate: o.carrierScanDate || new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
         };
       }
@@ -634,9 +652,38 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
     }
   };
 
-  // Process order refund (refunds buyer via PayHere, restores inventory, withholds seller payout)
-  const handleProcessRefund = async () => {
+  // Step 1: Validate inputs and open the Confirmation Box before executing refund
+  const handleOpenRefundConfirm = () => {
     if (!refundModalOrder) return;
+    setRefundError(null);
+
+    const parsedAmount = typeof refundAmountInput === 'number'
+      ? refundAmountInput
+      : (refundAmountInput ? parseFloat(refundAmountInput) : refundModalOrder.totalAmount);
+
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setRefundError('Please enter a valid refund amount greater than $0.00.');
+      return;
+    }
+
+    if (parsedAmount > refundModalOrder.totalAmount) {
+      setRefundError(`Refund amount cannot exceed the total order amount of $${refundModalOrder.totalAmount.toFixed(2)}.`);
+      return;
+    }
+
+    if (!autoRefundSandbox && !payHereRefundRefInput.trim()) {
+      setRefundError('Please enter the manual PayHere Refund Reference ID or switch to Automated Sandbox mode.');
+      return;
+    }
+
+    // Open confirmation box
+    setShowRefundConfirmBox(true);
+  };
+
+  // Step 2: Execute automated or manual PayHere refund upon user confirmation
+  const handleExecuteRefund = async () => {
+    if (!refundModalOrder) return;
+
     setIsSubmittingRefund(true);
     setRefundError(null);
 
@@ -654,7 +701,10 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         },
         body: JSON.stringify({
           reason: refundReasonInput || 'Customer requested return/refund',
-          amount: isNaN(parsedAmount) ? refundModalOrder.totalAmount : parsedAmount
+          amount: isNaN(parsedAmount) ? refundModalOrder.totalAmount : parsedAmount,
+          autoRefundSandbox: autoRefundSandbox,
+          payHereRefundId: autoRefundSandbox ? undefined : (payHereRefundRefInput.trim() || undefined),
+          notes: sellerRefundNotesInput.trim() || undefined
         })
       });
 
@@ -663,21 +713,43 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         throw new Error(errorData?.message || 'Failed to process refund');
       }
 
+      const updatedOrder = await res.json().catch(() => null);
+
+      // Extract generated refund reference
+      let finalRefundRef = '';
+      if (updatedOrder?.refundReason) {
+        const match = updatedOrder.refundReason.match(/PayHere Ref:\s*([^\s|]+)/i);
+        if (match) finalRefundRef = match[1];
+      }
+      if (!finalRefundRef) {
+        finalRefundRef = payHereRefundRefInput.trim() || 'PH-SANDBOX-REF-PROCESSED';
+      }
+
       // Update local state
       setLocalOrders(prev => prev.map(o => {
         if (o.id === refundModalOrder.id) {
+          const recReason = updatedOrder?.refundReason || 
+            `${autoRefundSandbox ? 'PayHere Sandbox Auto-Refund' : 'PayHere Refund'} | ${refundReasonInput} | PayHere Ref: ${finalRefundRef}`;
           return {
             ...o,
             orderStatus: 'Cancelled',
             paymentStatus: 'Refunded',
-            fundsStatus: 'Cancelled / Withheld'
+            fundsStatus: 'Refunded',
+            refundStatus: 'Refunded',
+            refundReason: recReason,
+            refundProcessedAt: new Date().toISOString()
           };
         }
         return o;
       }));
 
+      setRefundSuccessResult({
+        refundId: finalRefundRef,
+        amount: isNaN(parsedAmount) ? refundModalOrder.totalAmount : parsedAmount,
+        orderNumber: refundModalOrder.orderNumber
+      });
+
       onRefresh?.();
-      setRefundModalOrder(null);
     } catch (err: any) {
       console.error('Error processing refund:', err);
       setRefundError(err?.message || 'Failed to process refund. Please verify backend connection and try again.');
@@ -722,1070 +794,1040 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
 
           return (
             <div className="w-full bg-[#f8f9fa] min-h-screen py-6 px-4 sm:px-6 lg:px-8 font-sans animate-in fade-in duration-150 text-[#181818]">
-        <div className="max-w-7xl mx-auto space-y-6">
-          
-          {/* Breadcrumbs & Header Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-stone-200">
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <button 
-                onClick={() => setSelectedOrderId(null)}
-                className="hover:text-blue-600 underline font-medium cursor-pointer"
-              >
-                All orders
-              </button>
-              <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
-              <span className="text-stone-800 font-semibold">Order details</span>
-            </div>
+              <div className="max-w-7xl mx-auto space-y-6">
 
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-stone-300 bg-white hover:bg-stone-50 text-xs font-semibold text-stone-800 transition shadow-2xs cursor-pointer self-start sm:self-auto"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print packing slip</span>
-            </button>
-          </div>
-
-          {/* Page Title */}
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">
-              Order details
-            </h1>
-          </div>
-
-          {/* Product Banner (Small image + Title) */}
-          <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-stone-200 shadow-2xs">
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
-              <Image
-                src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
-                alt={firstItem.productName}
-                fill
-                sizes="40px"
-                className="object-cover"
-              />
-            </div>
-            <h2 className="text-sm font-semibold text-stone-900 line-clamp-1">
-              {firstItem.productName}
-            </h2>
-          </div>
-
-          {/* Stepper Progress / Shipping Due Card */}
-          <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-stone-900">
-                  {o.orderStatus === 'Shipped' ? 'Item Shipped' : `Ship by ${o.shipByDate}`}
-                </h3>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Make sure you ship your order within the handling time you specified in the listing.
-                </p>
-                <p className="text-xs text-stone-600 font-medium mt-1">
-                  Estimated delivery date shown to buyer: <strong className="text-stone-900">{o.estimatedDelivery}</strong>
-                </p>
-              </div>
-
-              {/* Action Buttons on Right: Only 4 requested visible actions */}
-              <div className="flex items-center gap-2 relative flex-wrap">
-                {/* 1. Print packing */}
-                <button
-                  onClick={() => window.print()}
-                  className="px-3.5 py-2 rounded-full border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                  title="Print packing slip"
-                >
-                  <Printer className="w-3.5 h-3.5 text-stone-600" />
-                  <span>Print packing</span>
-                </button>
-
-                {/* 2. Tracking button (opens tracking dialog) */}
-                <button
-                  type="button"
-                  onClick={() => handleOpenTrackingModal(o)}
-                  className="px-4 py-2 rounded-full bg-[#0053a0] hover:bg-[#004280] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                  title="View, add or edit tracking details"
-                >
-                  <Truck className="w-3.5 h-3.5" />
-                  <span>{o.trackingNumber ? `Tracking (${o.trackingNumber})` : 'Add tracking'}</span>
-                </button>
-
-                {/* 3. Mark as shipped */}
-                <button
-                  onClick={() => handleUpdateOrderStatus(o.id, 'Shipped')}
-                  disabled={o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered'}
-                  className={`px-3.5 py-2 rounded-full text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer ${
-                    o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered'
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 opacity-90 cursor-default'
-                      : 'bg-white border border-stone-300 hover:bg-stone-50 text-stone-800'
-                  }`}
-                  title="Mark this order as shipped"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered' ? 'Shipped' : 'Mark as shipped'}</span>
-                </button>
-
-                {/* 4. Mark as delivered */}
-                <button
-                  onClick={() => handleUpdateOrderStatus(o.id, 'Delivered')}
-                  disabled={o.orderStatus === 'Delivered'}
-                  className={`px-3.5 py-2 rounded-full text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer ${
-                    o.orderStatus === 'Delivered'
-                      ? 'bg-emerald-600 text-white shadow-xs cursor-default'
-                      : 'bg-white border border-stone-300 hover:bg-stone-50 text-stone-800'
-                  }`}
-                  title="Mark this order as delivered"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{o.orderStatus === 'Delivered' ? 'Delivered' : 'Mark as delivered'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Stepper Bar */}
-            <div className="pt-2">
-              <div className="relative flex items-center justify-between max-w-xl">
-                {/* Background Line (Neutral uncolored line) */}
-                <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-0.5 bg-stone-200 z-0"></div>
-
-                {/* Step 1: Buyer Paid */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-                    <Check className="w-4 h-4 stroke-[2.5]" />
+                {/* Breadcrumbs & Header Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-stone-200">
+                  <div className="flex items-center gap-2 text-xs text-stone-500">
+                    <button
+                      onClick={() => setSelectedOrderId(null)}
+                      className="hover:text-blue-600 underline font-medium cursor-pointer"
+                    >
+                      All orders
+                    </button>
+                    <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+                    <span className="text-stone-800 font-semibold">Order details</span>
                   </div>
-                  <span className="text-xs font-bold text-stone-900 mt-2">Buyer paid</span>
-                  <span className="text-[11px] text-stone-500">
-                    {new Date(o.datePaid || o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
 
-                {/* Step 2: Ship by */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold bg-white ${
-                    o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-stone-400 text-stone-600'
-                  }`}>
-                    {o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered' ? (
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    ) : (
-                      <span className="w-2.5 h-2.5 rounded-full bg-stone-400"></span>
-                    )}
-                  </div>
-                  <span className="text-xs font-bold text-stone-900 mt-2">Ship by</span>
-                  <span className="text-[11px] text-stone-500">Oct 7</span>
-                </div>
-
-                {/* Step 3: Delivery */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold ${
-                    o.orderStatus === 'Delivered'
-                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
-                      : 'border-stone-300 text-stone-400 bg-white'
-                  }`}>
-                    {o.orderStatus === 'Delivered' ? (
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    ) : (
-                      <span className="w-2.5 h-2.5 rounded-full bg-stone-300"></span>
-                    )}
-                  </div>
-                  <span className={`text-xs font-bold mt-2 ${o.orderStatus === 'Delivered' ? 'text-emerald-700' : 'text-stone-500'}`}>
-                    {o.orderStatus === 'Delivered' ? 'Delivered' : 'Delivery'}
-                  </span>
-                  <span className="text-[11px] text-stone-400">
-                    {o.orderStatus === 'Delivered' ? 'Completed' : 'Estimated'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 2-Column Main Layout Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            
-            {/* LEFT 2 COLUMNS: Shipping Card & Items Card */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* Shipping Section Card */}
-              <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
-                <h3 className="text-base font-bold text-stone-900">
-                  Shipping
-                </h3>
-
-                {/* How to ship collapsible section */}
-                <div className="border border-stone-200 rounded-xl overflow-hidden">
                   <button
-                    onClick={() => setHowToShipOpen(!howToShipOpen)}
-                    className="w-full px-4 py-3 bg-[#fafafa] flex items-center justify-between text-xs font-bold text-stone-800 hover:bg-stone-100 transition cursor-pointer"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-stone-300 bg-white hover:bg-stone-50 text-xs font-semibold text-stone-800 transition shadow-2xs cursor-pointer self-start sm:self-auto"
                   >
-                    <span className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-stone-600" />
-                      How to ship
-                    </span>
-                    {howToShipOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print packing slip</span>
                   </button>
-
-                  {howToShipOpen && (
-                    <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs border-t border-stone-200">
-                      <div>
-                        <h4 className="font-bold text-stone-900 mb-1">Pack it up</h4>
-                        <p className="text-stone-500 leading-relaxed text-[11px]">
-                          Use padding to protect your botanical item and seal the package with packing tape.
-                        </p>
-                        <a href="#" className="text-blue-600 underline font-medium block mt-1 text-[11px]">Learn more</a>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-stone-900 mb-1">Get a label</h4>
-                        <p className="text-stone-500 leading-relaxed text-[11px]">
-                          Buy your label on Arboveya to save on shipping costs or find your own shipping service.
-                        </p>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-stone-900 mb-1">Drop it off</h4>
-                        <p className="text-stone-500 leading-relaxed text-[11px]">
-                          If you buy your label on Arboveya, tracking is shared with the buyer automatically.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Destination Address & Carrier Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 text-xs">
-                  <div>
-                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1">
-                      <Package className="w-3.5 h-3.5" />
-                      Ship to
-                    </span>
-                    <p className="font-bold text-stone-900 text-sm">{o.customerName}</p>
-                    <p className="text-stone-600 mt-0.5">{o.shippingAddress}</p>
-                    <p className="text-stone-600">{o.shippingCity} {o.shippingZip}</p>
-                    <p className="text-stone-600">{o.shippingCountry}</p>
-                    {o.customerPhone && (
-                      <p className="text-stone-500 mt-2 font-mono text-[11px]">
-                        Phone: {o.customerPhone}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1">
-                        Buyer selected shipping service
-                      </span>
-                      <p className="font-semibold text-stone-900">{o.shippingMethod}</p>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
-                        Tracking
-                      </span>
-                      {o.trackingNumber ? (
-                        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Tracking Active</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenTrackingModal(o)}
-                              className="text-xs font-bold text-[#0053a0] hover:underline cursor-pointer flex items-center gap-1"
-                            >
-                              <Truck className="w-3.5 h-3.5" />
-                              <span>View / Edit tracking</span>
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
-                              {o.trackingNumber}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (o.trackingNumber) {
-                                  navigator.clipboard.writeText(o.trackingNumber);
-                                  alert(`Tracking number ${o.trackingNumber} copied to clipboard!`);
-                                }
-                              }}
-                              className="text-[11px] text-[#0053a0] hover:underline cursor-pointer font-medium"
-                            >
-                              Copy #
-                            </button>
-                          </div>
-                          <p className="text-[11px] text-stone-500">
-                            Carrier: <strong className="text-stone-700">{o.shippingCarrier || 'Sri Lanka Post'}</strong>
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-stone-400 font-mono text-xs">No tracking information added yet.</p>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenTrackingModal(o)}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0053a0] hover:bg-[#004280] text-white text-xs font-bold transition shadow-xs cursor-pointer"
-                          >
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>+ Add tracking</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                {/* Page Title */}
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">
+                    Order details
+                  </h1>
                 </div>
-              </div>
 
-              {/* Item Details Card (Screenshot 2) */}
-              <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
-                <h3 className="text-base font-bold text-stone-900">
-                  Item
-                </h3>
-
-                <div className="flex flex-col sm:flex-row gap-4 items-start pb-6 border-b border-stone-100">
-                  {/* Thumbnail Image */}
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
+                {/* Product Banner (Small image + Title) */}
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-stone-200 shadow-2xs">
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
                     <Image
                       src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
                       alt={firstItem.productName}
                       fill
-                      sizes="96px"
+                      sizes="40px"
                       className="object-cover"
                     />
                   </div>
+                  <h2 className="text-sm font-semibold text-stone-900 line-clamp-1">
+                    {firstItem.productName}
+                  </h2>
+                </div>
 
-                  {/* Item Description */}
-                  <div className="flex-1 space-y-1">
-                    <h4 className="text-sm sm:text-base font-bold text-stone-900 hover:text-blue-600 cursor-pointer">
-                      {firstItem.productName}
-                    </h4>
-                    <p className="text-xs font-bold text-stone-900">
-                      {firstItem.weight ? `Weight: ${firstItem.weight}` : 'Standard Unit'}
-                    </p>
-                    <p className="text-[11px] text-stone-400 font-mono">
-                      Item ID: {firstItem.itemId || '395462678513'}
-                    </p>
-                    <button
-                      onClick={() => handleOpenTrackingModal(o)}
-                      className="text-xs font-semibold text-blue-600 hover:underline block pt-1 cursor-pointer"
-                    >
-                      {o.trackingNumber ? `Tracking: ${o.trackingNumber}` : '+ Add tracking'}
-                    </button>
+                {/* Stepper Progress / Shipping Due Card */}
+                <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold text-stone-900">
+                        {o.orderStatus === 'Shipped' ? 'Item Shipped' : `Ship by ${o.shipByDate}`}
+                      </h3>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Make sure you ship your order within the handling time you specified in the listing.
+                      </p>
+                      <p className="text-xs text-stone-600 font-medium mt-1">
+                        Estimated delivery date shown to buyer: <strong className="text-stone-900">{o.estimatedDelivery}</strong>
+                      </p>
+                    </div>
+
+                    {/* Action Buttons on Right: Only 4 requested visible actions */}
+                    <div className="flex items-center gap-2 relative flex-wrap">
+                      {/* 1. Print packing */}
+                      <button
+                        onClick={() => window.print()}
+                        className="px-3.5 py-2 rounded-full border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                        title="Print packing slip"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-stone-600" />
+                        <span>Print packing</span>
+                      </button>
+
+                      {/* 2. Tracking button (opens tracking dialog) */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTrackingModal(o)}
+                        className="px-4 py-2 rounded-full bg-[#0053a0] hover:bg-[#004280] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        title="View, add or edit tracking details"
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        <span>{o.trackingNumber ? `Tracking (${o.trackingNumber})` : 'Add tracking'}</span>
+                      </button>
+
+                      {/* 3. Mark as shipped */}
+                      <button
+                        onClick={() => handleUpdateOrderStatus(o.id, 'Shipped')}
+                        disabled={o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered'}
+                        className={`px-3.5 py-2 rounded-full text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer ${o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 opacity-90 cursor-default'
+                            : 'bg-white border border-stone-300 hover:bg-stone-50 text-stone-800'
+                          }`}
+                        title="Mark this order as shipped"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered' ? 'Shipped' : 'Mark as shipped'}</span>
+                      </button>
+
+                      {/* 4. Mark as delivered */}
+                      <button
+                        onClick={() => handleUpdateOrderStatus(o.id, 'Delivered')}
+                        disabled={o.orderStatus === 'Delivered'}
+                        className={`px-3.5 py-2 rounded-full text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer ${o.orderStatus === 'Delivered'
+                            ? 'bg-emerald-600 text-white shadow-xs cursor-default'
+                            : 'bg-white border border-stone-300 hover:bg-stone-50 text-stone-800'
+                          }`}
+                        title="Mark this order as delivered"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{o.orderStatus === 'Delivered' ? 'Delivered' : 'Mark as delivered'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Stepper Bar */}
+                  <div className="pt-2">
+                    <div className="relative flex items-center justify-between max-w-xl">
+                      {/* Background Line (Neutral uncolored line) */}
+                      <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-0.5 bg-stone-200 z-0"></div>
+
+                      {/* Step 1: Buyer Paid */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </div>
+                        <span className="text-xs font-bold text-stone-900 mt-2">Buyer paid</span>
+                        <span className="text-[11px] text-stone-500">
+                          {new Date(o.datePaid || o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+
+                      {/* Step 2: Ship by */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold bg-white ${o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-stone-400 text-stone-600'
+                          }`}>
+                          {o.orderStatus === 'Shipped' || o.orderStatus === 'Delivered' ? (
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          ) : (
+                            <span className="w-2.5 h-2.5 rounded-full bg-stone-400"></span>
+                          )}
+                        </div>
+                        <span className="text-xs font-bold text-stone-900 mt-2">Ship by</span>
+                        <span className="text-[11px] text-stone-500">Oct 7</span>
+                      </div>
+
+                      {/* Step 3: Delivery */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold ${o.orderStatus === 'Delivered'
+                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
+                            : 'border-stone-300 text-stone-400 bg-white'
+                          }`}>
+                          {o.orderStatus === 'Delivered' ? (
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          ) : (
+                            <span className="w-2.5 h-2.5 rounded-full bg-stone-300"></span>
+                          )}
+                        </div>
+                        <span className={`text-xs font-bold mt-2 ${o.orderStatus === 'Delivered' ? 'text-emerald-700' : 'text-stone-500'}`}>
+                          {o.orderStatus === 'Delivered' ? 'Delivered' : 'Delivery'}
+                        </span>
+                        <span className="text-[11px] text-stone-400">
+                          {o.orderStatus === 'Delivered' ? 'Completed' : 'Estimated'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Item Numbers Table */}
-                <div className="overflow-x-auto text-xs">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="text-stone-400 font-semibold uppercase text-[10px] border-b border-stone-100 pb-2">
-                        <th className="pb-2 font-normal">Quantity</th>
-                        <th className="pb-2 font-normal">Item price</th>
-                        <th className="pb-2 font-normal text-right">Item total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      <tr>
-                        <td className="py-3 font-semibold text-stone-900">
-                          {firstItem.quantity}{' '}
-                          <span className="text-[11px] text-stone-400 font-normal">
-                            ({firstItem.availableStock || 9} available)
+                {/* 2-Column Main Layout Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+                  {/* LEFT 2 COLUMNS: Shipping Card & Items Card */}
+                  <div className="lg:col-span-2 space-y-6">
+
+                    {/* Shipping Section Card */}
+                    <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
+                      <h3 className="text-base font-bold text-stone-900">
+                        Shipping
+                      </h3>
+
+                      {/* How to ship collapsible section */}
+                      <div className="border border-stone-200 rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => setHowToShipOpen(!howToShipOpen)}
+                          className="w-full px-4 py-3 bg-[#fafafa] flex items-center justify-between text-xs font-bold text-stone-800 hover:bg-stone-100 transition cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Truck className="w-4 h-4 text-stone-600" />
+                            How to ship
                           </span>
-                        </td>
-                        <td className="py-3 font-semibold text-stone-900">
-                          ${firstItem.unitPrice.toFixed(2)}
-                        </td>
-                        <td className="py-3 font-bold text-stone-900 text-right">
-                          ${firstItem.totalPrice.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                          {howToShipOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+
+                        {howToShipOpen && (
+                          <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs border-t border-stone-200">
+                            <div>
+                              <h4 className="font-bold text-stone-900 mb-1">Pack it up</h4>
+                              <p className="text-stone-500 leading-relaxed text-[11px]">
+                                Use padding to protect your botanical item and seal the package with packing tape.
+                              </p>
+                              <a href="#" className="text-blue-600 underline font-medium block mt-1 text-[11px]">Learn more</a>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-stone-900 mb-1">Get a label</h4>
+                              <p className="text-stone-500 leading-relaxed text-[11px]">
+                                Buy your label on Arboveya to save on shipping costs or find your own shipping service.
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-stone-900 mb-1">Drop it off</h4>
+                              <p className="text-stone-500 leading-relaxed text-[11px]">
+                                If you buy your label on Arboveya, tracking is shared with the buyer automatically.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Destination Address & Carrier Details */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 text-xs">
+                        <div>
+                          <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1">
+                            <Package className="w-3.5 h-3.5" />
+                            Ship to
+                          </span>
+                          <p className="font-bold text-stone-900 text-sm">{o.customerName}</p>
+                          <p className="text-stone-600 mt-0.5">{o.shippingAddress}</p>
+                          <p className="text-stone-600">{o.shippingCity} {o.shippingZip}</p>
+                          <p className="text-stone-600">{o.shippingCountry}</p>
+                          {o.customerPhone && (
+                            <p className="text-stone-500 mt-2 font-mono text-[11px]">
+                              Phone: {o.customerPhone}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1">
+                              Buyer selected shipping service
+                            </span>
+                            <p className="font-semibold text-stone-900">{o.shippingMethod}</p>
+                          </div>
+
+                          <div>
+                            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                              Tracking
+                            </span>
+                            {o.trackingNumber ? (
+                              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Tracking Active</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenTrackingModal(o)}
+                                    className="text-xs font-bold text-[#0053a0] hover:underline cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Truck className="w-3.5 h-3.5" />
+                                    <span>View / Edit tracking</span>
+                                  </button>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="font-mono text-sm font-bold text-[#1c3f24] tracking-wide">
+                                    {o.trackingNumber}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (o.trackingNumber) {
+                                        navigator.clipboard.writeText(o.trackingNumber);
+                                        alert(`Tracking number ${o.trackingNumber} copied to clipboard!`);
+                                      }
+                                    }}
+                                    className="text-[11px] text-[#0053a0] hover:underline cursor-pointer font-medium"
+                                  >
+                                    Copy #
+                                  </button>
+                                </div>
+                                <p className="text-[11px] text-stone-500">
+                                  Carrier: <strong className="text-stone-700">{o.shippingCarrier || 'Sri Lanka Post'}</strong>
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <p className="text-stone-400 font-mono text-xs">No tracking information added yet.</p>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenTrackingModal(o)}
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0053a0] hover:bg-[#004280] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                                >
+                                  <Truck className="w-3.5 h-3.5" />
+                                  <span>+ Add tracking</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Item Details Card (Screenshot 2) */}
+                    <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-2xs space-y-6">
+                      <h3 className="text-base font-bold text-stone-900">
+                        Item
+                      </h3>
+
+                      <div className="flex flex-col sm:flex-row gap-4 items-start pb-6 border-b border-stone-100">
+                        {/* Thumbnail Image */}
+                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
+                          <Image
+                            src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
+                            alt={firstItem.productName}
+                            fill
+                            sizes="96px"
+                            className="object-cover"
+                          />
+                        </div>
+
+                        {/* Item Description */}
+                        <div className="flex-1 space-y-1">
+                          <h4 className="text-sm sm:text-base font-bold text-stone-900 hover:text-blue-600 cursor-pointer">
+                            {firstItem.productName}
+                          </h4>
+                          <p className="text-xs font-bold text-stone-900">
+                            {firstItem.weight ? `Weight: ${firstItem.weight}` : 'Standard Unit'}
+                          </p>
+                          <p className="text-[11px] text-stone-400 font-mono">
+                            Item ID: {firstItem.itemId || '395462678513'}
+                          </p>
+                          <button
+                            onClick={() => handleOpenTrackingModal(o)}
+                            className="text-xs font-semibold text-blue-600 hover:underline block pt-1 cursor-pointer"
+                          >
+                            {o.trackingNumber ? `Tracking: ${o.trackingNumber}` : '+ Add tracking'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Item Numbers Table */}
+                      <div className="overflow-x-auto text-xs">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="text-stone-400 font-semibold uppercase text-[10px] border-b border-stone-100 pb-2">
+                              <th className="pb-2 font-normal">Quantity</th>
+                              <th className="pb-2 font-normal">Item price</th>
+                              <th className="pb-2 font-normal text-right">Item total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-100">
+                            <tr>
+                              <td className="py-3 font-semibold text-stone-900">
+                                {firstItem.quantity}{' '}
+                                <span className="text-[11px] text-stone-400 font-normal">
+                                  ({firstItem.availableStock || 9} available)
+                                </span>
+                              </td>
+                              <td className="py-3 font-semibold text-stone-900">
+                                ${firstItem.unitPrice.toFixed(2)}
+                              </td>
+                              <td className="py-3 font-bold text-stone-900 text-right">
+                                ${firstItem.totalPrice.toFixed(2)}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIGHT COLUMN: Order Summary & Payouts Cards */}
+                  <div className="space-y-6">
+
+                    {/* Order Metadata Card */}
+                    <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-3.5 text-xs">
+                      <h3 className="text-base font-bold text-stone-900">
+                        Order
+                      </h3>
+
+                      <div className="space-y-2 border-b border-stone-100 pb-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-stone-500">Order</span>
+                          <span className="font-mono font-bold text-stone-900">{o.orderNumber}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-stone-500">Sales record no.</span>
+                          <span className="font-bold text-stone-900">{o.salesRecordNo}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-stone-500">Sold</span>
+                          <span className="text-stone-700">
+                            {new Date(o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-stone-500">Buyer paid</span>
+                          <span className="text-stone-700">
+                            {new Date(o.datePaid || o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-start pt-1">
+                          <span className="text-stone-500">Buyer</span>
+                          <div className="text-right">
+                            <span className="font-bold text-stone-900 block">{o.customerName}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-1">
+                        <button
+                          onClick={() => setMessageModalOrder(o)}
+                          className="w-full py-2.5 rounded-full border border-blue-600 text-blue-600 hover:bg-blue-50 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Message buyer</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* What your buyer paid Card */}
+                    <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-3 text-xs">
+                      <h3 className="text-sm font-bold text-stone-900">
+                        What your buyer paid
+                      </h3>
+
+                      <div className="space-y-2 pt-1 border-b border-stone-200 pb-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-stone-600">Subtotal</span>
+                          <span className="font-semibold text-stone-900">${o.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-stone-600">Shipping</span>
+                          <span className="font-semibold text-stone-900">${o.shippingCost.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-1 text-sm font-bold text-stone-900">
+                        <span>Order total</span>
+                        <span>${o.totalAmount.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {/* Payment & Settlement Card (Direct PayHere Merchant Account - No Holding Process) */}
+                    <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-4 text-xs">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4 text-emerald-700" />
+                          <span>Direct PayHere Settlement</span>
+                        </h3>
+                        {o.paymentStatus === 'Refunded' || o.orderStatus === 'Cancelled' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                            <AlertCircle className="w-3 h-3 text-rose-700" />
+                            <span>Refunded via PayHere</span>
+                          </span>
+                        ) : o.paymentStatus === 'Paid' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                            <span>Directly Deposited</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
+                            <Clock className="w-3 h-3 text-amber-700" />
+                            <span>Payment Pending</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Explanation Banner */}
+                      {o.paymentStatus === 'Refunded' || o.orderStatus === 'Cancelled' ? (
+                        <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                            <span>Order Cancelled & Refunded</span>
+                          </div>
+                          <p className="text-[11px] text-rose-800/90 leading-relaxed">
+                            Payment was refunded manually to the buyer via your PayHere Merchant account. Item stock was restored.
+                          </p>
+                        </div>
+                      ) : o.refundStatus === 'Requested' ? (
+                        <div className="p-3.5 bg-amber-50/90 border border-amber-300 rounded-xl space-y-2">
+                          <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                            <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                            <span>Buyer Refund Requested</span>
+                          </div>
+                          <p className="text-[11px] text-amber-900 leading-relaxed">
+                            Customer requested a refund: <strong>&quot;{o.refundReason || 'Customer requested return/refund'}&quot;</strong>. You can execute an automated refund directly through PayHere Sandbox mode.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRefundModal(o)}
+                            className="w-full py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span>Issue PayHere Refund Now</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                            <span>Direct Deposit (No Holding Process)</span>
+                          </div>
+                          <p className="text-[11px] text-emerald-800/90 leading-relaxed">
+                            Buyer payment of <strong>${o.totalAmount.toFixed(2)}</strong> was deposited directly into your verified PayHere account upon purchase. Funds are never held in escrow.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Financial Breakdown */}
+                      <div className="space-y-2 pt-1 border-t border-stone-100 text-stone-600">
+                        <div className="flex justify-between items-center">
+                          <span>Items Subtotal</span>
+                          <span className="font-semibold text-stone-900">${o.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Shipping Allocation</span>
+                          <span className="font-semibold text-stone-900">${o.shippingCost.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-stone-200 text-xs font-bold text-stone-900">
+                          <span>Direct Payment Received</span>
+                          <span className="text-sm font-black text-emerald-800">${o.totalAmount.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="pt-2 space-y-2">
+                        {o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateOrderStatus(o.id, 'Delivered')}
+                            className="w-full py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            title="Mark order as delivered"
+                          >
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Mark Order as Delivered</span>
+                          </button>
+                        )}
+
+                        {o.orderStatus !== 'Cancelled' && o.paymentStatus !== 'Refunded' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRefundModal(o)}
+                            className="w-full py-2 rounded-full border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            title="Issue PayHere refund to buyer"
+                          >
+                            <Zap className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Issue Refund (PayHere Sandbox)</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
+
               </div>
             </div>
-
-            {/* RIGHT COLUMN: Order Summary & Payouts Cards */}
-            <div className="space-y-6">
-              
-              {/* Order Metadata Card */}
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-3.5 text-xs">
-                <h3 className="text-base font-bold text-stone-900">
-                  Order
-                </h3>
-
-                <div className="space-y-2 border-b border-stone-100 pb-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-500">Order</span>
-                    <span className="font-mono font-bold text-stone-900">{o.orderNumber}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-500">Sales record no.</span>
-                    <span className="font-bold text-stone-900">{o.salesRecordNo}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-500">Sold</span>
-                    <span className="text-stone-700">
-                      {new Date(o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-500">Buyer paid</span>
-                    <span className="text-stone-700">
-                      {new Date(o.datePaid || o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-start pt-1">
-                    <span className="text-stone-500">Buyer</span>
-                    <div className="text-right">
-                      <span className="font-bold text-stone-900 block">{o.customerName}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-1">
-                  <button
-                    onClick={() => setMessageModalOrder(o)}
-                    className="w-full py-2.5 rounded-full border border-blue-600 text-blue-600 hover:bg-blue-50 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Mail className="w-3.5 h-3.5" />
-                    <span>Message buyer</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* What your buyer paid Card */}
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-3 text-xs">
-                <h3 className="text-sm font-bold text-stone-900">
-                  What your buyer paid
-                </h3>
-
-                <div className="space-y-2 pt-1 border-b border-stone-200 pb-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-600">Subtotal</span>
-                    <span className="font-semibold text-stone-900">${o.subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-600">Shipping</span>
-                    <span className="font-semibold text-stone-900">${o.shippingCost.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center pt-1 text-sm font-bold text-stone-900">
-                  <span>Order total</span>
-                  <span>${o.totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Escrow & Seller Payout Card */}
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs space-y-4 text-xs">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
-                    <DollarSign className="w-4 h-4 text-emerald-700" />
-                    <span>Seller Escrow & Payout</span>
-                  </h3>
-                  {o.fundsStatus === 'Released' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      <ShieldCheck className="w-3 h-3 text-emerald-700" />
-                      <span>Released</span>
-                    </span>
-                  ) : o.fundsStatus === 'Cancelled / Withheld' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
-                      <AlertCircle className="w-3 h-3 text-rose-700" />
-                      <span>Withheld</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
-                      <Lock className="w-3 h-3 text-amber-700" />
-                      <span>On Hold (In Escrow)</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Explanatory Banner */}
-                {o.fundsStatus === 'Released' ? (
-                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                      <span>Delivery Confirmed — Payout Cleared!</span>
-                    </div>
-                    <p className="text-[11px] text-emerald-800/90 leading-relaxed">
-                      Customer delivery has been confirmed. Payout of <strong>${o.subtotal.toFixed(2)}</strong> is cleared and queued for bank disbursement according to your vendor settlement schedule.
-                    </p>
-                  </div>
-                ) : o.fundsStatus === 'Cancelled / Withheld' ? (
-                  <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-rose-900">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
-                      <span>Order Cancelled & Refunded</span>
-                    </div>
-                    <p className="text-[11px] text-rose-800/90 leading-relaxed">
-                      Payment was refunded back to the buyer via PayHere. Seller disbursement is withheld and items were returned to stock.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                      <Lock className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
-                      <span>Funds Protected in Escrow</span>
-                    </div>
-                    <p className="text-[11px] text-amber-800/90 leading-relaxed">
-                      Buyer payment is verified and secured in PayHere escrow. In accordance with Arboveya policy, funds are released to your seller balance <strong>after the order is marked Delivered</strong>.
-                    </p>
-                  </div>
-                )}
-
-                {/* Earnings Breakdown */}
-                <div className="space-y-2 pt-1 border-t border-stone-100 text-stone-600">
-                  <div className="flex justify-between items-center">
-                    <span>Buyer Paid</span>
-                    <span className="font-semibold text-stone-900">${o.totalAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Shipping Allocation</span>
-                    <span className="font-semibold text-stone-900">${o.shippingCost.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-stone-500">Platform Commission</span>
-                    <span className="text-emerald-700 font-semibold">$0.00 (0% Promo)</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-stone-200 text-xs font-bold text-stone-900">
-                    <span>Estimated Net Seller Payout</span>
-                    <span className="text-sm font-black text-emerald-800">${o.subtotal.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Escrow Actions */}
-                <div className="pt-2 space-y-2">
-                  {o.fundsStatus === 'On hold' && o.orderStatus !== 'Delivered' && (
-                    <button
-                      onClick={() => handleUpdateOrderStatus(o.id, 'Delivered')}
-                      className="w-full py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="Confirm delivery to release seller funds"
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Confirm Delivery & Release Payout</span>
-                    </button>
-                  )}
-
-                  {o.orderStatus !== 'Cancelled' && o.paymentStatus !== 'Refunded' && (
-                    <button
-                      onClick={() => {
-                        setRefundModalOrder(o);
-                        setRefundAmountInput(o.totalAmount);
-                        setRefundReasonInput('Customer requested return/refund');
-                        setRefundError(null);
-                      }}
-                      className="w-full py-2 rounded-full border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="Issue full or partial refund to buyer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Issue Refund / Cancel Order</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-      </div>
           );
         })()
       ) : (
         /* VIEW: MAIN "MANAGE ALL ORDERS" TABLE (Screenshot 1) */
         <div className="w-full bg-[#f8f9fa] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans text-[#181818]">
-      <div className="max-w-7xl mx-auto space-y-6">
-        
-        {/* Main Grid: Collapsible Sidebar + Content Area */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          
-          {/* ================= LEFT SIDEBAR (Screenshot 1) ================= */}
-          <aside className={`transition-all duration-200 ${
-            sidebarCollapsed ? 'w-full lg:w-16' : 'w-full lg:w-56'
-          } flex-shrink-0 bg-white rounded-2xl border border-stone-200 p-3 shadow-2xs space-y-4`}>
-            
-            {/* Collapse toggle */}
-            <div className="flex items-center justify-between px-2 py-1">
-              <button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-stone-900 cursor-pointer"
-                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                <SlidersHorizontal className="w-4 h-4 text-stone-600" />
-                {!sidebarCollapsed && <span>Collapse</span>}
-              </button>
-            </div>
+          <div className="max-w-7xl mx-auto space-y-6">
 
-            {/* Primary Navigation Statuses */}
-            <nav className="space-y-0.5 text-xs font-medium">
-              <button
-                onClick={() => setSidebarFilter('all')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${
-                  sidebarFilter === 'all'
-                    ? 'bg-stone-100 text-stone-900 font-bold'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <span>{!sidebarCollapsed ? 'All orders' : 'All'}</span>
-                {!sidebarCollapsed && (
-                  <span className="text-[11px] text-stone-400">{localOrders.length}</span>
-                )}
-              </button>
+            {/* Main Grid: Collapsible Sidebar + Content Area */}
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-              <button
-                onClick={() => setSidebarFilter('awaiting_payment')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${
-                  sidebarFilter === 'awaiting_payment'
-                    ? 'bg-stone-100 text-stone-900 font-bold'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <span>{!sidebarCollapsed ? 'Awaiting payment' : 'Unpaid'}</span>
-                {!sidebarCollapsed && (
-                  <span className="text-[11px] text-stone-400">0</span>
-                )}
-              </button>
+              {/* ================= LEFT SIDEBAR (Screenshot 1) ================= */}
+              <aside className={`transition-all duration-200 ${sidebarCollapsed ? 'w-full lg:w-16' : 'w-full lg:w-56'
+                } flex-shrink-0 bg-white rounded-2xl border border-stone-200 p-3 shadow-2xs space-y-4`}>
 
-              <button
-                onClick={() => setSidebarFilter('awaiting_shipment')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${
-                  sidebarFilter === 'awaiting_shipment'
-                    ? 'bg-stone-100 text-stone-900 font-bold'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <span>{!sidebarCollapsed ? 'Awaiting shipment' : 'Ship'}</span>
-                {!sidebarCollapsed && (
-                  <span className="text-[11px] font-bold text-amber-700">
-                    {localOrders.filter(o => o.orderStatus !== 'Shipped').length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setSidebarFilter('paid_and_shipped')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${
-                  sidebarFilter === 'paid_and_shipped'
-                    ? 'bg-stone-100 text-stone-900 font-bold'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <span>{!sidebarCollapsed ? 'Paid and shipped' : 'Done'}</span>
-                {!sidebarCollapsed && (
-                  <span className="text-[11px] font-bold text-emerald-700">
-                    {localOrders.filter(o => o.orderStatus === 'Shipped').length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setSidebarFilter('archived')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${
-                  sidebarFilter === 'archived'
-                    ? 'bg-stone-100 text-stone-900 font-bold'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                <span>{!sidebarCollapsed ? 'Archived' : 'Arc'}</span>
-              </button>
-            </nav>
-
-            {!sidebarCollapsed && (
-              <>
-                <div className="border-t border-stone-200 my-2"></div>
-
-                {/* Disputes & Cancellations Group */}
-                <div className="space-y-0.5 text-xs text-stone-600">
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Cancellations</a>
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Returns</a>
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Requests and disputes</a>
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Shipping labels</a>
+                {/* Collapse toggle */}
+                <div className="flex items-center justify-between px-2 py-1">
+                  <button
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-stone-900 cursor-pointer"
+                    title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  >
+                    <SlidersHorizontal className="w-4 h-4 text-stone-600" />
+                    {!sidebarCollapsed && <span>Collapse</span>}
+                  </button>
                 </div>
 
-                <div className="border-t border-stone-200 my-2"></div>
-
-                {/* Preferences */}
-                <div className="space-y-0.5 text-xs text-stone-500">
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Shipping preferences</a>
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Automate feedback</a>
-                  <a href="#" className="block px-3 py-1.5 hover:bg-stone-50 rounded-lg">Return preferences</a>
-                </div>
-              </>
-            )}
-          </aside>
-
-          {/* ================= MAIN CONTENT AREA ================= */}
-          <main className="flex-1 w-full space-y-5">
-            
-            {/* Title Header */}
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">
-                Manage all orders
-              </h1>
-            </div>
-
-            {/* Top Filter Bar Box (Screenshot 1) */}
-            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-2xs flex flex-wrap items-center gap-3">
-              {/* Status Filter */}
-              <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none focus:border-stone-500 cursor-pointer"
-                >
-                  <option value="all">Status: All orders ({localOrders.length})</option>
-                  <option value="awaiting_payment">Status: Awaiting payment</option>
-                  <option value="awaiting_shipment">Status: Awaiting shipment</option>
-                  <option value="paid_and_shipped">Status: Paid and shipped</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Period Filter */}
-              <div className="relative">
-                <select
-                  value={periodFilter}
-                  onChange={(e) => setPeriodFilter(e.target.value)}
-                  className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none focus:border-stone-500 cursor-pointer"
-                >
-                  <option value="last_90">Period: Last 90 days</option>
-                  <option value="last_30">Period: Last 30 days</option>
-                  <option value="last_7">Period: Last 7 days</option>
-                  <option value="2026">Period: Year 2026</option>
-                  <option value="all">Period: All time</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Search By Filter */}
-              <div className="relative">
-                <select
-                  value={searchField}
-                  onChange={(e) => setSearchField(e.target.value)}
-                  className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none focus:border-stone-500 cursor-pointer"
-                >
-                  <option value="buyer_name">Search by: Buyer name</option>
-                  <option value="order_id">Search by: Order ID</option>
-                  <option value="item_id">Search by: Item ID</option>
-                  <option value="tracking_number">Search by: Tracking number</option>
-                  <option value="product_title">Search by: Product title</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Search input field with magnifying glass */}
-              <div className="relative w-44 sm:w-52 md:w-56 flex items-center">
-                <input
-                  type="text"
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  placeholder="Search..."
-                  className="w-full pl-3 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-600 transition"
-                />
-                {searchKeyword ? (
+                {/* Primary Navigation Statuses */}
+                <nav className="space-y-0.5 text-xs font-medium">
                   <button
-                    type="button"
-                    onClick={() => setSearchKeyword('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
-                    title="Clear search"
+                    onClick={() => setSidebarFilter('all')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'all'
+                        ? 'bg-stone-100 text-stone-900 font-bold'
+                        : 'text-stone-600 hover:bg-stone-50'
+                      }`}
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <span>{!sidebarCollapsed ? 'All orders' : 'All'}</span>
+                    {!sidebarCollapsed && (
+                      <span className="text-[11px] text-stone-400">{localOrders.length}</span>
+                    )}
                   </button>
-                ) : (
+
                   <button
-                    type="button"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 pointer-events-none"
-                    tabIndex={-1}
+                    onClick={() => setSidebarFilter('awaiting_payment')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'awaiting_payment'
+                        ? 'bg-stone-100 text-stone-900 font-bold'
+                        : 'text-stone-600 hover:bg-stone-50'
+                      }`}
                   >
-                    <Search className="w-4 h-4" />
+                    <span>{!sidebarCollapsed ? 'Awaiting payment' : 'Unpaid'}</span>
+                    {!sidebarCollapsed && (
+                      <span className="text-[11px] text-stone-400">0</span>
+                    )}
                   </button>
-                )}
-              </div>
 
-              {/* Reset button */}
-              <button
-                onClick={handleResetFilters}
-                className="text-xs text-stone-600 hover:text-stone-900 underline font-medium cursor-pointer"
-              >
-                Reset
-              </button>
-            </div>
+                  <button
+                    onClick={() => setSidebarFilter('awaiting_shipment')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'awaiting_shipment'
+                        ? 'bg-stone-100 text-stone-900 font-bold'
+                        : 'text-stone-600 hover:bg-stone-50'
+                      }`}
+                  >
+                    <span>{!sidebarCollapsed ? 'Awaiting shipment' : 'Ship'}</span>
+                    {!sidebarCollapsed && (
+                      <span className="text-[11px] font-bold text-amber-700">
+                        {localOrders.filter(o => o.orderStatus !== 'Shipped').length}
+                      </span>
+                    )}
+                  </button>
 
-            {/* Action Bar & Results Count Bar (Screenshot 1) */}
-            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between gap-3 text-xs">
-                
-                {/* Results Count */}
+                  <button
+                    onClick={() => setSidebarFilter('paid_and_shipped')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'paid_and_shipped'
+                        ? 'bg-stone-100 text-stone-900 font-bold'
+                        : 'text-stone-600 hover:bg-stone-50'
+                      }`}
+                  >
+                    <span>{!sidebarCollapsed ? 'Paid and shipped' : 'Done'}</span>
+                    {!sidebarCollapsed && (
+                      <span className="text-[11px] font-bold text-emerald-700">
+                        {localOrders.filter(o => o.orderStatus === 'Shipped').length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setSidebarFilter('archived')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'archived'
+                        ? 'bg-stone-100 text-stone-900 font-bold'
+                        : 'text-stone-600 hover:bg-stone-50'
+                      }`}
+                  >
+                    <span>{!sidebarCollapsed ? 'Archived' : 'Arc'}</span>
+                  </button>
+                </nav>
+              </aside>
+
+              {/* ================= MAIN CONTENT AREA ================= */}
+              <main className="flex-1 w-full space-y-5">
+
+                {/* Title Header */}
                 <div>
-                  <span className="font-bold text-stone-900">
-                    Results: 1-{filteredOrders.length} of {filteredOrders.length}
-                  </span>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">
+                    Manage all orders
+                  </h1>
                 </div>
 
-                {/* Right controls: Sort by only */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-stone-500">Sort by:</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none cursor-pointer"
-                  >
-                    <option value="date_paid">Date paid ↓</option>
-                    <option value="date_sold">Date sold</option>
-                    <option value="total">Total ↑↓</option>
-                  </select>
-                </div>
+                {/* Top Filter Bar Box (Screenshot 1) */}
+                <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-2xs flex flex-wrap items-center gap-3">
+                  {/* Status Filter */}
+                  <div className="relative">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none focus:border-stone-500 cursor-pointer"
+                    >
+                      <option value="all">Status: All orders ({localOrders.length})</option>
+                      <option value="awaiting_payment">Status: Awaiting payment</option>
+                      <option value="awaiting_shipment">Status: Awaiting shipment</option>
+                      <option value="paid_and_shipped">Status: Paid and shipped</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
 
-              </div>
+                  {/* Period Filter */}
+                  <div className="relative">
+                    <select
+                      value={periodFilter}
+                      onChange={(e) => setPeriodFilter(e.target.value)}
+                      className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none focus:border-stone-500 cursor-pointer"
+                    >
+                      <option value="last_90">Period: Last 90 days</option>
+                      <option value="last_30">Period: Last 30 days</option>
+                      <option value="last_7">Period: Last 7 days</option>
+                      <option value="2026">Period: Year 2026</option>
+                      <option value="all">Period: All time</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
 
-            {/* ================= ORDERS TABLE (Screenshot 1) ================= */}
-            <div className="overflow-x-auto border border-stone-200 rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#fafafa] border-b border-stone-200 text-stone-700 font-bold uppercase text-[11px]">
-                    <th className="py-3 px-4 min-w-[320px]">Order</th>
-                    <th className="py-3 px-3">Quantity</th>
-                    <th className="py-3 px-3">Subtotal</th>
-                    <th className="py-3 px-3">Total ↑↓</th>
-                    <th className="py-3 px-3">Date sold</th>
-                    <th className="py-3 px-3">Date paid ↓</th>
-                  </tr>
-                </thead>
+                  {/* Search By Filter */}
+                  <div className="relative">
+                    <select
+                      value={searchField}
+                      onChange={(e) => setSearchField(e.target.value)}
+                      className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none focus:border-stone-500 cursor-pointer"
+                    >
+                      <option value="buyer_name">Search by: Buyer name</option>
+                      <option value="order_id">Search by: Order ID</option>
+                      <option value="item_id">Search by: Item ID</option>
+                      <option value="tracking_number">Search by: Tracking number</option>
+                      <option value="product_title">Search by: Product title</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
 
-                <tbody className="divide-y divide-stone-200 bg-white">
-                  {filteredOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-16 text-center text-stone-400">
-                          <ShoppingBag className="w-10 h-10 mx-auto text-stone-300 mb-2" />
-                          <p className="font-semibold text-stone-700 text-sm">No orders matching your criteria</p>
-                          <p className="text-xs text-stone-400 mt-1">Try resetting the status or search filter.</p>
-                        </td>
-                      </tr>
+                  {/* Search input field with magnifying glass */}
+                  <div className="relative w-44 sm:w-52 md:w-56 flex items-center">
+                    <input
+                      type="text"
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      placeholder="Search..."
+                      className="w-full pl-3 pr-8 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-600 transition"
+                    />
+                    {searchKeyword ? (
+                      <button
+                        type="button"
+                        onClick={() => setSearchKeyword('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     ) : (
-                      filteredOrders.map((order) => {
-                        const firstItem = order.items[0] || {
-                          id: 'def',
-                          productName: 'Botanical Herb Extract',
-                          productImageUrl: '/images/gotu-kola-tea.jpg',
-                          weight: '25g',
-                          itemId: '395462678513',
-                          quantity: 1,
-                          availableStock: 9,
-                          unitPrice: order.subtotal,
-                          totalPrice: order.subtotal,
-                          promotedListing: true
-                        };
+                      <button
+                        type="button"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 pointer-events-none"
+                        tabIndex={-1}
+                      >
+                        <Search className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
 
-                        return (
-                          <tr key={order.id} className="hover:bg-[#fbfcfb] transition">
-                            
-                            {/* Order Details Column (Buyer, Product Title, Weight, Tracking, ZIP) */}
-                            <td className="py-4 px-4 align-top space-y-2">
-                              {/* Order Number, Status Badge & Buyer Name */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {order.refundStatus === 'Requested' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
-                                    <AlertCircle className="w-3 h-3 text-amber-700" />
-                                    <span>Refund Requested</span>
-                                  </span>
-                                ) : order.orderStatus === 'Delivered' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                    <Check className="w-3 h-3" />
-                                    <span>Delivered</span>
-                                  </span>
-                                ) : order.orderStatus === 'Shipped' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                    <Check className="w-3 h-3" />
-                                    <span>Shipped {order.carrierScanDate ? `(${order.carrierScanDate})` : ''}</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900">
-                                    <Truck className="w-3 h-3 text-amber-800" />
-                                    <span>Ship by {order.shipByDate || 'Oct 7'}</span>
-                                  </span>
-                                )}
+                  {/* Reset button */}
+                  <button
+                    onClick={handleResetFilters}
+                    className="text-xs text-stone-600 hover:text-stone-900 underline font-medium cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                </div>
 
-                                <button
-                                  onClick={() => setSelectedOrderId(order.id)}
-                                  className="font-mono text-xs font-bold text-blue-600 hover:underline cursor-pointer"
-                                  title="View order details"
-                                >
-                                  {order.orderNumber}
-                                </button>
-                                <span className="text-stone-400">•</span>
-                                <span className="font-semibold text-stone-800">{order.customerName}</span>
-                              </div>
+                {/* Action Bar & Results Count Bar (Screenshot 1) */}
+                <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between gap-3 text-xs">
 
-                              {/* Prominent Refund Alert Banner if Buyer Opened Refund */}
-                              {order.refundStatus === 'Requested' && (
-                                <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-300 flex items-center justify-between gap-3 text-xs">
-                                  <div className="flex items-center gap-1.5 text-amber-900">
-                                    <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                                    <span>
-                                      <strong>Buyer Opened Refund Request:</strong> &quot;{order.refundReason || 'Package not delivered or damaged'}&quot;
-                                    </span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setRefundModalOrder(order);
-                                      setRefundReasonInput(order.refundReason || 'Customer requested return/refund');
-                                      setRefundAmountInput(order.totalAmount);
-                                      setRefundError(null);
-                                    }}
-                                    className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition cursor-pointer flex-shrink-0 shadow-2xs"
-                                  >
-                                    Process Refund
-                                  </button>
-                                </div>
-                              )}
+                    {/* Results Count */}
+                    <div>
+                      <span className="font-bold text-stone-900">
+                        Results: 1-{filteredOrders.length} of {filteredOrders.length}
+                      </span>
+                    </div>
 
-                              {/* Product Thumbnail + Information */}
-                              <div className="flex items-start gap-3 pt-1">
-                                <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
-                                  <Image
-                                    src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
-                                    alt={firstItem.productName}
-                                    fill
-                                    sizes="56px"
-                                    className="object-cover"
-                                  />
-                                </div>
+                    {/* Right controls: Sort by only */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-stone-500">Sort by:</span>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-xs font-semibold text-stone-800 focus:outline-none cursor-pointer"
+                      >
+                        <option value="date_paid">Date paid ↓</option>
+                        <option value="date_sold">Date sold</option>
+                        <option value="total">Total ↑↓</option>
+                      </select>
+                    </div>
 
-                                <div className="space-y-0.5 flex-1 min-w-0">
-                                  <button
-                                    onClick={() => setSelectedOrderId(order.id)}
-                                    className="font-semibold text-stone-900 hover:text-blue-600 text-left line-clamp-2 leading-snug cursor-pointer"
-                                  >
-                                    {firstItem.productName}
-                                  </button>
-                                  <p className="text-[11px] text-stone-400 font-mono">
-                                    {firstItem.itemId || '395462678513'}
-                                  </p>
-                                  {firstItem.weight && (
-                                    <p className="text-xs font-bold text-stone-800">
-                                      Weight: {firstItem.weight}
-                                    </p>
-                                  )}
+                  </div>
 
-                                  {/* Tracking line & View Details */}
-                                  <div className="pt-0.5 flex items-center gap-2 text-xs flex-wrap">
-                                    {order.trackingNumber ? (
-                                      <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
-                                        <span className="text-stone-500">Tracking:</span>
-                                        <span className="font-mono font-bold text-stone-800">{order.trackingNumber}</span>
-                                        {order.trackingUrl && (
-                                          <a
-                                            href={order.trackingUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline flex items-center gap-0.5"
-                                          >
-                                            <span>Link</span>
-                                            <ExternalLink className="w-2.5 h-2.5" />
-                                          </a>
-                                        )}
-                                        <button
-                                          onClick={() => handleOpenTrackingModal(order)}
-                                          className="text-blue-600 underline font-semibold cursor-pointer"
-                                        >
-                                          Edit
-                                        </button>
-                                      </div>
+                  {/* ================= ORDERS TABLE (Screenshot 1) ================= */}
+                  <div className="overflow-x-auto border border-stone-200 rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#fafafa] border-b border-stone-200 text-stone-700 font-bold uppercase text-[11px]">
+                          <th className="py-3 px-4 min-w-[320px]">Order</th>
+                          <th className="py-3 px-3">Quantity</th>
+                          <th className="py-3 px-3">Subtotal</th>
+                          <th className="py-3 px-3">Total ↑↓</th>
+                          <th className="py-3 px-3">Date sold</th>
+                          <th className="py-3 px-3">Date paid ↓</th>
+                        </tr>
+                      </thead>
+
+                      <tbody className="divide-y divide-stone-200 bg-white">
+                        {filteredOrders.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-16 text-center text-stone-400">
+                              <ShoppingBag className="w-10 h-10 mx-auto text-stone-300 mb-2" />
+                              <p className="font-semibold text-stone-700 text-sm">No orders matching your criteria</p>
+                              <p className="text-xs text-stone-400 mt-1">Try resetting the status or search filter.</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredOrders.map((order) => {
+                            const firstItem = order.items[0] || {
+                              id: 'def',
+                              productName: 'Botanical Herb Extract',
+                              productImageUrl: '/images/gotu-kola-tea.jpg',
+                              weight: '25g',
+                              itemId: '395462678513',
+                              quantity: 1,
+                              availableStock: 9,
+                              unitPrice: order.subtotal,
+                              totalPrice: order.subtotal,
+                              promotedListing: true
+                            };
+
+                            return (
+                              <tr key={order.id} className="hover:bg-[#fbfcfb] transition">
+
+                                {/* Order Details Column (Buyer, Product Title, Weight, Tracking, ZIP) */}
+                                <td className="py-4 px-4 align-top space-y-2">
+                                  {/* Order Number, Status Badge & Buyer Name */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {order.refundStatus === 'Requested' ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                                        <AlertCircle className="w-3 h-3 text-amber-700" />
+                                        <span>Refund Requested</span>
+                                      </span>
+                                    ) : order.orderStatus === 'Delivered' ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                        <Check className="w-3 h-3" />
+                                        <span>Delivered</span>
+                                      </span>
+                                    ) : order.orderStatus === 'Shipped' ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                        <Check className="w-3 h-3" />
+                                        <span>Shipped {order.carrierScanDate ? `(${order.carrierScanDate})` : ''}</span>
+                                      </span>
                                     ) : (
-                                      <button
-                                        onClick={() => handleOpenTrackingModal(order)}
-                                        className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
-                                      >
-                                        + Add tracking
-                                      </button>
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900">
+                                        <Truck className="w-3 h-3 text-amber-800" />
+                                        <span>Ship by {order.shipByDate || 'Oct 7'}</span>
+                                      </span>
                                     )}
-                                    <span className="text-stone-300">•</span>
-                                    <span className="text-[11px] text-stone-500">
-                                      Est: {order.estimatedDelivery}
-                                    </span>
-                                    <span className="text-stone-300">•</span>
+
                                     <button
                                       onClick={() => setSelectedOrderId(order.id)}
-                                      className="text-xs font-semibold text-[#0053a0] hover:underline cursor-pointer"
+                                      className="font-mono text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                                      title="View order details"
                                     >
-                                      View order details
+                                      {order.orderNumber}
                                     </button>
+                                    <span className="text-stone-400">•</span>
+                                    <span className="font-semibold text-stone-800">{order.customerName}</span>
                                   </div>
 
-                                  {/* Destination Zip */}
-                                  {order.shippingZip && (
-                                    <p className="text-[11px] text-stone-500">
-                                      ZIP code: {order.shippingZip}
-                                    </p>
+                                  {/* Prominent Refund Alert Banner if Buyer Opened Refund */}
+                                  {order.refundStatus === 'Requested' && (
+                                    <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-300 flex items-center justify-between gap-3 text-xs">
+                                      <div className="flex items-center gap-1.5 text-amber-900">
+                                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                                        <span>
+                                          <strong>Buyer Opened Refund Request:</strong> &quot;{order.refundReason || 'Package not delivered or damaged'}&quot;
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleOpenRefundModal(order);
+                                        }}
+                                        className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition cursor-pointer flex-shrink-0 shadow-2xs"
+                                      >
+                                        Process Refund
+                                      </button>
+                                    </div>
                                   )}
-                                </div>
-                              </div>
-                            </td>
 
-                            {/* Quantity Column */}
-                            <td className="py-4 px-3 align-top font-semibold text-stone-900">
-                              {firstItem.quantity}{' '}
-                              <span className="text-[11px] text-stone-400 font-normal block">
-                                ({firstItem.availableStock || 9} available)
-                              </span>
-                            </td>
+                                  {/* Product Thumbnail + Information */}
+                                  <div className="flex items-start gap-3 pt-1">
+                                    <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
+                                      <Image
+                                        src={resolveBackendImageUrl(firstItem.productImageUrl, '/images/gotu-kola-tea.jpg')}
+                                        alt={firstItem.productName}
+                                        fill
+                                        sizes="56px"
+                                        className="object-cover"
+                                      />
+                                    </div>
 
-                            {/* Subtotal Column */}
-                            <td className="py-4 px-3 align-top font-semibold text-stone-900">
-                              ${order.subtotal.toFixed(2)}
-                              <span className="text-[11px] text-stone-500 font-normal block">
-                                {order.shippingCost === 0 ? 'Free shipping' : `+$${order.shippingCost.toFixed(2)} shipping`}
-                              </span>
-                            </td>
+                                    <div className="space-y-0.5 flex-1 min-w-0">
+                                      <button
+                                        onClick={() => setSelectedOrderId(order.id)}
+                                        className="font-semibold text-stone-900 hover:text-blue-600 text-left line-clamp-2 leading-snug cursor-pointer"
+                                      >
+                                        {firstItem.productName}
+                                      </button>
+                                      <p className="text-[11px] text-stone-400 font-mono">
+                                        {firstItem.itemId || '395462678513'}
+                                      </p>
+                                      {firstItem.weight && (
+                                        <p className="text-xs font-bold text-stone-800">
+                                          Weight: {firstItem.weight}
+                                        </p>
+                                      )}
 
-                            {/* Total Column */}
-                            <td className="py-4 px-3 align-top font-bold text-stone-900">
-                              ${order.totalAmount.toFixed(2)}
-                            </td>
+                                      {/* Tracking line & View Details */}
+                                      <div className="pt-0.5 flex items-center gap-2 text-xs flex-wrap">
+                                        {order.trackingNumber ? (
+                                          <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
+                                            <span className="text-stone-500">Tracking:</span>
+                                            <span className="font-mono font-bold text-stone-800">{order.trackingNumber}</span>
+                                            <button
+                                              onClick={() => handleOpenTrackingModal(order)}
+                                              className="text-blue-600 underline font-semibold cursor-pointer"
+                                            >
+                                              Edit
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => handleOpenTrackingModal(order)}
+                                            className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+                                          >
+                                            + Add tracking
+                                          </button>
+                                        )}
+                                        <span className="text-stone-300">•</span>
+                                        <span className="text-[11px] text-stone-500">
+                                          Est: {order.estimatedDelivery}
+                                        </span>
+                                        <span className="text-stone-300">•</span>
+                                        <button
+                                          onClick={() => setSelectedOrderId(order.id)}
+                                          className="text-xs font-semibold text-[#0053a0] hover:underline cursor-pointer"
+                                        >
+                                          View order details
+                                        </button>
+                                        <span className="text-stone-300">•</span>
+                                        {order.orderStatus !== 'Cancelled' && order.paymentStatus !== 'Refunded' ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenRefundModal(order)}
+                                            className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer inline-flex items-center gap-1"
+                                            title="Issue PayHere refund to buyer"
+                                          >
+                                            <RotateCcw className="w-3 h-3" />
+                                            <span>Issue Refund</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                            Refunded
+                                          </span>
+                                        )}
+                                      </div>
 
-                            {/* Date Sold Column */}
-                            <td className="py-4 px-3 align-top text-stone-700">
-                              <span className="block font-semibold">
-                                {new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </span>
-                              <span className="text-[11px] text-stone-400">
-                                {new Date(order.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-                              </span>
-                            </td>
+                                      {/* Destination Zip */}
+                                      {order.shippingZip && (
+                                        <p className="text-[11px] text-stone-500">
+                                          ZIP code: {order.shippingZip}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
 
-                            {/* Date Paid Column */}
-                            <td className="py-4 px-3 align-top text-stone-700">
-                              <span className="font-semibold block">
-                                {new Date(order.datePaid || order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </span>
-                            </td>
+                                {/* Quantity Column */}
+                                <td className="py-4 px-3 align-top font-semibold text-stone-900">
+                                  {firstItem.quantity}{' '}
+                                  <span className="text-[11px] text-stone-400 font-normal block">
+                                    ({firstItem.availableStock || 9} available)
+                                  </span>
+                                </td>
 
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                                {/* Subtotal Column */}
+                                <td className="py-4 px-3 align-top font-semibold text-stone-900">
+                                  ${order.subtotal.toFixed(2)}
+                                  <span className="text-[11px] text-stone-500 font-normal block">
+                                    {order.shippingCost === 0 ? 'Free shipping' : `+$${order.shippingCost.toFixed(2)} shipping`}
+                                  </span>
+                                </td>
+
+                                {/* Total Column */}
+                                <td className="py-4 px-3 align-top font-bold text-stone-900">
+                                  ${order.totalAmount.toFixed(2)}
+                                </td>
+
+                                {/* Date Sold Column */}
+                                <td className="py-4 px-3 align-top text-stone-700">
+                                  <span className="block font-semibold">
+                                    {new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                  </span>
+                                  <span className="text-[11px] text-stone-400">
+                                    {new Date(order.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                                  </span>
+                                </td>
+
+                                {/* Date Paid Column */}
+                                <td className="py-4 px-3 align-top text-stone-700">
+                                  <span className="font-semibold block">
+                                    {new Date(order.datePaid || order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </td>
+
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </main>
+
             </div>
 
-          </main>
-
+          </div>
         </div>
-
-      </div>
-    </div>
       )}
 
       {/* ================= MODAL: ADD OR EDIT TRACKING (Screenshot 4) ================= */}
       {trackingModalOrder && (
-        <div 
+        <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setTrackingModalOrder(null);
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
         >
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-6">
-            
+
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-stone-100">
               <div>
@@ -1836,7 +1878,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
 
             {/* Modal Body: Left Inputs + Right Product Preview */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
-              
+
               {/* Left Input Fields */}
               <div className="space-y-4">
                 <div>
@@ -1866,7 +1908,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                     placeholder="e.g. Sri Lanka Post, DHL Express, USPS"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
-                  
+
                   {/* Quick Select Chips */}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {['Sri Lanka Post', 'DHL Express', 'FedEx', 'USPS', 'UPS'].map((carrierName) => (
@@ -1874,11 +1916,10 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                         key={carrierName}
                         type="button"
                         onClick={() => setCarrierInput(carrierName)}
-                        className={`text-[10px] px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                          carrierInput === carrierName
+                        className={`text-[10px] px-2 py-0.5 rounded-full border transition cursor-pointer ${carrierInput === carrierName
                             ? 'bg-[#0053a0] text-white border-[#0053a0]'
                             : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
-                        }`}
+                          }`}
                       >
                         {carrierName}
                       </button>
@@ -2088,136 +2129,397 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
         </div>
       )}
 
-      {/* ================= MODAL: PROCESS REFUND ================= */}
+      {/* ================= MODAL: PROCESS PAYHERE SANDBOX REFUND ================= */}
       {refundModalOrder && (
-        <div 
+        <div
           onClick={(e) => {
-            if (e.target === e.currentTarget && !isSubmittingRefund) setRefundModalOrder(null);
+            if (e.target === e.currentTarget && !isSubmittingRefund) {
+              setRefundModalOrder(null);
+              setShowRefundConfirmBox(false);
+              setRefundSuccessResult(null);
+            }
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
         >
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-5">
-            {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center">
-                  <RotateCcw className="w-4 h-4 stroke-[2.5]" />
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-5 my-8">
+            
+            {/* ----------------- STATE 1: REFUND SUCCESS RESULT ----------------- */}
+            {refundSuccessResult ? (
+              <div className="space-y-5 text-center py-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-stone-900">
-                    Process Customer Refund
+                  <h3 className="text-xl font-bold text-stone-900">
+                    Refund Successfully Processed!
                   </h3>
-                  <p className="text-xs text-stone-500">
-                    Order #{refundModalOrder.orderNumber} &bull; Buyer: <strong className="text-stone-800">{refundModalOrder.customerName}</strong>
+                  <p className="text-xs text-stone-500 mt-1">
+                    Executed via PayHere Sandbox Mode for Order <strong>#{refundSuccessResult.orderNumber}</strong>
                   </p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => !isSubmittingRefund && setRefundModalOrder(null)}
-                disabled={isSubmittingRefund}
-                className="p-1 rounded-full text-stone-400 hover:text-stone-700 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Refund Policy / Notice Callout */}
-            <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-2xl space-y-1.5 text-xs">
-              <div className="flex items-center gap-1.5 font-bold text-rose-900">
-                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                <span>PayHere Refund & Escrow Policy</span>
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-rose-800/90 pl-1 leading-relaxed">
-                <li>Funds will be refunded to the buyer's original payment method via PayHere (typically 5–10 business days).</li>
-                <li>Seller payout escrow will be marked <strong>Cancelled / Withheld</strong> (no vendor disbursement).</li>
-                <li>Reserved botanical items will be automatically restocked in the store catalog.</li>
-                <li>Formal refund receipts will be dispatched via email to both buyer and seller.</li>
-              </ul>
-            </div>
-
-            {/* Inputs Form */}
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-stone-700 mb-1">
-                  Refund Reason
-                </label>
-                <select
-                  value={refundReasonInput}
-                  onChange={(e) => setRefundReasonInput(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600"
-                >
-                  <option value="Customer requested return/refund">Customer requested return/refund</option>
-                  <option value="Item damaged or defective in transit">Item damaged or defective in transit</option>
-                  <option value="Out of stock / unable to fulfill remedy">Out of stock / unable to fulfill remedy</option>
-                  <option value="Buyer cancelled prior to dispatch">Buyer cancelled prior to dispatch</option>
-                  <option value="Other / Mutual agreement">Other / Mutual agreement</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-stone-700 mb-1">
-                  Refund Amount ($ USD)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 font-bold">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={refundModalOrder.totalAmount}
-                    value={refundAmountInput}
-                    onChange={(e) => setRefundAmountInput(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 focus:outline-none focus:border-stone-600 font-medium"
-                    placeholder={refundModalOrder.totalAmount.toFixed(2)}
-                  />
+                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 text-left space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center py-1 border-b border-stone-200/60">
+                    <span className="text-stone-500 font-medium">Refund Reference ID</span>
+                    <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 select-all">
+                      {refundSuccessResult.refundId}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-stone-200/60">
+                    <span className="text-stone-500 font-medium">Refunded Amount</span>
+                    <span className="font-bold text-stone-900 text-sm">
+                      ${refundSuccessResult.amount.toFixed(2)} USD
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-stone-200/60">
+                    <span className="text-stone-500 font-medium">Order Status</span>
+                    <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
+                      Cancelled &bull; Refunded
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-stone-500 font-medium">Product Inventory</span>
+                    <span className="font-semibold text-emerald-700">
+                      Restocked to catalog
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-stone-400 mt-1">
-                  Total order charge: ${refundModalOrder.totalAmount.toFixed(2)}
-                </p>
-              </div>
-            </div>
 
-            {refundError && (
-              <div className="p-3 bg-rose-100/80 border border-rose-300 text-rose-900 rounded-xl text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" />
-                <span>{refundError}</span>
+                <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl text-left text-xs text-emerald-900 flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <span>
+                    Email notifications with the PayHere refund confirmation receipt have been dispatched to the buyer and your seller account.
+                  </span>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRefundModalOrder(null);
+                      setRefundSuccessResult(null);
+                      setShowRefundConfirmBox(false);
+                    }}
+                    className="w-full py-3 rounded-full bg-[#2E4D38] hover:bg-[#233c2c] text-white text-xs font-bold transition shadow-sm cursor-pointer"
+                  >
+                    Done & Close
+                  </button>
+                </div>
               </div>
+            ) : showRefundConfirmBox ? (
+              /* ----------------- STATE 2: EXPLICIT CONFIRMATION BOX ----------------- */
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="flex items-center gap-3 pb-3 border-b border-amber-200/60">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 mb-1">
+                      Confirmation Required
+                    </span>
+                    <h3 className="text-base font-bold text-stone-900">
+                      Do you want to process this refund?
+                    </h3>
+                  </div>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Please review the refund details below before confirming. If you select <strong>&quot;Yes&quot;</strong>, the automated PayHere refund process will immediately take place.
+                </p>
+
+                {/* Refund Summary Card */}
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-2.5 text-xs">
+                  <div className="grid grid-cols-2 gap-2 pb-2 border-b border-amber-200/60">
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Order Reference</span>
+                      <span className="font-mono font-bold text-stone-900">{refundModalOrder.orderNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Customer</span>
+                      <span className="font-semibold text-stone-900 truncate block">
+                        {refundModalOrder.customerName}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pb-2 border-b border-amber-200/60">
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Refund Amount</span>
+                      <span className="font-bold text-emerald-800 text-sm">
+                        ${Number(refundAmountInput || refundModalOrder.totalAmount).toFixed(2)} USD
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Gateway Mode</span>
+                      <span className="inline-flex items-center gap-1 font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded text-[11px]">
+                        <Zap className="w-3 h-3 text-blue-600" />
+                        {autoRefundSandbox ? 'PayHere Sandbox (Auto)' : 'Manual PayHere'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-stone-500 block text-[10px]">Refund Reason</span>
+                    <span className="font-medium text-stone-800 italic">
+                      &quot;{refundReasonInput || 'Customer requested return/refund'}&quot;
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-stone-100 rounded-xl text-[11.5px] text-stone-600 space-y-1">
+                  <p className="font-medium text-stone-800 flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-stone-500" />
+                    What happens next:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-stone-600 pl-1 text-[11px]">
+                    <li>{autoRefundSandbox ? 'Automated payment reversal will be executed via PayHere Sandbox mode.' : 'Manual PayHere reference will be recorded.'}</li>
+                    <li>The order status will transition to <strong>Cancelled / Refunded</strong>.</li>
+                    <li>Catalog inventory will be restored for all items in this order.</li>
+                    <li>Official refund notification emails will be sent to the customer.</li>
+                  </ul>
+                </div>
+
+                {refundError && (
+                  <div className="p-3 bg-rose-100/80 border border-rose-300 text-rose-900 rounded-xl text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" />
+                    <span>{refundError}</span>
+                  </div>
+                )}
+
+                {/* Confirmation Box Actions: Yes vs No */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => !isSubmittingRefund && setShowRefundConfirmBox(false)}
+                    disabled={isSubmittingRefund}
+                    className="px-5 py-2.5 rounded-full border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                  >
+                    No, Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteRefund}
+                    disabled={isSubmittingRefund}
+                    className="px-6 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingRefund ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Processing PayHere Sandbox Refund...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Yes, Execute Refund Now</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ----------------- STATE 3: REFUND DETAILS FORM ----------------- */
+              <>
+                {/* Header */}
+                <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2E4D38] flex items-center justify-center shadow-xs">
+                      <RotateCcw className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-stone-900">
+                          Issue PayHere Refund
+                        </h3>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 text-[10px] font-bold border border-blue-200">
+                          <Zap className="w-2.5 h-2.5 text-blue-600" />
+                          Sandbox Mode
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-500">
+                        Order #{refundModalOrder.orderNumber} &bull; Buyer: <strong className="text-stone-800">{refundModalOrder.customerName}</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => !isSubmittingRefund && setRefundModalOrder(null)}
+                    disabled={isSubmittingRefund}
+                    className="p-1 rounded-full text-stone-400 hover:text-stone-700 transition cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Refund Mode Selection */}
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold text-stone-800">Choose Refund Method</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Option 1: Automated Sandbox */}
+                    <div
+                      onClick={() => setAutoRefundSandbox(true)}
+                      className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        autoRefundSandbox
+                          ? 'border-[#2E4D38] bg-emerald-50/60 shadow-xs'
+                          : 'border-stone-200 bg-white hover:border-stone-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5 font-bold text-xs text-stone-900">
+                            <Zap className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Auto PayHere Sandbox</span>
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900">
+                            Recommended
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-600 leading-snug">
+                          Automatically execute refund via PayHere Sandbox mode and generate instant receipt.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Manual PayHere */}
+                    <div
+                      onClick={() => setAutoRefundSandbox(false)}
+                      className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        !autoRefundSandbox
+                          ? 'border-[#2E4D38] bg-emerald-50/60 shadow-xs'
+                          : 'border-stone-200 bg-white hover:border-stone-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5 font-bold text-xs text-stone-900">
+                            <RotateCcw className="w-3.5 h-3.5 text-stone-600" />
+                            <span>Manual Portal Entry</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-stone-600 leading-snug">
+                          For refunds already initiated manually inside merchant.payhere.lk.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Fields */}
+                <div className="space-y-4 text-xs">
+                  {/* Manual reference input if manual mode */}
+                  {!autoRefundSandbox && (
+                    <div>
+                      <label className="block font-semibold text-stone-700 mb-1">
+                        PayHere Refund Reference / Transaction ID <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={payHereRefundRefInput}
+                        onChange={(e) => setPayHereRefundRefInput(e.target.value)}
+                        placeholder="e.g. 320000849201"
+                        className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600 font-mono text-xs"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-semibold text-stone-700">
+                          Refund Amount ($ USD)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setRefundAmountInput(refundModalOrder.totalAmount)}
+                          className="text-[10px] text-emerald-800 font-bold hover:underline cursor-pointer"
+                        >
+                          Full (${refundModalOrder.totalAmount.toFixed(2)})
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 font-bold">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          max={refundModalOrder.totalAmount}
+                          value={refundAmountInput}
+                          onChange={(e) => setRefundAmountInput(e.target.value)}
+                          className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 focus:outline-none focus:border-stone-600 font-medium"
+                          placeholder={refundModalOrder.totalAmount.toFixed(2)}
+                        />
+                      </div>
+                      <span className="text-[10px] text-stone-500 mt-1 block">
+                        Original total: ${refundModalOrder.totalAmount.toFixed(2)} USD
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-stone-700 mb-1">
+                        Refund Reason
+                      </label>
+                      <select
+                        value={refundReasonInput}
+                        onChange={(e) => setRefundReasonInput(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600"
+                      >
+                        <option value="Customer requested return/refund">Customer requested return/refund</option>
+                        <option value="Package delivery delayed / not received">Package delivery delayed / not received</option>
+                        <option value="Item damaged or defective in transit">Item damaged or defective in transit</option>
+                        <option value="Out of stock / unable to fulfill remedy">Out of stock / unable to fulfill remedy</option>
+                        <option value="Buyer cancelled prior to dispatch">Buyer cancelled prior to dispatch</option>
+                        <option value="Mutual agreement between seller & buyer">Mutual agreement between seller & buyer</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-stone-700 mb-1">
+                      Internal Notes <span className="text-stone-400 font-normal">(Optional)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sellerRefundNotesInput}
+                      onChange={(e) => setSellerRefundNotesInput(e.target.value)}
+                      placeholder="Optional internal note or customer service record..."
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600 text-xs resize-none"
+                    />
+                  </div>
+                </div>
+
+                {refundError && (
+                  <div className="p-3 bg-rose-100/80 border border-rose-300 text-rose-900 rounded-xl text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" />
+                    <span>{refundError}</span>
+                  </div>
+                )}
+
+                {/* Modal Actions */}
+                <div className="flex justify-end gap-2.5 pt-2 border-t border-stone-100">
+                  <button
+                    type="button"
+                    onClick={() => setRefundModalOrder(null)}
+                    disabled={isSubmittingRefund}
+                    className="px-4 py-2 rounded-full border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenRefundConfirm}
+                    disabled={isSubmittingRefund}
+                    className="px-5 py-2 rounded-full bg-[#2E4D38] hover:bg-[#233c2c] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <span>Proceed to Refund Confirmation</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </>
             )}
 
-            {/* Modal Actions */}
-            <div className="flex justify-end gap-2.5 pt-2 border-t border-stone-100">
-              <button
-                type="button"
-                onClick={() => setRefundModalOrder(null)}
-                disabled={isSubmittingRefund}
-                className="px-4 py-2 rounded-full border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleProcessRefund}
-                disabled={isSubmittingRefund}
-                className="px-5 py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {isSubmittingRefund ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Processing Refund...</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Confirm & Process Refund</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-    </>
+      </>
   );
 }

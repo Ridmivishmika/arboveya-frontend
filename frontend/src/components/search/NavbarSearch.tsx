@@ -10,7 +10,7 @@ import { getProducts, resolveBackendImageUrl } from '@/lib/api';
 
 interface NavbarSearchProps {
   placeholder?: string;
-  variant?: 'desktop' | 'compact' | 'mobile-bar' | 'mobile-drawer';
+  variant?: 'desktop' | 'small' | 'compact' | 'mobile-bar' | 'mobile-drawer';
   autoFocus?: boolean;
   onClose?: () => void;
 }
@@ -24,6 +24,7 @@ export default function NavbarSearch({
   const router = useRouter();
   const pathname = usePathname();
   const isCompact = variant === 'compact';
+  const isSmall = variant === 'small';
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
@@ -171,8 +172,10 @@ export default function NavbarSearch({
             spellCheck="false"
             className={`w-full transition-all duration-200 outline-none rounded-full font-medium ${
               isCompact
-                ? 'pl-7.5 pr-7 py-1 text-xs h-8 bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] placeholder:text-[11px] focus:ring-1 focus:ring-[#24492d]/20 shadow-2xs'
-                : 'pl-9 sm:pl-10 pr-9 sm:pr-10 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] focus:ring-2 focus:ring-[#24492d]/15 shadow-2xs'
+                ? 'pl-6 pr-5 py-0.5 text-[11px] h-7 bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] placeholder:text-[10px] focus:ring-1 focus:ring-[#24492d]/20 shadow-2xs'
+                : isSmall
+                  ? 'pl-7.5 pr-6 py-1 text-xs h-8 bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] placeholder:text-[11px] focus:ring-1 focus:ring-[#24492d]/20 shadow-2xs'
+                  : 'pl-8 sm:pl-9 pr-8 sm:pr-9 py-1.5 sm:py-2 rounded-full text-xs bg-[#f7faf7] hover:bg-[#f1f6f1] focus:bg-white border border-[#cddccd] hover:border-[#adc7b0] focus:border-[#24492d] text-[#18311d] placeholder:text-[#6b8570] focus:ring-1.5 focus:ring-[#24492d]/15 shadow-2xs'
             }`}
           />
 
@@ -180,30 +183,30 @@ export default function NavbarSearch({
           <button
             type="submit"
             className={`absolute top-1/2 -translate-y-1/2 text-[#46694c] hover:text-[#1c3f24] transition-colors p-0.5 cursor-pointer ${
-              isCompact ? 'left-2.5' : 'left-3'
+              isCompact ? 'left-2' : isSmall ? 'left-2.5' : 'left-2.5 sm:left-3'
             }`}
             title="Search"
           >
-            <Search className={isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4 sm:w-4.5 sm:h-4.5'} />
+            <Search className={isCompact ? 'w-3 h-3' : isSmall ? 'w-3.5 h-3.5' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'} />
           </button>
 
           {/* Right action controls */}
-          <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${
-            isCompact ? 'right-2' : 'right-2.5'
+          <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${
+            isCompact ? 'right-1.5' : isSmall ? 'right-2' : 'right-2 sm:right-2.5'
           }`}>
             {isLoading && (
-              <Loader2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} animate-spin text-[#24492d] mr-1`} />
+              <Loader2 className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} animate-spin text-[#24492d] mr-1`} />
             )}
 
             {query && !isLoading && (
               <button
                 type="button"
                 onClick={handleClear}
-                className="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition cursor-pointer"
+                className="p-0.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition cursor-pointer"
                 title="Clear search"
                 aria-label="Clear search"
               >
-                <X className={isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+                <X className={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
               </button>
             )}
 
@@ -214,8 +217,12 @@ export default function NavbarSearch({
       {/* Autocomplete Results Dropdown */}
       {isOpen && query.trim().length >= 2 && (
         <div
-          className={`absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-[#d6e3d7] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${
-            variant === 'mobile-drawer' ? 'max-h-[360px]' : 'max-h-[440px]'
+          className={`absolute top-full mt-2 bg-white rounded-2xl shadow-2xl border border-[#d6e3d7] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ${
+            isCompact || isSmall
+              ? 'right-0 w-80 max-h-[380px]' 
+              : variant === 'mobile-drawer' 
+                ? 'left-0 right-0 max-h-[360px]' 
+                : 'left-0 sm:left-auto right-0 w-full sm:w-80 lg:w-96 max-h-[420px]'
           } flex flex-col`}
         >
           {/* Dropdown Header */}

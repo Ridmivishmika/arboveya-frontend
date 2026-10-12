@@ -321,37 +321,6 @@ export default function ShopClient({
   return (
     <div className="w-full bg-[#fbfdfb] min-h-screen">
       
-      {/* Top Breadcrumbs */}
-      <div className="border-b border-[#e9efe9] bg-white/70 backdrop-blur-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center text-xs text-[#526b56] gap-2 flex-wrap">
-          <Link href="/" className="hover:text-[#1c3f24] transition-colors">
-            Home
-          </Link>
-          <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
-          <Link href="/shop" onClick={handleClearSearch} className="hover:text-[#1c3f24] transition-colors">
-            Shop All Botanicals
-          </Link>
-          {selectedCategory !== 'All Products' && (
-            <>
-              <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
-              <span className="font-bold text-[#24492d]">{selectedCategory}</span>
-            </>
-          )}
-          {selectedWellnessNeed !== 'All Wellness Needs' && (
-            <>
-              <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
-              <span className="font-bold text-[#24492d]">{selectedWellnessNeed}</span>
-            </>
-          )}
-          {searchQuery.trim() && (
-            <>
-              <ChevronRight className="w-3 h-3 text-[#9ab39d]" />
-              <span className="font-bold text-[#24492d]">Search: &ldquo;{searchQuery}&rdquo;</span>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Main Layout Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">

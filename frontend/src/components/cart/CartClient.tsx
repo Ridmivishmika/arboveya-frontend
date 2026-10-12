@@ -88,7 +88,7 @@ export default function CartClient() {
               {user.role === 'Admin' ? (
                 <>Your account is registered as an <strong>Arboveya Administrator</strong>. Purchasing products is disabled for administrator accounts. You can inspect all store products and manage administrative operations.</>
               ) : (
-                <>Your account is registered as an <strong>Arboveya Herbal Merchant</strong>. Purchasing products is disabled for seller accounts. You can browse and inspect all store products or manage your merchant inventory.</>
+                <>Your account is registered as an <strong>Arboveya Merchant</strong>. Purchasing products is disabled for seller accounts. You can browse and inspect all store products or manage your merchant inventory.</>
               )}
             </p>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">

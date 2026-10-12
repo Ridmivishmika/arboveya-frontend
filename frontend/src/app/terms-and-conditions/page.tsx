@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { FileText, Shield, ArrowLeft, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Terms and Conditions | Arboveya Herbal Apothecary',
+  title: 'Terms and Conditions | Arboveya',
   description: 'Review the official terms and conditions governing the use of Arboveya online apothecary, order placements, and botanical wellness services.',
 };
 

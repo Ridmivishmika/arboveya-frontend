@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Lock, ShieldCheck, ArrowLeft, Clock, Eye, Database, Share2, Cookie, RefreshCw } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Arboveya Herbal Apothecary',
+  title: 'Privacy Policy | Arboveya',
   description: 'Learn how Arboveya collects, uses, and protects your personal and transaction data when using our natural herbal store and services.',
 };
 

@@ -138,7 +138,7 @@ export default function CheckoutClient() {
       custom_2: details.custom2 || '',
       order_id: details.orderId,
       items: details.items,
-      currency: details.currency || 'LKR',
+      currency: details.currency || 'USD',
       amount: Number(details.amount).toFixed(2),
       hash: details.hash
     };
@@ -328,7 +328,7 @@ export default function CheckoutClient() {
         order_id: details.orderId,
         items: details.items,
         amount: Number(details.amount).toFixed(2),
-        currency: details.currency || 'LKR',
+        currency: details.currency || 'USD',
         hash: details.hash,
         first_name: details.firstName,
         last_name: details.lastName,
@@ -707,7 +707,7 @@ export default function CheckoutClient() {
                 <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">VISA</span>
                 <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">MC</span>
                 <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">AMEX</span>
-                <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">LKR</span>
+                <span className="px-1.5 py-0.5 bg-white border border-stone-200 rounded">USD</span>
               </div>
             </div>
 
@@ -781,8 +781,8 @@ export default function CheckoutClient() {
                 {placingOrder 
                   ? 'COMMUNICATING WITH PAYHERE...' 
                   : payHereMode === 'redirect'
-                  ? `REDIRECT TO PAYHERE (LKR ${total.toFixed(2)})`
-                  : `PAY LKR ${total.toFixed(2)} WITH PAYHERE`}
+                  ? `Pay $${total.toFixed(2)}`
+                  : `Pay $${total.toFixed(2)}`}
               </span>
             </button>
 

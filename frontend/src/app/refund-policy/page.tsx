@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { RotateCcw, PackageCheck, AlertCircle, ArrowLeft, Clock, Truck, HelpCircle, CheckCircle2, DollarSign } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Refund & Return Policy | Arboveya Herbal Apothecary',
+  title: 'Refund & Return Policy | Arboveya',
   description: 'Understand Arboveya 30-day refund, return, and replacement policy for pure botanical products, teas, oils, and remedies.',
 };
 
@@ -97,7 +97,7 @@ export default function RefundPolicyPage() {
                 Once we receive your return and inspect the item, we will notify you by email of the status of your refund.
               </p>
               <p>
-                If your return is approved, we will initiate a refund to your original method of payment (credit/debit card or PayPal). Please note that the refund amount will <strong className="text-stone-800">exclude any shipping charges</strong> incurred during the initial purchase.
+                If your return is approved, we will initiate a refund to your original method of payment (credit/debit card or PayHere account). Please note that the refund amount will <strong className="text-stone-800">exclude any shipping charges</strong> incurred during the initial purchase.
               </p>
             </div>
           </section>

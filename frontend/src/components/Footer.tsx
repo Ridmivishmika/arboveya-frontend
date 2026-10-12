@@ -160,7 +160,7 @@ export default function Footer({
               <li><Link href="/shop" className="hover:text-white transition-colors">Shop</Link></li>
               <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
               <li><Link href="/blog" className="hover:text-white transition-colors">Blogs</Link></li>
-              <li><Link href="/privacy-policy" className="hover:text-white transition-colors font-medium text-[#d8e5db]">Privacy Policy</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Conditions</Link></li>
               <li><Link href="/refund-policy" className="hover:text-white transition-colors">Refund Policy</Link></li>
               <li><Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
@@ -193,7 +193,7 @@ export default function Footer({
                 href="https://www.vian-tech.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-[#e8dfc7] hover:text-white underline underline-offset-2 decoration-[#c5a66a] transition-colors"
+                className="font-semibold text-[#e8dfc7] hover:text-white transition-colors"
               >
                 Vian Tech
               </a>
@@ -201,7 +201,7 @@ export default function Footer({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-            <Link href="/privacy-policy" className="hover:text-white transition-colors font-medium text-[#d8e5db]">Privacy Policy</Link>
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <span className="text-[#2d5236]">•</span>
             <Link href="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Conditions</Link>
             <span className="text-[#2d5236]">•</span>
