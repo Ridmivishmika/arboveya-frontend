@@ -15,30 +15,22 @@ interface FooterProps {
 }
 
 export default function Footer({
-  facebookLink = "https://www.facebook.com/share/1DspKR2vtm/",
-  whatsAppNumber = "0717981355",
-  email = "arboveya@gmail.com",
-  phone = "0717981355",
-  address = "Sri Lanka"
+  facebookLink,
+  whatsAppNumber,
+  email,
+  phone,
+  address
 }: FooterProps) {
   const pathname = usePathname();
   if (pathname?.startsWith('/seller') || pathname?.startsWith('/buyer') || pathname?.startsWith('/admin')) {
     return null;
   }
 
-  const effectiveFacebook = !facebookLink || facebookLink === "https://facebook.com/arboveya"
-    ? "https://www.facebook.com/share/1DspKR2vtm/"
-    : facebookLink;
-  const effectiveWhatsApp = !whatsAppNumber || whatsAppNumber === "+94 70 602 6251" || whatsAppNumber === "+94771234567"
-    ? "0717981355"
-    : whatsAppNumber;
-  const effectivePhone = !phone || phone === "+94 71 798 1355"
-    ? "0717981355"
-    : phone;
-  const effectiveEmail = email || "arboveya@gmail.com";
-  const effectiveAddress = !address || address.includes("Thalaramba") || address.includes("Los Angeles")
-    ? "Sri Lanka"
-    : address;
+  const effectiveFacebook = facebookLink || process.env.NEXT_PUBLIC_FACEBOOK_LINK || "https://facebook.com";
+  const effectiveWhatsApp = whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || process.env.NEXT_PUBLIC_CONTACT_PHONE || "";
+  const effectivePhone = phone || process.env.NEXT_PUBLIC_CONTACT_PHONE || "";
+  const effectiveEmail = email || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "care@arboveya.com";
+  const effectiveAddress = address || process.env.NEXT_PUBLIC_CONTACT_ADDRESS || "Sri Lanka";
 
   // WhatsApp wa.me link requires country code (94 for Sri Lanka without leading zero)
   const cleanDigits = effectiveWhatsApp.replace(/[^0-9]/g, '');

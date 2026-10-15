@@ -283,6 +283,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   const [refundModalOrder, setRefundModalOrder] = useState<DetailedOrder | null>(null);
   const [refundReasonInput, setRefundReasonInput] = useState('Customer requested return/refund');
   const [refundAmountInput, setRefundAmountInput] = useState<number | string>('');
+  const [paymentIdInput, setPaymentIdInput] = useState('');
   const [payHereRefundRefInput, setPayHereRefundRefInput] = useState('');
   const [sellerRefundNotesInput, setSellerRefundNotesInput] = useState('');
   const [autoRefundSandbox, setAutoRefundSandbox] = useState(true);
@@ -295,6 +296,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
     setRefundModalOrder(o);
     setRefundAmountInput(o.totalAmount);
     setRefundReasonInput(o.refundReason || 'Customer requested return/refund');
+    setPaymentIdInput(o.paymentId || '');
     setPayHereRefundRefInput('');
     setSellerRefundNotesInput('');
     setAutoRefundSandbox(true);
@@ -682,6 +684,14 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
       return;
     }
 
+    if (autoRefundSandbox) {
+      const effectivePid = paymentIdInput.trim() || refundModalOrder.paymentId;
+      if (!effectivePid) {
+        setRefundError('Please enter the PayHere Payment ID from your PayHere account (Payments tab > click payment to expand details), or choose Manual Portal Entry.');
+        return;
+      }
+    }
+
     // Open confirmation box
     setShowRefundConfirmBox(true);
   };
@@ -710,7 +720,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           amount: isNaN(parsedAmount) ? refundModalOrder.totalAmount : parsedAmount,
           autoRefundSandbox: autoRefundSandbox,
           payHereRefundId: autoRefundSandbox ? undefined : (payHereRefundRefInput.trim() || undefined),
-          paymentId: refundModalOrder.paymentId || (payHereRefundRefInput.trim() || undefined),
+          paymentId: paymentIdInput.trim() || refundModalOrder.paymentId || (payHereRefundRefInput.trim() || undefined),
           notes: sellerRefundNotesInput.trim() || undefined
         })
       });
@@ -2531,6 +2541,28 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
 
                 {/* Form Fields */}
                 <div className="space-y-4 text-xs">
+                  {/* Automated PayHere payment_id input if not yet captured on order */}
+                  {autoRefundSandbox && !refundModalOrder.paymentId && (
+                    <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block font-semibold text-blue-950 text-xs">
+                          PayHere Payment ID (payment_id) <span className="text-rose-500">*</span>
+                        </label>
+                        <span className="text-[10px] text-blue-700">From PayHere Account &gt; Payments</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={paymentIdInput}
+                        onChange={(e) => setPaymentIdInput(e.target.value)}
+                        placeholder="e.g. 320027150501"
+                        className="w-full px-3 py-2 rounded-xl border border-blue-300 text-stone-900 bg-white focus:outline-none focus:border-blue-600 font-mono text-xs"
+                      />
+                      <p className="text-[10px] text-blue-800 leading-tight">
+                        Log in to <strong>merchant.payhere.lk</strong> &gt; click <strong>Payments</strong> tab &gt; click order to expand details &gt; copy <strong>Payment ID</strong>.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Manual reference input if manual mode */}
                   {!autoRefundSandbox && (
                     <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2">
@@ -2618,6 +2650,20 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                       placeholder="Optional internal note or customer service record..."
                       className="w-full px-3 py-2 rounded-xl border border-stone-300 text-stone-900 bg-white focus:outline-none focus:border-stone-600 text-xs resize-none"
                     />
+                  </div>
+
+                  {/* PayHere Guidelines Snippet */}
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-[11px] text-stone-600 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-stone-800">
+                      <Info className="w-3.5 h-3.5 text-stone-500" />
+                      <span>PayHere Refund Guidelines</span>
+                    </div>
+                    <ul className="list-disc list-inside space-y-0.5 text-stone-600 pl-0.5 text-[10.5px]">
+                      <li><strong className="text-stone-700">Payment Methods:</strong> Card payments (Visa, Mastercard, Amex, Discover, Diners Club) are supported. Non-card methods (Frimi, Genie, eZcash, mCash, Vishwa) must be refunded manually via bank transfer.</li>
+                      <li><strong className="text-stone-700">Instant Refund:</strong> Reversals processed on the transaction date are refunded in real-time as a card void.</li>
+                      <li><strong className="text-stone-700">Delayed Refund:</strong> Reversals initiated after payout (2+ days) reflect on customer card in 5&ndash;10 days following day-end fund recovery.</li>
+                      <li><strong className="text-stone-700">Fees:</strong> Refund processing is completely free; PayHere refunds the full payment amount including processing fee back to the customer.</li>
+                    </ul>
                   </div>
                 </div>
 

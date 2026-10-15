@@ -86,10 +86,10 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
     }
   };
 
-  const contactEmail = 'arboveya@gmail.com';
-  const contactPhone = '0717981355';
-  const contactWhatsApp = '0717981355';
-  const contactAddress = 'Sri Lanka';
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'care@arboveya.com';
+  const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || '';
+  const contactWhatsApp = initialSettings?.whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || contactPhone;
+  const contactAddress = process.env.NEXT_PUBLIC_CONTACT_ADDRESS || '';
 
   return (
     <div className="bg-white min-h-screen text-[#1c3f24] selection:bg-[#24492d] selection:text-white">
