@@ -463,13 +463,20 @@ export async function getAdminToken(): Promise<string> {
     if (existing) return existing;
   }
 
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim();
+  const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    return "";
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "admin@arboveya.com",
-        password: "AdminSecurePassword123!"
+        email: adminEmail,
+        password: adminPassword
       })
     });
     if (res.ok) {

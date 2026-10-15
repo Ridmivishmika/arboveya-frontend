@@ -171,14 +171,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (
     email: string, 
     role: 'Customer' | 'Seller' | 'Admin' = 'Customer',
-    password = 'Password123!'
+    password?: string
   ): Promise<UserProfile> => {
+    const effectivePassword = password || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_DEFAULT_PASSWORD : '') || '';
+    if (!effectivePassword) {
+      throw new Error('Password is required to sign in.');
+    }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password })
+        body: JSON.stringify({ email: email.trim(), password: effectivePassword })
       });
 
       if (!res.ok) {

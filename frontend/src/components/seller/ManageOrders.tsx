@@ -2465,16 +2465,27 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                     </div>
                   )}
                   <div className="pt-1.5 border-t border-stone-200/60 flex items-center justify-between text-[11px]">
-                    <span className="text-stone-600">PayHere Merchant Portal:</span>
-                    <a
-                      href="https://merchant.payhere.lk"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#2E4D38] font-bold hover:underline inline-flex items-center gap-1"
-                    >
-                      <span>merchant.payhere.lk</span>
-                      <span>&rarr;</span>
-                    </a>
+                    <span className="text-stone-600">PayHere Account Portal:</span>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href="https://sandbox.payhere.lk"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#2E4D38] font-bold hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>sandbox.payhere.lk</span>
+                        <span>&rarr;</span>
+                      </a>
+                      <span className="text-stone-300">|</span>
+                      <a
+                        href="https://www.payhere.lk"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-stone-600 font-semibold hover:underline"
+                      >
+                        payhere.lk (Live)
+                      </a>
+                    </div>
                   </div>
                 </div>
 
@@ -2524,7 +2535,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                           </span>
                         </div>
                         <p className="text-[11px] text-stone-600 leading-snug">
-                          Issue refund directly inside merchant.payhere.lk (Payments &gt; Refund) and paste the reference.
+                          Issue refund inside PayHere account (Payments &gt; Refund) and paste the reference.
                         </p>
                       </div>
                     </div>
@@ -2561,7 +2572,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                       <div className="text-[11px] text-amber-900">
                         <strong>Steps to refund in PayHere Portal:</strong>
                         <ol className="list-decimal list-inside mt-1 space-y-0.5 text-amber-800">
-                          <li>Log in to <a href="https://merchant.payhere.lk" target="_blank" rel="noopener noreferrer" className="underline font-semibold">merchant.payhere.lk</a></li>
+                          <li>Log in to <a href="https://sandbox.payhere.lk" target="_blank" rel="noopener noreferrer" className="underline font-semibold">sandbox.payhere.lk</a> (or <a href="https://www.payhere.lk" target="_blank" rel="noopener noreferrer" className="underline font-semibold">payhere.lk</a> for live)</li>
                           <li>Go to <strong>Payments</strong> and search for order <strong>#{refundModalOrder.payHereOrderId || refundModalOrder.orderNumber}</strong></li>
                           <li>Click <strong>Refund</strong> and complete the reversal</li>
                           <li>Copy the PayHere Refund Reference number and paste it below:</li>
