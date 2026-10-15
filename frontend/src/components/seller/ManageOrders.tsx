@@ -684,14 +684,6 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
       return;
     }
 
-    if (autoRefundSandbox) {
-      const effectivePid = paymentIdInput.trim() || refundModalOrder.paymentId;
-      if (!effectivePid) {
-        setRefundError('Please enter the PayHere Payment ID from your PayHere account (Payments tab > click payment to expand details), or choose Manual Portal Entry.');
-        return;
-      }
-    }
-
     // Open confirmation box
     setShowRefundConfirmBox(true);
   };
@@ -2546,19 +2538,19 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                     <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <label className="block font-semibold text-blue-950 text-xs">
-                          PayHere Payment ID (payment_id) <span className="text-rose-500">*</span>
+                          PayHere Payment ID (Optional - Auto-retrieved via Retrieval API)
                         </label>
-                        <span className="text-[10px] text-blue-700">From PayHere Account &gt; Payments</span>
+                        <span className="text-[10px] text-blue-700 font-medium">Auto-Detect</span>
                       </div>
                       <input
                         type="text"
                         value={paymentIdInput}
                         onChange={(e) => setPaymentIdInput(e.target.value)}
-                        placeholder="e.g. 320027150501"
+                        placeholder="Leave empty to auto-detect via PayHere, or enter e.g. 320027150501"
                         className="w-full px-3 py-2 rounded-xl border border-blue-300 text-stone-900 bg-white focus:outline-none focus:border-blue-600 font-mono text-xs"
                       />
                       <p className="text-[10px] text-blue-800 leading-tight">
-                        Log in to <strong>merchant.payhere.lk</strong> &gt; click <strong>Payments</strong> tab &gt; click order to expand details &gt; copy <strong>Payment ID</strong>.
+                        Leave blank to automatically query PayHere Retrieval API using Order Reference <strong>#{refundModalOrder.payHereOrderId || refundModalOrder.orderNumber}</strong>.
                       </p>
                     </div>
                   )}
