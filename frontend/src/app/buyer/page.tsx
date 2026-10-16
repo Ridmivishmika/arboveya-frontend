@@ -180,7 +180,7 @@ export default function BuyerDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'Processing' | 'Shipped' | 'Delivered'>('ALL');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'Processing' | 'Shipped' | 'Delivered' | 'Refunded'>('ALL');
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
   const [selectedOrderReceipt, setSelectedOrderReceipt] = useState<Order | null>(null);
@@ -262,6 +262,7 @@ export default function BuyerDashboardPage() {
         if (orderStatusFilter === 'Delivered' && !status.includes('deliver')) return false;
         if (orderStatusFilter === 'Shipped' && !status.includes('ship')) return false;
         if (orderStatusFilter === 'Processing' && (status.includes('deliver') || status.includes('ship') || status.includes('cancel'))) return false;
+        if (orderStatusFilter === 'Refunded' && !status.includes('cancel') && (order.paymentStatus || '').toLowerCase() !== 'refunded' && (order.refundStatus || '').toLowerCase() !== 'requested') return false;
       }
 
       // Search term filter
@@ -1280,7 +1281,7 @@ export default function BuyerDashboardPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Status Filter Buttons */}
                     <div className="flex items-center bg-white p-0.5 rounded-lg border border-stone-200 text-[11px] font-semibold">
-                      {(['ALL', 'Processing', 'Shipped', 'Delivered'] as const).map((filterKey) => (
+                      {(['ALL', 'Processing', 'Shipped', 'Delivered', 'Refunded'] as const).map((filterKey) => (
                         <button
                           key={filterKey}
                           onClick={() => setOrderStatusFilter(filterKey)}
@@ -1290,7 +1291,11 @@ export default function BuyerDashboardPage() {
                               : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
                           }`}
                         >
-                          {filterKey === 'ALL' ? `All (${orders.length})` : filterKey}
+                          {filterKey === 'ALL'
+                            ? `All (${orders.length})`
+                            : filterKey === 'Refunded'
+                            ? `Refunded (${orders.filter(o => (o.orderStatus || '').toLowerCase().includes('cancel') || (o.paymentStatus || '').toLowerCase() === 'refunded' || (o.refundStatus || '').toLowerCase() === 'requested').length})`
+                            : filterKey}
                         </button>
                       ))}
                     </div>

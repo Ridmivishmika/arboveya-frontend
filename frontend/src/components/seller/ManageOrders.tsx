@@ -253,7 +253,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
   // Navigation & View state
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarFilter, setSidebarFilter] = useState<'all' | 'awaiting_payment' | 'awaiting_shipment' | 'paid_and_shipped' | 'archived'>('all');
+  const [sidebarFilter, setSidebarFilter] = useState<'all' | 'awaiting_payment' | 'awaiting_shipment' | 'paid_and_shipped' | 'refunded' | 'archived'>('all');
 
   // Filter bar states
   const [statusFilter, setStatusFilter] = useState('all');
@@ -496,13 +496,15 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
     return localOrders.filter((order) => {
       // Sidebar filter
       if (sidebarFilter === 'awaiting_payment' && order.paymentStatus !== 'Pending') return false;
-      if (sidebarFilter === 'awaiting_shipment' && (order.orderStatus === 'Shipped' || order.orderStatus === 'Delivered')) return false;
+      if (sidebarFilter === 'awaiting_shipment' && (order.orderStatus === 'Shipped' || order.orderStatus === 'Delivered' || order.orderStatus === 'Cancelled')) return false;
       if (sidebarFilter === 'paid_and_shipped' && order.orderStatus !== 'Shipped' && order.orderStatus !== 'Delivered') return false;
+      if (sidebarFilter === 'refunded' && order.paymentStatus !== 'Refunded' && order.refundStatus !== 'Requested' && order.orderStatus !== 'Cancelled') return false;
 
       // Status dropdown filter
       if (statusFilter === 'awaiting_payment' && order.paymentStatus !== 'Pending') return false;
-      if (statusFilter === 'awaiting_shipment' && (order.orderStatus === 'Shipped' || order.orderStatus === 'Delivered')) return false;
-      if (statusFilter === 'paid_and_shipped' && order.orderStatus !== 'Shipped') return false;
+      if (statusFilter === 'awaiting_shipment' && (order.orderStatus === 'Shipped' || order.orderStatus === 'Delivered' || order.orderStatus === 'Cancelled')) return false;
+      if (statusFilter === 'paid_and_shipped' && order.orderStatus !== 'Shipped' && order.orderStatus !== 'Delivered') return false;
+      if (statusFilter === 'refunded' && order.paymentStatus !== 'Refunded' && order.refundStatus !== 'Requested' && order.orderStatus !== 'Cancelled') return false;
 
       // Search keyword filter
       if (searchKeyword.trim()) {
@@ -1523,6 +1525,21 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                   </button>
 
                   <button
+                    onClick={() => setSidebarFilter('refunded')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'refunded'
+                        ? 'bg-rose-50 text-rose-900 font-bold border border-rose-200 shadow-2xs'
+                        : 'text-stone-600 hover:bg-stone-50'
+                      }`}
+                  >
+                    <span>{!sidebarCollapsed ? 'Refunds & Returns' : 'Refund'}</span>
+                    {!sidebarCollapsed && (
+                      <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded-full">
+                        {localOrders.filter(o => o.paymentStatus === 'Refunded' || o.refundStatus === 'Requested' || o.orderStatus === 'Cancelled').length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
                     onClick={() => setSidebarFilter('archived')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition text-left cursor-pointer ${sidebarFilter === 'archived'
                         ? 'bg-stone-100 text-stone-900 font-bold'
@@ -1557,6 +1574,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                       <option value="awaiting_payment">Status: Awaiting payment</option>
                       <option value="awaiting_shipment">Status: Awaiting shipment</option>
                       <option value="paid_and_shipped">Status: Paid and shipped</option>
+                      <option value="refunded">Status: Refunds & Returns ({localOrders.filter(o => o.paymentStatus === 'Refunded' || o.refundStatus === 'Requested' || o.orderStatus === 'Cancelled').length})</option>
                     </select>
                     <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
