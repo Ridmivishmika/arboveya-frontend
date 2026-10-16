@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { BlogPost } from '@/types';
-import { API_BASE_URL, uploadBlogImage, resolveBackendImageUrl } from '@/lib/api';
+import { API_BASE_URL, uploadBlogImage, resolveBackendImageUrl, startOrderConversation } from '@/lib/api';
 import { 
   Package, 
   ShoppingBag,
@@ -228,6 +228,20 @@ export default function BuyerDashboardPage() {
       setRefundErrorMessage(err?.message || 'Error submitting refund request. Please try again.');
     } finally {
       setIsSubmittingRefund(false);
+    }
+  };
+
+  const handleContactSellerAboutOrder = async (order: any) => {
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '');
+    if (!authToken) {
+      router.push('/login');
+      return;
+    }
+    try {
+      const conv = await startOrderConversation(order.id, undefined, authToken);
+      router.push(`/account/messages?id=${conv.id}`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to open conversation for this order.');
     }
   };
 
@@ -1574,13 +1588,22 @@ export default function BuyerDashboardPage() {
                                        ) : null}
 
                                        <button
-                                         type="button"
-                                         onClick={() => setSelectedOrderReceipt(order)}
-                                         className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 hover:text-stone-900 transition cursor-pointer"
-                                         title="View Printable Receipt"
-                                       >
-                                         <FileText className="w-3.5 h-3.5" />
-                                       </button>
+                                          type="button"
+                                          onClick={() => handleContactSellerAboutOrder(order)}
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] font-bold text-xs transition cursor-pointer shadow-2xs"
+                                          title="Contact Seller About This Order"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                                          <span>Contact Seller</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedOrderReceipt(order)}
+                                          className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 hover:text-stone-900 transition cursor-pointer"
+                                          title="View Printable Receipt"
+                                        >
+                                          <FileText className="w-3.5 h-3.5" />
+                                        </button>
                                      </div>
                                    </td>
                                  </tr>

@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
   MessageSquare, 
@@ -20,25 +22,60 @@ import {
   X,
   Send,
   Loader2,
-  Check
+  Check,
+  Package,
+  ExternalLink,
+  ShieldCheck,
+  RefreshCw,
+  ShoppingBag,
+  Inbox,
+  ArrowLeft
 } from 'lucide-react';
 import AdminHeader from '@/components/admin/AdminHeader';
 import { useAuth } from '@/context/AuthContext';
-import { getContactMessages, updateContactMessageStatus, deleteContactMessage } from '@/lib/api';
-import { ContactMessage } from '@/types';
+import { 
+  getContactMessages, 
+  updateContactMessageStatus, 
+  deleteContactMessage,
+  getAdminConversations,
+  getAdminConversationById,
+  getConversationMessages,
+  sendAdminConversationMessage,
+  markConversationAsRead,
+  getAdminUnreadConversationsCount,
+  resolveBackendImageUrl
+} from '@/lib/api';
+import { ContactMessage, Conversation, Message } from '@/types';
 
 export default function AdminMessagesPage() {
   const router = useRouter();
   const { user, token, loading: authLoading } = useAuth();
 
-  const [messages, setMessages] = useState<ContactMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [roleFilter, setRoleFilter] = useState('All');
+  // Active Main View Tab: 'conversations' (Buyer–Seller) vs 'inquiries' (Website Contact Messages)
+  const [activeView, setActiveView] = useState<'conversations' | 'inquiries'>('conversations');
 
-  // Selected message for details modal
-  const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
+  // ================= 1. BUYER-SELLER CONVERSATIONS STATE =================
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
+  const [adminReplyText, setAdminReplyText] = useState('');
+  const [convSearch, setConvSearch] = useState('');
+  const [convFilter, setConvFilter] = useState<'All' | 'Unread' | 'ProductInquiry' | 'OrderSupport'>('All');
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
+  const [convError, setConvError] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isPollingRef = useRef(false);
+
+  // ================= 2. WEBSITE CONTACT INQUIRIES STATE =================
+  const [inquiries, setInquiries] = useState<ContactMessage[]>([]);
+  const [loadingInquiries, setLoadingInquiries] = useState(false);
+  const [inquirySearch, setInquirySearch] = useState('');
+  const [inquiryStatusFilter, setInquiryStatusFilter] = useState('All');
+  const [selectedInquiry, setSelectedInquiry] = useState<ContactMessage | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -50,468 +87,796 @@ export default function AdminMessagesPage() {
     }
   }, [user, authLoading, router]);
 
-  const loadMessages = async () => {
+  // Load conversations
+  const loadConversations = useCallback(async (silent = false) => {
+    if (!token) return;
     try {
-      setLoading(true);
+      if (!silent) setLoadingConversations(true);
+      const data = await getAdminConversations(
+        convFilter === 'ProductInquiry' || convFilter === 'OrderSupport' ? convFilter : undefined,
+        convFilter === 'Unread',
+        convSearch.trim() || undefined,
+        token
+      );
+      setConversations(data);
+      const count = await getAdminUnreadConversationsCount(token);
+      setAdminUnreadCount(count);
+    } catch (err: any) {
+      if (!silent) setConvError(err.message || 'Failed to load conversations.');
+    } finally {
+      if (!silent) setLoadingConversations(false);
+    }
+  }, [token, convFilter, convSearch]);
+
+  // Load messages for a conversation
+  const loadConversationMessages = useCallback(async (convId: string, silent = false) => {
+    if (!token) return;
+    try {
+      if (!silent) setLoadingMessages(true);
+      const msgs = await getConversationMessages(convId, token);
+      setConversationMessages(msgs);
+
+      // Auto mark read
+      await markConversationAsRead(convId, token);
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
+    } catch (err: any) {
+      if (!silent) setConvError(err.message || 'Failed to load messages.');
+    } finally {
+      if (!silent) setLoadingMessages(false);
+    }
+  }, [token]);
+
+  // Initial load
+  useEffect(() => {
+    if (user && user.role === 'Admin' && token) {
+      loadConversations();
+    }
+  }, [user, token, loadConversations]);
+
+  // Auto scroll messages to bottom
+  useEffect(() => {
+    if (activeView === 'conversations') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [conversationMessages, activeView]);
+
+  // Real-time polling for active conversation (every 10-12s)
+  useEffect(() => {
+    if (activeView !== 'conversations' || !selectedConversation || !token) return;
+
+    const interval = setInterval(async () => {
+      if (document.visibilityState === 'hidden' || isPollingRef.current) return;
+      isPollingRef.current = true;
+      try {
+        await loadConversationMessages(selectedConversation.id, true);
+        await loadConversations(true);
+      } catch {
+        // Silent fail on background polling
+      } finally {
+        isPollingRef.current = false;
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [activeView, selectedConversation, token, loadConversationMessages, loadConversations]);
+
+  const handleSelectConv = (conv: Conversation) => {
+    setSelectedConversation(conv);
+    setConvError(null);
+    loadConversationMessages(conv.id);
+  };
+
+  const handleSendAdminReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminReplyText.trim() || !selectedConversation || !token || sendingReply) return;
+
+    const textToSend = adminReplyText.trim();
+    setSendingReply(true);
+    setConvError(null);
+
+    try {
+      const msg = await sendAdminConversationMessage(selectedConversation.id, textToSend, token);
+      setConversationMessages(prev => [...prev, msg]);
+      setAdminReplyText('');
+
+      // Update list
+      setConversations(prev => prev.map(c => 
+        c.id === selectedConversation.id 
+          ? { ...c, lastMessageText: textToSend, lastMessageAt: new Date().toISOString() } 
+          : c
+      ));
+
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    } catch (err: any) {
+      setConvError(err.message || 'Failed to send reply.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  // ================= INQUIRIES LOAD =================
+  const loadInquiries = async () => {
+    try {
+      setLoadingInquiries(true);
       const data = await getContactMessages(
-        statusFilter !== 'All' ? statusFilter : undefined,
-        search.trim() || undefined,
+        inquiryStatusFilter !== 'All' ? inquiryStatusFilter : undefined,
+        inquirySearch.trim() || undefined,
         token || undefined
       );
-      setMessages(data);
+      setInquiries(data);
     } catch (err) {
       console.error('Failed to load inquiries:', err);
     } finally {
-      setLoading(false);
+      setLoadingInquiries(false);
     }
   };
 
   useEffect(() => {
-    if (user && user.role === 'Admin') {
-      loadMessages();
+    if (activeView === 'inquiries' && user && user.role === 'Admin') {
+      loadInquiries();
     }
-  }, [user, statusFilter]);
+  }, [activeView, inquiryStatusFilter, user]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadMessages();
-  };
-
-  const handleOpenModal = async (msg: ContactMessage) => {
-    setSelectedMessage(msg);
+  const handleOpenInquiryModal = async (msg: ContactMessage) => {
+    setSelectedInquiry(msg);
     setAdminNotes(msg.adminNotes || '');
 
-    // If unread, automatically mark as read
     if (msg.status === 'Unread') {
       try {
         const updated = await updateContactMessageStatus(msg.id, 'Read', msg.adminNotes, token || undefined);
-        setMessages(prev => prev.map(m => m.id === msg.id ? updated : m));
-        setSelectedMessage(updated);
+        setInquiries(prev => prev.map(m => m.id === msg.id ? updated : m));
+        setSelectedInquiry(updated);
       } catch (err) {
-        console.error('Failed to auto-mark read:', err);
+        console.error('Failed to auto-mark inquiry read:', err);
       }
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!selectedMessage) return;
+  const handleUpdateInquiryStatus = async (newStatus: string) => {
+    if (!selectedInquiry) return;
     try {
       setUpdatingStatus(true);
       const updated = await updateContactMessageStatus(
-        selectedMessage.id,
+        selectedInquiry.id,
         newStatus,
         adminNotes.trim() || undefined,
         token || undefined
       );
-      setMessages(prev => prev.map(m => m.id === selectedMessage.id ? updated : m));
-      setSelectedMessage(updated);
-      setActionSuccess(`Inquiry status updated to ${newStatus}.`);
+      setInquiries(prev => prev.map(m => m.id === selectedInquiry.id ? updated : m));
+      setSelectedInquiry(updated);
+      setActionSuccess(`Inquiry marked as ${newStatus}`);
       setTimeout(() => setActionSuccess(null), 3000);
-    } catch (err) {
-      console.error('Failed to update status:', err);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update inquiry status');
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to permanently delete this inquiry?')) return;
+  const handleDeleteInquiry = async (id: string) => {
+    if (!confirm('Are you sure you want to permanently delete this contact inquiry?')) return;
     try {
       await deleteContactMessage(id, token || undefined);
-      setMessages(prev => prev.filter(m => m.id !== id));
-      if (selectedMessage?.id === id) {
-        setSelectedMessage(null);
-      }
-    } catch (err) {
-      console.error('Failed to delete inquiry:', err);
+      setInquiries(prev => prev.filter(m => m.id !== id));
+      if (selectedInquiry?.id === id) setSelectedInquiry(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete inquiry');
     }
   };
 
-  // Filtered by role client-side
-  const filteredMessages = messages.filter(m => {
-    if (roleFilter === 'All') return true;
-    return m.userType?.toLowerCase() === roleFilter.toLowerCase();
-  });
-
-  const unreadCount = messages.filter(m => m.status === 'Unread').length;
+  const formatTime = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
 
   return (
-    <div className="min-h-screen bg-[#f7faf7] text-[#1c3f24] font-sans">
-      <AdminHeader activeTab="messages" unreadMessagesCount={unreadCount} />
+    <div className="min-h-screen bg-[#f7f9f7] flex flex-col font-sans">
+      <AdminHeader 
+        activeTab="messages" 
+        unreadMessagesCount={adminUnreadCount} 
+      />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Top Header & Overview */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#e2eae2] pb-6">
+        {/* Main Dashboard Navigation Bar */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e0e8e0] pb-4">
           <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#2d5c37] block mb-1">
+              Communication Center
+            </span>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1c3f24] tracking-tight flex items-center gap-2.5">
+              <MessageSquare className="w-7 h-7 text-[#24492d]" />
+              <span>Messages & Customer Inquiries</span>
+            </h1>
+          </div>
+
+          {/* View Mode Tabs (Buyer–Seller vs Website Inquiries) */}
+          <div className="flex items-center gap-2 bg-stone-200/70 p-1 rounded-2xl self-start sm:self-auto shadow-inner">
+            <button
+              onClick={() => setActiveView('conversations')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeView === 'conversations'
+                  ? 'bg-[#24492d] text-white shadow-xs'
+                  : 'text-stone-700 hover:text-[#1c3f24] hover:bg-white/50'
+              }`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Buyer–Seller Chats</span>
+              {adminUnreadCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-500 text-white animate-pulse">
+                  {adminUnreadCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveView('inquiries')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeView === 'inquiries'
+                  ? 'bg-[#24492d] text-white shadow-xs'
+                  : 'text-stone-700 hover:text-[#1c3f24] hover:bg-white/50'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Contact Form Inquiries</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Global Error Notice */}
+        {convError && (
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xl">🌿</span>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1c3f24]">
-                Customer & Seller Inquiries
-              </h1>
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <span>{convError}</span>
             </div>
-            <p className="text-xs text-stone-500 mt-1">
-              Review and manage incoming communications sent to the Arboveya administration desk.
-            </p>
+            <button onClick={() => setConvError(null)} className="font-bold hover:underline">Dismiss</button>
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            <div className="px-3.5 py-1.5 rounded-xl bg-white border border-[#dce6dc] shadow-2xs text-xs font-semibold">
-              <span className="text-stone-500">Total:</span> <span className="font-bold text-[#1c3f24]">{messages.length}</span>
-            </div>
-            {unreadCount > 0 && (
-              <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 shadow-2xs text-xs font-bold text-amber-800 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span>{unreadCount} Unread</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Filter and Search Bar */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#e2eae2] shadow-2xs space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+        {/* ========================================================================= */}
+        {/* VIEW 1: BUYER–SELLER CONVERSATIONS (eBay-Inspired 3-Panel Console)        */}
+        {/* ========================================================================= */}
+        {activeView === 'conversations' && (
+          <div className="bg-white rounded-2xl border border-[#dce6dc] shadow-sm overflow-hidden flex flex-col lg:flex-row min-h-[700px] max-h-[860px]">
             
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="md:col-span-6 relative">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, email, subject, or message..."
-                className="w-full pl-9 pr-20 py-2.5 text-xs rounded-xl border border-[#ccdacc] bg-[#f9fbf9] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition"
-              />
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
-              <button
-                type="submit"
-                className="absolute right-1.5 top-1.5 px-3 py-1.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-[11px] font-bold rounded-lg transition"
-              >
-                Search
-              </button>
-            </form>
-
-            {/* Status Filter */}
-            <div className="md:col-span-3 flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-stone-500 whitespace-nowrap">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-[#ccdacc] bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 text-[#1c3f24] font-medium"
-              >
-                <option value="All">All Inquiries</option>
-                <option value="Unread">Unread</option>
-                <option value="Read">Read</option>
-                <option value="Resolved">Resolved</option>
-              </select>
-            </div>
-
-            {/* Role Filter */}
-            <div className="md:col-span-3 flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-stone-500 whitespace-nowrap">Sender:</span>
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-[#ccdacc] bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 text-[#1c3f24] font-medium"
-              >
-                <option value="All">All Senders</option>
-                <option value="Buyer">Buyers Only</option>
-                <option value="Seller">Herbal Sellers Only</option>
-                <option value="General">General Inquiries</option>
-              </select>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Inquiries Table */}
-        <div className="bg-white rounded-2xl border border-[#e2eae2] shadow-2xs overflow-hidden">
-          {loading ? (
-            <div className="py-20 text-center space-y-3">
-              <Loader2 className="w-8 h-8 text-[#24492d] animate-spin mx-auto" />
-              <p className="text-xs text-stone-500 font-medium">Loading inquiries...</p>
-            </div>
-          ) : filteredMessages.length === 0 ? (
-            <div className="py-16 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-[#edf5ee] text-[#24492d] flex items-center justify-center mx-auto">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <h3 className="font-serif text-lg font-bold text-[#1c3f24]">No Inquiries Found</h3>
-              <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                {search || statusFilter !== 'All' || roleFilter !== 'All'
-                  ? 'No messages match your active filters. Try adjusting search terms.'
-                  : 'Your inbox is clear. Messages submitted from the Contact Us page will appear here.'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#f3f7f3] border-b border-[#e2eae2] text-[#4b6350] uppercase text-[10px] tracking-wider font-bold">
-                  <tr>
-                    <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5">Sender</th>
-                    <th className="px-5 py-3.5">Role</th>
-                    <th className="px-5 py-3.5">Subject & Message</th>
-                    <th className="px-5 py-3.5">Received</th>
-                    <th className="px-5 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#eef2ee]">
-                  {filteredMessages.map((msg) => {
-                    const isUnread = msg.status === 'Unread';
-                    return (
-                      <tr 
-                        key={msg.id} 
-                        className={`hover:bg-[#fafcfa] transition-colors cursor-pointer ${isUnread ? 'bg-amber-50/30 font-semibold' : ''}`}
-                        onClick={() => handleOpenModal(msg)}
-                      >
-                        {/* Status Badge */}
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            msg.status === 'Unread'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : msg.status === 'Resolved'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-stone-100 text-stone-700 border border-stone-200'
-                          }`}>
-                            {msg.status === 'Unread' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
-                            {msg.status === 'Resolved' && <Check className="w-3 h-3 text-emerald-700" />}
-                            <span>{msg.status}</span>
-                          </span>
-                        </td>
-
-                        {/* Sender Info */}
-                        <td className="px-5 py-4">
-                          <div className="font-bold text-[#1c3f24]">{msg.name}</div>
-                          <div className="text-[11px] text-stone-500">{msg.email}</div>
-                          {msg.phoneNumber && (
-                            <div className="text-[10px] text-stone-400 mt-0.5">{msg.phoneNumber}</div>
-                          )}
-                        </td>
-
-                        {/* Sender Role */}
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            msg.userType === 'Seller'
-                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                              : msg.userType === 'Buyer'
-                              ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                              : 'bg-emerald-50 text-[#1c3f24] border border-emerald-200'
-                          }`}>
-                            {msg.userType === 'Seller' ? '🏪 Seller' : msg.userType === 'Buyer' ? '🌿 Buyer' : '✉️ General'}
-                          </span>
-                        </td>
-
-                        {/* Subject & Snippet */}
-                        <td className="px-5 py-4 max-w-xs sm:max-w-md">
-                          <div className="font-bold text-[#1c3f24] truncate">{msg.subject}</div>
-                          <div className="text-[11px] text-stone-500 truncate mt-0.5 font-normal">
-                            {msg.message}
-                          </div>
-                        </td>
-
-                        {/* Date */}
-                        <td className="px-5 py-4 whitespace-nowrap text-stone-400 text-[11px]">
-                          {new Date(msg.createdAt).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-5 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleOpenModal(msg)}
-                              className="p-1.5 rounded-lg text-stone-500 hover:text-[#24492d] hover:bg-[#edf5ee] transition cursor-pointer"
-                              title="View full inquiry"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <a
-                              href={`mailto:${msg.email}?subject=${encodeURIComponent('Re: ' + msg.subject)}`}
-                              className="p-1.5 rounded-lg text-stone-500 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
-                              title="Reply via Email client"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </a>
-                            <button
-                              onClick={() => handleDelete(msg.id)}
-                              className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                              title="Delete inquiry"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-      </main>
-
-      {/* Inquiry Detail Modal */}
-      {selectedMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div 
-            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#ccdacc] shadow-2xl p-6 sm:p-8 space-y-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-[#eef2ee] pb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    selectedMessage.userType === 'Seller'
-                      ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                      : selectedMessage.userType === 'Buyer'
-                      ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                      : 'bg-emerald-50 text-[#1c3f24] border border-emerald-200'
-                  }`}>
-                    {selectedMessage.userType} Inquiry
-                  </span>
-                  <span className="text-xs text-stone-400 font-mono">
-                    ID: {selectedMessage.id.slice(0, 8)}...
-                  </span>
+            {/* ----------------- PANEL 1: CONVERSATIONS LIST (LEFT) ----------------- */}
+            <div className={`w-full lg:w-[360px] xl:w-[380px] border-r border-[#e5ebe5] flex flex-col bg-white flex-shrink-0 ${
+              selectedConversation ? 'hidden lg:flex' : 'flex'
+            }`}>
+              
+              {/* Search & Filter Header */}
+              <div className="p-4 border-b border-[#e5ebe5] space-y-3 bg-[#fafcfa]">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search buyer, order, or product..."
+                    value={convSearch}
+                    onChange={(e) => setConvSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') loadConversations(); }}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
+                  />
                 </div>
-                <h2 className="font-serif text-xl font-bold text-[#1c3f24]">
-                  {selectedMessage.subject}
-                </h2>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-bold">
+                  {(['All', 'Unread', 'ProductInquiry', 'OrderSupport'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setConvFilter(f)}
+                      className={`px-3 py-1 rounded-full whitespace-nowrap transition cursor-pointer ${
+                        convFilter === f
+                          ? 'bg-[#24492d] text-white shadow-2xs'
+                          : 'bg-white border border-[#dce6dc] text-[#3e5642] hover:bg-[#edf5ee]'
+                      }`}
+                    >
+                      {f === 'All' ? 'All' : f === 'Unread' ? 'Unread' : f === 'ProductInquiry' ? 'Product Qs' : 'Order Qs'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <button
-                onClick={() => setSelectedMessage(null)}
-                className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {/* Conversations Scrollable List */}
+              <div className="flex-1 overflow-y-auto divide-y divide-[#f0f4f0]">
+                {loadingConversations ? (
+                  <div className="p-8 text-center text-xs text-[#75957d] space-y-2">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#24492d]" />
+                    <p>Loading customer conversations...</p>
+                  </div>
+                ) : conversations.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-[#75957d] space-y-3">
+                    <Inbox className="w-10 h-10 text-[#a8c2af] mx-auto" />
+                    <p className="font-bold text-stone-700">No conversations found</p>
+                    <p className="text-[11px] text-stone-500">
+                      Customer questions about products or orders will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  conversations.map((conv) => {
+                    const isSelected = selectedConversation?.id === conv.id;
+                    const isOrder = conv.type === 'OrderSupport';
+                    const buyerInitial = conv.buyerName ? conv.buyerName.charAt(0).toUpperCase() : 'B';
+
+                    return (
+                      <button
+                        key={conv.id}
+                        onClick={() => handleSelectConv(conv)}
+                        className={`w-full text-left p-4 transition flex items-start gap-3 cursor-pointer ${
+                          isSelected 
+                            ? 'bg-[#edf5ee] border-l-4 border-l-[#24492d]' 
+                            : 'hover:bg-[#f8faf8] border-l-4 border-l-transparent'
+                        }`}
+                      >
+                        {/* Initial Avatar */}
+                        <div className="w-10 h-10 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-2xs">
+                          {buyerInitial}
+                        </div>
+
+                        {/* Summary Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="font-bold text-xs text-[#1c3f24] truncate">
+                              {conv.buyerName}
+                            </span>
+                            <span className="text-[10px] text-[#75957d]">
+                              {formatTime(conv.lastMessageAt || conv.createdAt)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded bg-[#e2ede4] text-[#24492d]">
+                              {isOrder ? 'Order' : 'Product'}
+                            </span>
+                            <span className="text-xs font-semibold text-stone-800 truncate">
+                              {conv.subject}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-stone-500 truncate">
+                            {conv.lastMessageText || 'No messages yet'}
+                          </p>
+
+                          <div className="flex items-center justify-between mt-1.5 text-[10px] text-stone-500">
+                            <span className="truncate">To: {conv.sellerName || 'Official Admin'}</span>
+                            {conv.unreadCount > 0 && (
+                              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-extrabold text-[9px] animate-pulse">
+                                {conv.unreadCount} unread
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
-            {/* Sender Metadata Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#fafcfa] border border-[#e2eae2] rounded-xl p-4 text-xs">
-              <div>
-                <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">From</span>
-                <span className="font-bold text-[#1c3f24] text-sm">{selectedMessage.name}</span>
-              </div>
+            {/* ----------------- PANEL 2: MAIN CHAT PANEL (CENTER) ----------------- */}
+            <div className={`flex-1 flex flex-col bg-[#fdfefd] ${
+              !selectedConversation ? 'hidden lg:flex' : 'flex'
+            }`}>
+              {selectedConversation ? (
+                <>
+                  {/* Active Header */}
+                  <div className="p-4 border-b border-[#e5ebe5] bg-white flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <button
+                        onClick={() => setSelectedConversation(null)}
+                        className="lg:hidden p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700"
+                        aria-label="Back to conversations list"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
 
-              <div>
-                <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Email Address</span>
-                <a href={`mailto:${selectedMessage.email}`} className="text-[#24492d] font-semibold hover:underline flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>{selectedMessage.email}</span>
-                </a>
-              </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-sm text-[#1c3f24] truncate">
+                            {selectedConversation.subject}
+                          </h3>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#edf5ee] text-[#24492d] border border-[#bcd2bf]">
+                            {selectedConversation.type === 'OrderSupport' ? 'Order Support' : 'Product Inquiry'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-500 truncate">
+                          Buyer: <strong className="text-[#1c3f24]">{selectedConversation.buyerName}</strong> ({selectedConversation.buyerEmail})
+                        </p>
+                      </div>
+                    </div>
 
-              {selectedMessage.phoneNumber && (
-                <div>
-                  <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Phone</span>
-                  <span className="font-medium text-stone-700">{selectedMessage.phoneNumber}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => loadConversationMessages(selectedConversation.id)}
+                        className="p-2 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-600 transition"
+                        title="Refresh transcript"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Transcript Scroll Area */}
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                    {loadingMessages ? (
+                      <div className="py-12 text-center text-xs text-[#75957d]">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#24492d] mb-2" />
+                        Loading conversation history...
+                      </div>
+                    ) : conversationMessages.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-[#75957d] space-y-2">
+                        <MessageSquare className="w-8 h-8 text-[#a8c2af] mx-auto" />
+                        <p className="font-bold text-[#1c3f24]">No messages in this conversation</p>
+                        <p className="text-[11px]">Send an administrative reply to the buyer below.</p>
+                      </div>
+                    ) : (
+                      conversationMessages.map((m) => {
+                        const isBuyer = m.isFromBuyer || m.senderId === selectedConversation.buyerId;
+
+                        return (
+                          <div
+                            key={m.id}
+                            className={`flex flex-col ${isBuyer ? 'items-start' : 'items-end'}`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1 px-1">
+                              <span className="text-[10px] font-bold text-stone-700">
+                                {isBuyer ? `${m.senderName || selectedConversation.buyerName} (Buyer)` : `${m.senderName} (${m.senderRole || 'Admin'})`}
+                              </span>
+                              <span className="text-[9px] text-[#75957d]">
+                                {formatTime(m.createdAt)}
+                              </span>
+                            </div>
+
+                            <div
+                              className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed shadow-2xs whitespace-pre-wrap break-words ${
+                                isBuyer
+                                  ? 'bg-white border border-[#dce6dc] text-stone-800 rounded-tl-none'
+                                  : 'bg-[#24492d] text-white rounded-tr-none'
+                              }`}
+                            >
+                              {m.messageText}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Admin Reply Composer */}
+                  <form onSubmit={handleSendAdminReply} className="p-3 sm:p-4 bg-white border-t border-[#e5ebe5]">
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        rows={2}
+                        placeholder={`Reply to ${selectedConversation.buyerName}...`}
+                        value={adminReplyText}
+                        onChange={(e) => setAdminReplyText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendAdminReply(e);
+                          }
+                        }}
+                        maxLength={4000}
+                        className="flex-1 p-2.5 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
+                      />
+
+                      <button
+                        type="submit"
+                        disabled={sendingReply || !adminReplyText.trim()}
+                        className="p-3 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white font-bold transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex-shrink-0 shadow-xs flex items-center justify-center gap-1.5"
+                        title="Send reply to buyer"
+                      >
+                        {sendingReply ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        <span className="hidden sm:inline text-xs">Reply</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 text-[10px] text-[#75957d]">
+                      <span>The customer will receive an update in their Arboveya account.</span>
+                      <span>{adminReplyText.length} / 4000</span>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                /* Empty state */
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#75957d]">
+                  <div className="w-16 h-16 rounded-full bg-[#edf5ee] flex items-center justify-center mb-3 text-[#24492d]">
+                    <MessageSquare className="w-8 h-8" />
+                  </div>
+                  <h3 className="font-serif text-lg font-bold text-[#1c3f24] mb-1">
+                    Select a Conversation
+                  </h3>
+                  <p className="text-xs text-stone-500 max-w-sm mb-4">
+                    Review and reply to questions regarding botanical remedies and customer orders.
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-[#24492d] bg-[#edf5ee] px-3.5 py-1.5 rounded-full border border-[#bcd2bf]">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Administrator Oversight Mode</span>
+                  </div>
                 </div>
               )}
+            </div>
 
-              <div>
-                <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">Submitted On</span>
-                <span className="text-stone-600 font-medium">
-                  {new Date(selectedMessage.createdAt).toLocaleString()}
-                </span>
+            {/* ----------------- PANEL 3: DETAILS SIDEBAR (RIGHT - DESKTOP ONLY) ----------------- */}
+            {selectedConversation && (
+              <div className="hidden xl:flex w-[280px] border-l border-[#e5ebe5] bg-[#fafcfa] p-4 flex-col space-y-5 flex-shrink-0 overflow-y-auto">
+                {/* Buyer Profile Box */}
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#2d5c37] block mb-2">
+                    Customer Profile
+                  </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-[#dce6dc] shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-xs">
+                        {selectedConversation.buyerName ? selectedConversation.buyerName.charAt(0).toUpperCase() : 'B'}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-xs text-stone-900 truncate">
+                          {selectedConversation.buyerName}
+                        </h4>
+                        <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                          Registered Buyer
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-100 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-stone-600 truncate">
+                        <Mail className="w-3.5 h-3.5 text-[#52785a] flex-shrink-0" />
+                        <span className="truncate" title={selectedConversation.buyerEmail}>{selectedConversation.buyerEmail}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Related Product or Order Reference */}
+                {selectedConversation.productId && (
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#2d5c37] block mb-2">
+                      Inquired Product
+                    </span>
+                    <div className="p-3 rounded-xl bg-white border border-[#dce6dc] shadow-2xs space-y-2.5">
+                      {selectedConversation.productImageUrl && (
+                        <div className="relative w-full h-28 rounded-lg overflow-hidden bg-stone-100 border border-[#d2ded3]">
+                          <Image
+                            src={resolveBackendImageUrl(selectedConversation.productImageUrl)}
+                            alt={selectedConversation.productName || 'Product'}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h5 className="font-bold text-xs text-[#1c3f24] line-clamp-2">
+                          {selectedConversation.productName}
+                        </h5>
+                        {selectedConversation.productPrice !== undefined && selectedConversation.productPrice !== null && (
+                          <span className="text-xs font-extrabold text-[#24492d] mt-1 block">
+                            ${selectedConversation.productPrice.toFixed(2)} USD
+                          </span>
+                        )}
+                      </div>
+
+                      <Link
+                        href={`/shop/${selectedConversation.productId}`}
+                        target="_blank"
+                        className="w-full py-2 px-3 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>Live Product</span>
+                        <ExternalLink className="w-3 h-3 text-[#52785a]" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {selectedConversation.orderId && (
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#2d5c37] block mb-2">
+                      Referenced Order
+                    </span>
+                    <div className="p-3.5 rounded-xl bg-white border border-[#dce6dc] shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#1c3f24]">
+                          #{selectedConversation.payHereOrderId || selectedConversation.orderId.substring(0, 8)}
+                        </span>
+                        {selectedConversation.orderStatus && (
+                          <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            {selectedConversation.orderStatus}
+                          </span>
+                        )}
+                      </div>
+
+                      {selectedConversation.orderTotalAmount && (
+                        <p className="text-xs text-stone-600">
+                          Total: <strong className="text-stone-900">${Number(selectedConversation.orderTotalAmount).toFixed(2)}</strong>
+                        </p>
+                      )}
+
+                      <Link
+                        href="/buyer?tab=orders"
+                        target="_blank"
+                        className="w-full mt-2 py-2 px-3 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                      >
+                        <Package className="w-3.5 h-3.5" />
+                        <span>Order Details</span>
+                        <ExternalLink className="w-3 h-3 text-[#52785a]" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* VIEW 2: WEBSITE CONTACT INQUIRIES (Preserved Original Feature)            */}
+        {/* ========================================================================= */}
+        {activeView === 'inquiries' && (
+          <div className="space-y-4">
+            
+            {/* Filter and Search Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-[#dce6dc] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+              <form onSubmit={(e) => { e.preventDefault(); loadInquiries(); }} className="w-full md:w-80 relative">
+                <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search contact inquiries..."
+                  value={inquirySearch}
+                  onChange={(e) => setInquirySearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
+                />
+              </form>
+
+              <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                {(['All', 'Unread', 'Read', 'Resolved'] as const).map(st => (
+                  <button
+                    key={st}
+                    onClick={() => setInquiryStatusFilter(st)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      inquiryStatusFilter === st
+                        ? 'bg-[#24492d] text-white shadow-2xs'
+                        : 'border border-[#dce6dc] bg-white text-stone-700 hover:bg-[#edf5ee]'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Message Body */}
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#4b6350] mb-2">
-                Inquiry Message:
-              </label>
-              <div className="p-4.5 rounded-xl bg-[#f8faf8] border-l-4 border-[#24492d] text-xs sm:text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">
-                {selectedMessage.message}
-              </div>
+            {/* Inquiries Table */}
+            <div className="bg-white rounded-2xl border border-[#dce6dc] shadow-xs overflow-hidden">
+              {loadingInquiries ? (
+                <div className="p-12 text-center text-xs text-[#75957d] space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#24492d]" />
+                  <p>Loading inquiries...</p>
+                </div>
+              ) : inquiries.length === 0 ? (
+                <div className="p-12 text-center text-xs text-[#75957d] space-y-2">
+                  <Inbox className="w-10 h-10 text-[#a8c2af] mx-auto" />
+                  <p className="font-bold text-stone-700">No contact inquiries found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-[#f7faf7] border-b border-[#e5ebe5] text-[11px] font-bold text-[#24492d] uppercase tracking-wider">
+                        <th className="py-3 px-4">Sender</th>
+                        <th className="py-3 px-4">Subject</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f0f4f0]">
+                      {inquiries.map((inq) => (
+                        <tr key={inq.id} className="hover:bg-[#fbfdfb] transition">
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-stone-900 block">{inq.name}</span>
+                            <span className="text-[11px] text-stone-500 block">{inq.email}</span>
+                          </td>
+                          <td className="py-3 px-4 max-w-xs">
+                            <span className="font-semibold text-stone-800 truncate block">{inq.subject}</span>
+                            <span className="text-[11px] text-stone-500 truncate block">{inq.message}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-block px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              inq.status === 'Unread'
+                                ? 'bg-amber-100 text-amber-800'
+                                : inq.status === 'Resolved'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-stone-100 text-stone-700'
+                            }`}>
+                              {inq.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-[11px] text-stone-500 whitespace-nowrap">
+                            {formatTime(inq.createdAt)}
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenInquiryModal(inq)}
+                                className="p-1.5 rounded-lg border border-stone-200 hover:bg-[#edf5ee] text-[#24492d] font-bold transition cursor-pointer"
+                                title="View inquiry details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteInquiry(inq.id)}
+                                className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition cursor-pointer"
+                                title="Delete inquiry"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
-            {/* Admin Notes */}
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#4b6350] mb-1.5">
-                Internal Administrative Notes:
-              </label>
-              <textarea
-                rows={3}
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder="Add private notes for staff reference..."
-                className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#ccdacc] bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition"
-              />
-            </div>
+            {/* Inquiry Details Modal */}
+            {selectedInquiry && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+                <div className="relative w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl border border-[#dbe6dc] space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#e5ebe5]">
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-[#1c3f24]">{selectedInquiry.subject}</h3>
+                      <span className="text-xs text-stone-500">From: {selectedInquiry.name} ({selectedInquiry.email})</span>
+                    </div>
+                    <button onClick={() => setSelectedInquiry(null)} className="p-1.5 text-stone-400 hover:text-stone-700">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
 
-            {/* Action Feedback */}
-            {actionSuccess && (
-              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>{actionSuccess}</span>
+                  <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 text-xs sm:text-sm text-stone-800 whitespace-pre-wrap">
+                    {selectedInquiry.message}
+                  </div>
+
+                  {actionSuccess && (
+                    <div className="p-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold text-center">
+                      {actionSuccess}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-3 border-t border-[#e5ebe5]">
+                    <span className="text-xs font-bold text-stone-700">Status: {selectedInquiry.status}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleUpdateInquiryStatus('Resolved')}
+                        disabled={updatingStatus}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#24492d] text-white text-xs font-bold hover:bg-[#1a3821] transition cursor-pointer"
+                      >
+                        Mark Resolved
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Modal Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#eef2ee]">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={updatingStatus || selectedMessage.status === 'Resolved'}
-                  onClick={() => handleUpdateStatus('Resolved')}
-                  className="px-4 py-2 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase tracking-wider transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Mark Resolved</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={updatingStatus || selectedMessage.status === 'Read'}
-                  onClick={() => handleUpdateStatus('Read')}
-                  className="px-3.5 py-2 rounded-lg bg-white border border-[#ccdacc] hover:bg-stone-50 text-stone-700 text-xs font-bold uppercase tracking-wider transition shadow-2xs cursor-pointer"
-                >
-                  Mark Read
-                </button>
-
-                <button
-                  type="button"
-                  disabled={updatingStatus || selectedMessage.status === 'Unread'}
-                  onClick={() => handleUpdateStatus('Unread')}
-                  className="px-3.5 py-2 rounded-lg bg-white border border-[#ccdacc] hover:bg-stone-50 text-stone-700 text-xs font-bold uppercase tracking-wider transition shadow-2xs cursor-pointer"
-                >
-                  Mark Unread
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <a
-                  href={`mailto:${selectedMessage.email}?subject=${encodeURIComponent('Re: ' + selectedMessage.subject)}`}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Reply via Email</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() => handleDelete(selectedMessage.id)}
-                  className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition cursor-pointer"
-                  title="Delete message"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
           </div>
-        </div>
-      )}
+        )}
 
+      </div>
     </div>
   );
 }

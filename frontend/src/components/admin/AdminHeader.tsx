@@ -111,7 +111,7 @@ export default function AdminHeader({
     },
     {
       id: 'messages',
-      label: 'Inquiries',
+      label: 'Messages',
       href: '/admin/messages',
       icon: MessageSquare,
       alertCount: unreadMessagesCount

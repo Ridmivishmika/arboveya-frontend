@@ -256,3 +256,47 @@ export interface SellerBankDetails {
   bankRoutingCode?: string;
 }
 
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  messageText: string;
+  createdAt: string;
+  readAt?: string;
+  isFromBuyer: boolean;
+  isMine: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  buyerId: string;
+  buyerName: string;
+  buyerEmail: string;
+  sellerId?: string;
+  sellerName?: string;
+  sellerEmail?: string;
+  productId?: string;
+  productName?: string;
+  productPrice?: number;
+  productImageUrl?: string;
+  orderId?: string;
+  payHereOrderId?: string;
+  orderStatus?: string;
+  orderTotalAmount?: number;
+  orderCreatedAt?: string;
+  type: 'ProductInquiry' | 'OrderSupport' | 'General' | string;
+  subject: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt?: string;
+  lastMessageText?: string;
+  lastMessageSenderId?: string;
+  unreadCount: number;
+  buyerLastReadAt?: string;
+  sellerLastReadAt?: string;
+  messages?: Message[];
+}
+
+

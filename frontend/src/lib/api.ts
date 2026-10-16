@@ -17,7 +17,9 @@ import {
   CreateWellnessNeedInput,
   UpdateWellnessNeedInput,
   ContactMessageInput,
-  ContactMessage
+  ContactMessage,
+  Conversation,
+  Message
 } from "@/types";
 import { fallbackSettings } from "./mockData";
 
@@ -950,5 +952,277 @@ export async function deleteContactMessage(
   }
   return true;
 }
+
+// ----------------- Buyer–Seller Messaging APIs ----------------- //
+
+export async function startProductConversation(
+  productId: string,
+  initialMessage?: string,
+  token?: string
+): Promise<Conversation> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/product/${productId}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ initialMessage: initialMessage || undefined }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to start product conversation.");
+  }
+  return data;
+}
+
+export async function startOrderConversation(
+  orderId: string,
+  initialMessage?: string,
+  token?: string
+): Promise<Conversation> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/order/${orderId}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ initialMessage: initialMessage || undefined }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to start order conversation.");
+  }
+  return data;
+}
+
+export async function getMyConversations(token?: string): Promise<Conversation[]> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/my`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to fetch conversations.");
+  }
+  return await res.json();
+}
+
+export async function getConversationById(
+  id: string,
+  token?: string
+): Promise<Conversation> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/${id}`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to fetch conversation.");
+  }
+  return await res.json();
+}
+
+export async function getConversationMessages(
+  id: string,
+  token?: string
+): Promise<Message[]> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/${id}/messages`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to fetch conversation messages.");
+  }
+  return await res.json();
+}
+
+export async function sendConversationMessage(
+  id: string,
+  messageText: string,
+  token?: string
+): Promise<Message> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/${id}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ messageText }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to send message.");
+  }
+  return data;
+}
+
+export async function markConversationAsRead(
+  id: string,
+  token?: string
+): Promise<boolean> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/conversations/${id}/read`, {
+    method: "PUT",
+    headers,
+  });
+
+  return res.ok;
+}
+
+export async function getUnreadConversationsCount(token?: string): Promise<number> {
+  try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/conversations/unread-count`, {
+      headers,
+      cache: "no-store",
+    });
+
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.unreadCount ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ----------------- Admin Conversations APIs ----------------- //
+
+export async function getAdminConversations(
+  type?: string,
+  unreadOnly?: boolean,
+  search?: string,
+  token?: string
+): Promise<Conversation[]> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const params = new URLSearchParams();
+  if (type && type !== "All") params.append("type", type);
+  if (unreadOnly) params.append("unreadOnly", "true");
+  if (search && search.trim()) params.append("search", search.trim());
+
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(`${API_BASE_URL}/admin/conversations${queryString}`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to fetch admin conversations.");
+  }
+  return await res.json();
+}
+
+export async function getAdminConversationById(
+  id: string,
+  token?: string
+): Promise<Conversation> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/admin/conversations/${id}`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to fetch admin conversation.");
+  }
+  return await res.json();
+}
+
+export async function getAdminUnreadConversationsCount(token?: string): Promise<number> {
+  try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/admin/conversations/unread-count`, {
+      headers,
+      cache: "no-store",
+    });
+
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.unreadCount ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function sendAdminConversationMessage(
+  id: string,
+  messageText: string,
+  token?: string
+): Promise<Message> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/admin/conversations/${id}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ messageText }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to send admin message.");
+  }
+  return data;
+}
+
 
 

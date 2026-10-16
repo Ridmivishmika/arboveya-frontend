@@ -23,7 +23,8 @@ import {
   Package,
   BookOpen,
   Building2,
-  Search
+  Search,
+  MessageSquare
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -1004,6 +1005,15 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                         >
                           <User className="w-3.5 h-3.5 text-[#2E4D38]" />
                           <span>{user.role === 'Seller' ? 'Go to Seller Studio' : user.role === 'Admin' ? 'Go to Admin Portal' : 'Go to Buyer Portal'}</span>
+                        </Link>
+
+                        <Link
+                          href={user.role === 'Admin' ? '/admin/messages' : '/account/messages'}
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span>Messages & Inbox</span>
                         </Link>
 
                         <button

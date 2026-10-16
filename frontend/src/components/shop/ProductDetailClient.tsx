@@ -20,13 +20,17 @@ import {
   Globe,
   Calendar,
   Truck,
-  FileText
+  FileText,
+  MessageSquare,
+  Loader2,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { Product, ProductReview } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { submitPublicReview, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
+import { submitPublicReview, API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
 
 // Customer reviews loaded directly from database
 
@@ -47,6 +51,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
   const [activeTab, setActiveTab] = useState<'description' | 'specifications' | 'ingredients' | 'howToUse' | 'reviews'>('description');
   const [addedToast, setAddedToast] = useState(false);
   const [buyNowModal, setBuyNowModal] = useState(false);
+
+  // Contact Seller State
+  const [contactSellerModalOpen, setContactSellerModalOpen] = useState(false);
+  const [contactSellerMessage, setContactSellerMessage] = useState('');
+  const [contactSellerLoading, setContactSellerLoading] = useState(false);
+  const [contactSellerError, setContactSellerError] = useState<string | null>(null);
+
   const [selectedVariant, setSelectedVariant] = useState<import('@/types').ProductVariant | undefined>(
     () => {
       if (product.variants && product.variants.length > 0) {
@@ -221,6 +232,43 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
     if (user && (user.role === 'Seller' || user.role === 'Admin')) return;
     addToCart(product, quantity, selectedVariant, selectedShipping);
     router.push('/checkout');
+  };
+
+  const handleOpenContactSeller = () => {
+    if (!user) {
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    setContactSellerError(null);
+    setContactSellerModalOpen(true);
+  };
+
+  const handleSubmitContactSeller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !token) {
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    const cleanMsg = contactSellerMessage.trim();
+    if (!cleanMsg) {
+      setContactSellerError('Please enter your question for the seller.');
+      return;
+    }
+
+    try {
+      setContactSellerLoading(true);
+      setContactSellerError(null);
+      const conv = await startProductConversation(product.id, cleanMsg, token);
+      setContactSellerModalOpen(false);
+      setContactSellerMessage('');
+      router.push(`/account/messages?id=${conv.id}`);
+    } catch (err: any) {
+      setContactSellerError(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setContactSellerLoading(false);
+    }
   };
 
   const handleAddReview = async (e: React.FormEvent) => {
@@ -641,6 +689,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                   className="w-full py-3 px-6 rounded-lg border-2 border-[#24492d] hover:bg-[#edf6ef] text-[#24492d] text-xs sm:text-sm font-bold tracking-[0.12em] uppercase transition-all cursor-pointer"
                 >
                   BUY IT NOW
+                </button>
+
+                {/* CONTACT SELLER Button */}
+                <button
+                  type="button"
+                  onClick={handleOpenContactSeller}
+                  className="w-full py-2.5 px-4 rounded-lg border border-[#cfded0] bg-white hover:bg-[#edf5ee] text-[#1c3f24] text-xs sm:text-sm font-bold tracking-[0.08em] uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs mt-2"
+                  id="contact-seller-button"
+                >
+                  <MessageSquare className="w-4 h-4 text-[#24492d]" />
+                  <span>Contact Seller</span>
                 </button>
               </div>
             )}
@@ -1133,6 +1192,121 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 Go to Cart
               </Link>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= CONTACT SELLER MODAL ================= */}
+      {contactSellerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl border border-[#dbe6dc] space-y-4">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#e5ebe5]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#edf5ee] flex items-center justify-center text-[#24492d]">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-base sm:text-lg font-bold text-[#1c3f24] leading-tight">
+                    Contact Seller
+                  </h3>
+                  <span className="text-[11px] text-[#52785a]">
+                    Ask a question about this item before purchasing
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactSellerModalOpen(false)}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Product Summary Preview Card */}
+            <div className="p-3 rounded-xl bg-[#f7faf7] border border-[#dbe6dc] flex items-center gap-3">
+              {product.imageUrl && (
+                <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-[#d2ded3] flex-shrink-0">
+                  <Image
+                    src={resolveBackendImageUrl(product.imageUrl)}
+                    alt={product.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-xs text-[#1c3f24] truncate">{product.name}</h4>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-extrabold text-[#24492d]">
+                    ${Number(product.price).toFixed(2)} USD
+                  </span>
+                  {product.sellerName && (
+                    <span className="text-[10px] text-stone-500">Seller: {product.sellerName}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Error Message if any */}
+            {contactSellerError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                <span>{contactSellerError}</span>
+              </div>
+            )}
+
+            {/* Question Input Form */}
+            <form onSubmit={handleSubmitContactSeller} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#1c3f24] mb-1.5">
+                  Your Message or Question
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  maxLength={4000}
+                  placeholder="e.g. Hello, do you offer shipping to Canada? What is the estimated delivery time?"
+                  value={contactSellerMessage}
+                  onChange={(e) => setContactSellerMessage(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
+                />
+                <div className="flex items-center justify-between text-[10px] text-stone-500 mt-1">
+                  <span>Sellers typically reply within 24 hours.</span>
+                  <span>{contactSellerMessage.length} / 4000</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#e5ebe5]">
+                <button
+                  type="button"
+                  onClick={() => setContactSellerModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={contactSellerLoading || !contactSellerMessage.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"
+                >
+                  {contactSellerLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Send Question</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}
