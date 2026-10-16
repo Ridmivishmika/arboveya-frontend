@@ -601,6 +601,16 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 <span>Orders</span>
               </button>
 
+              {/* Messages Nav Link */}
+              <Link
+                href="/account/messages"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs border border-[#bcd2bf] bg-white hover:bg-[#edf5ee] text-[#1c3f24] cursor-pointer"
+                title="Customer Messages & Inquiries"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                <span>Messages</span>
+              </Link>
+
               {/* Articles Tab Button */}
               <button
                 onClick={handleBuyerArticlesClick}
@@ -664,6 +674,15 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                       </div>
 
                       <div className="pt-2 border-t border-stone-100 space-y-2">
+                        <Link
+                          href="/account/messages"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-[#2E4D38]" />
+                          <span>Messages & Inbox</span>
+                        </Link>
+
                         <button
                           onClick={() => {
                             setProfileDropdownOpen(false);

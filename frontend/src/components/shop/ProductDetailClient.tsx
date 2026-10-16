@@ -647,6 +647,15 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                     {user.role === 'Admin' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
                     <span>{user.role === 'Admin' ? 'Go to Admin Portal' : 'Go to Seller Studio'}</span>
                   </Link>
+                  <button
+                    type="button"
+                    onClick={handleOpenContactSeller}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#cfded0] bg-white hover:bg-[#edf5ee] text-[#1c3f24] text-xs font-bold transition shadow-2xs cursor-pointer"
+                    id="contact-seller-preview-button"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                    <span>Contact Seller (Inquire)</span>
+                  </button>
                 </div>
               </div>
             ) : (
