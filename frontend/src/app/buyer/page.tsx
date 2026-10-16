@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { BlogPost } from '@/types';
-import { API_BASE_URL, uploadBlogImage, resolveBackendImageUrl, startOrderConversation } from '@/lib/api';
+import { API_BASE_URL, uploadBlogImage, resolveBackendImageUrl, startOrderConversation, startProductConversation } from '@/lib/api';
 import { 
   Package, 
   ShoppingBag,
@@ -490,8 +490,37 @@ export default function BuyerDashboardPage() {
       if (!cardHolder) setCardHolder(uName);
       setShippingEmail(user.email || '');
       if (user.phoneNumber) setShippingPhone(user.phoneNumber);
-      if (user.address) setShippingAddress(user.address);
       if (user.nationality) setShippingCountry(user.nationality);
+
+      // Check for saved registration shipping preferences
+      let prefCity = '';
+      let prefZip = '';
+      let prefStreet = '';
+      try {
+        const storedPref = localStorage.getItem('arboveya_shipping_pref');
+        if (storedPref) {
+          const parsed = JSON.parse(storedPref);
+          if (parsed && typeof parsed === 'object') {
+            prefCity = parsed.city || '';
+            prefZip = parsed.zipCode || '';
+            prefStreet = parsed.streetAddress || '';
+          }
+        }
+      } catch (e) {
+        console.warn('Failed reading arboveya_shipping_pref', e);
+      }
+
+      const resolvedCity = (user as any).city || prefCity || '';
+      if (resolvedCity) setShippingCity(resolvedCity);
+
+      const resolvedZip = (user as any).zipCode || prefZip || '';
+      if (resolvedZip) setShippingZip(resolvedZip);
+
+      if (prefStreet) {
+        setShippingAddress(prefStreet);
+      } else if (user.address) {
+        setShippingAddress(user.address);
+      }
     }
   }, [user]);
 
@@ -1984,6 +2013,23 @@ export default function BuyerDashboardPage() {
                               <span className="text-[11px] text-stone-500 block">
                                 ${item.product.price.toFixed(2)} each
                               </span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    const authToken = (token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || undefined) ?? undefined;
+                                    const conv = await startProductConversation(item.product.id, undefined, authToken);
+                                    router.push(`/account/messages?id=${conv.id}`);
+                                  } catch (err: any) {
+                                    alert(err.message || 'Failed to start chat with seller.');
+                                  }
+                                }}
+                                className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
+                                title={`Chat with seller about ${item.product.name}`}
+                              >
+                                <MessageSquare className="w-3 h-3 text-[#24492d]" />
+                                <span>Chat with Seller</span>
+                              </button>
                             </div>
                           </div>
 

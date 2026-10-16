@@ -143,11 +143,49 @@ export default function CheckoutClient() {
       if (!phone && user.phoneNumber) {
         setPhone(user.phoneNumber);
       }
-      if (!address && user.address) {
-        setAddress(user.address);
+
+      let prefCity = user.city || '';
+      let prefZip = user.zipCode || '';
+      let prefStreet = user.address || '';
+
+      if (typeof window !== 'undefined') {
+        try {
+          const rawPref = localStorage.getItem('arboveya_shipping_pref');
+          if (rawPref) {
+            const parsed = JSON.parse(rawPref);
+            if (parsed.city && !prefCity) prefCity = parsed.city;
+            if (parsed.zipCode && !prefZip) prefZip = parsed.zipCode;
+            if (parsed.streetAddress && !prefStreet) prefStreet = parsed.streetAddress;
+            if (parsed.country && !user.nationality) setCountry(parsed.country);
+          }
+        } catch (_) {}
       }
-      if (!zipCode && (user as any).zipCode) {
-        setZipCode((user as any).zipCode);
+
+      if (!prefCity || !prefZip) {
+        if (user.address && user.address.includes(',')) {
+          const parts = user.address.split(',').map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            const lastPart = parts[parts.length - 1];
+            if (!prefZip && /^[\d\w\s-]+$/.test(lastPart) && lastPart.length <= 10) {
+              prefZip = lastPart;
+              if (!prefCity && parts.length >= 3) {
+                prefCity = parts[parts.length - 2];
+              }
+            } else if (!prefCity) {
+              prefCity = lastPart;
+            }
+          }
+        }
+      }
+
+      if (!address && prefStreet) {
+        setAddress(prefStreet);
+      }
+      if (!city && prefCity) {
+        setCity(prefCity);
+      }
+      if (!zipCode && prefZip) {
+        setZipCode(prefZip);
       }
     }
   }, [user]);
@@ -709,10 +747,10 @@ export default function CheckoutClient() {
                               type="button"
                               onClick={() => handleOpenContactSeller(item.product)}
                               className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
-                              title={`Ask the artisan/seller a question about ${item.product.name}`}
+                              title={`Chat with the seller about ${item.product.name}`}
                             >
                               <MessageSquare className="w-3 h-3 text-[#24492d]" />
-                              <span>Contact Seller</span>
+                              <span>Chat with Seller</span>
                             </button>
                           </div>
                         </div>
@@ -749,7 +787,7 @@ export default function CheckoutClient() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition whitespace-nowrap cursor-pointer shadow-2xs hover:border-[#24492d]"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
-                <span>Contact Seller</span>
+                <span>Chat with Seller</span>
               </button>
             </div>
 
@@ -928,7 +966,7 @@ export default function CheckoutClient() {
                 </div>
                 <div>
                   <h3 className="font-serif text-base sm:text-lg font-bold text-[#1c3f24] leading-tight">
-                    Contact Seller
+                    Chat with Seller
                   </h3>
                   <span className="text-[11px] text-[#52785a]">
                     Ask a question about this item before placing your order

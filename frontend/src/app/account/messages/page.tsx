@@ -207,35 +207,6 @@ function AccountMessagesContent() {
     <div className="min-h-screen bg-[#f7f9f7] flex flex-col font-sans">
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         
-        {/* Breadcrumb & Title */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#e5ebe5] pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-[#52785a] font-medium mb-1">
-              <Link href={isSeller ? "/seller" : "/buyer"} className="hover:underline">
-                {isSeller ? "Seller Studio" : "My Account"}
-              </Link>
-              <span>/</span>
-              <span className="text-[#1c3f24] font-bold">Messages</span>
-            </div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1c3f24] tracking-tight flex items-center gap-2.5">
-              <MessageSquare className="w-6 h-6 text-[#24492d]" />
-              <span>Inbox & Messages</span>
-            </h1>
-          </div>
-
-          <button
-            onClick={() => {
-              loadConversations();
-              if (selectedConversation) loadMessages(selectedConversation.id);
-            }}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#cfded0] bg-white text-xs font-semibold text-[#24492d] hover:bg-[#edf5ee] transition cursor-pointer shadow-2xs"
-            title="Refresh conversations and messages"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
-          </button>
-        </div>
-
         {/* Global Error Banner */}
         {errorMsg && (
           <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2">
@@ -257,15 +228,27 @@ function AccountMessagesContent() {
             
             {/* Search and Filters Header */}
             <div className="p-4 border-b border-[#e5ebe5] space-y-3 bg-[#fafcfa]">
-              <div className="relative">
-                <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search seller, product, or order..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search seller, product, or order..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    loadConversations();
+                    if (selectedConversation) loadMessages(selectedConversation.id);
+                  }}
+                  className="p-2 rounded-xl border border-[#cfded0] bg-white text-[#24492d] hover:bg-[#edf5ee] transition cursor-pointer shadow-2xs"
+                  title="Refresh conversations and messages"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Filters Pill Row */}

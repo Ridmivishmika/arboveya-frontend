@@ -92,7 +92,20 @@ function RegisterForm() {
       city.trim() || null,
       zipCode.trim() || null
     ].filter(Boolean);
+    const streetAddress = [addressLine1.trim(), addressLine2.trim()].filter(Boolean).join(', ');
     const compiledAddress = addressParts.join(', ');
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('arboveya_shipping_pref', JSON.stringify({
+          streetAddress: streetAddress || addressLine1.trim(),
+          address: streetAddress || addressLine1.trim(),
+          city: city.trim(),
+          zipCode: zipCode.trim(),
+          country: nationality
+        }));
+      } catch (_) {}
+    }
 
     try {
       await register({
@@ -101,7 +114,8 @@ function RegisterForm() {
         email,
         password,
         role: selectedRole,
-        address: compiledAddress,
+        address: streetAddress || compiledAddress,
+        city: city.trim(),
         zipCode: zipCode.trim(),
         nationality,
         phoneNumber: finalPhone,
@@ -378,12 +392,7 @@ function RegisterForm() {
             {selectedRole === 'Customer' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-stone-700">Country / Region *</label>
-                    <span className="text-[10px] text-[#2E4D38] font-bold uppercase tracking-wider bg-[#edf5ee] px-1.5 py-0.5 rounded">
-                      Non-Asian/African
-                    </span>
-                  </div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">Country / Region *</label>
                   <select
                     value={selectedCountry.name}
                     onChange={(e) => handleCountryChange(e.target.value)}

@@ -11,6 +11,7 @@ export interface UserProfile {
   email: string;
   role: 'Customer' | 'Seller' | 'Admin';
   address?: string;
+  city?: string;
   zipCode?: string;
   nationality?: string;
   phoneNumber?: string;
@@ -61,6 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: u.email,
           role: u.role,
           address: u.address || '',
+          city: u.city || '',
+          zipCode: u.zipCode || '',
           nationality: u.nationality || '',
           phoneNumber: u.phoneNumber || '',
           isSellerApproved: u.isSellerApproved ?? false,
@@ -118,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: u.email,
               role: u.role,
               address: u.address || '',
+              city: u.city || '',
+              zipCode: u.zipCode || '',
               nationality: u.nationality || '',
               phoneNumber: u.phoneNumber || '',
               isSellerApproved: u.isSellerApproved ?? false
@@ -202,6 +207,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: u.email,
         role: u.role,
         address: u.address || '',
+        city: u.city || '',
+        zipCode: u.zipCode || '',
         nationality: u.nationality || '',
         phoneNumber: u.phoneNumber || '',
         isSellerApproved: u.isSellerApproved ?? false,
@@ -247,10 +254,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fullName: (fName + ' ' + lName).trim(),
         email: u.email,
         role: u.role,
-        address: u.address || '',
+        address: u.address || data.address || '',
+        city: data.city || u.city || '',
         zipCode: data.zipCode || u.zipCode || '',
-        nationality: u.nationality || '',
-        phoneNumber: u.phoneNumber || '',
+        nationality: u.nationality || data.nationality || '',
+        phoneNumber: u.phoneNumber || data.phoneNumber || '',
         isSellerApproved: u.isSellerApproved ?? false,
         bankName: u.bankName || '',
         bankAccountName: u.bankAccountName || '',

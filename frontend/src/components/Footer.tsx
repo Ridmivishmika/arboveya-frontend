@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Mail, Phone, MapPin, MessageCircle, ExternalLink } from 'lucide-react';
+import { Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
 
 interface FooterProps {
   facebookLink?: string;
@@ -71,75 +71,67 @@ export default function Footer({
               Dedicated to authentic herbal wellness, crafted from nature&apos;s purest botanical harvests to rejuvenate mind, body, and vitality.
             </p>
 
-            {/* Direct Connect & Social Links: Facebook, WhatsApp, Phone, Email */}
-            <div className="pt-2 space-y-2 text-xs">
-
-              {/* Follow us on Facebook */}
-              <div>
+            {/* Direct Connect & Social Icons: Facebook, WhatsApp, Phone, Email */}
+            <div className="pt-2">
+              <div className="flex items-center gap-3">
+                {/* Facebook Logo */}
                 <a
                   href={effectiveFacebook}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
+                  className="w-10 h-10 rounded-full bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] hover:border-[#427b4d] flex items-center justify-center text-[#e8dfc7] hover:text-white transition-all shadow-xs hover:scale-110 group cursor-pointer"
+                  aria-label="Facebook"
+                  title="Follow Arboveya on Facebook"
                 >
-                  <svg className="w-4 h-4 fill-[#1877F2] bg-white rounded-full p-0.5 flex-shrink-0" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 fill-current group-hover:text-[#1877F2] transition-colors" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>
-                  <span className="font-medium">Follow us on Facebook</span>
-                  <ExternalLink className="w-3 h-3 text-[#7e9984] group-hover:text-white transition-colors ml-auto sm:ml-1" />
                 </a>
-              </div>
 
-              {/* Chat on WhatsApp */}
-              <div>
+                {/* WhatsApp Logo */}
                 <a
                   href={`https://wa.me/${waLinkDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
+                  className="w-10 h-10 rounded-full bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] hover:border-[#427b4d] flex items-center justify-center text-[#e8dfc7] hover:text-white transition-all shadow-xs hover:scale-110 group cursor-pointer"
+                  aria-label="WhatsApp"
+                  title={`Chat with Arboveya on WhatsApp (${effectiveWhatsApp})`}
                 >
-                  <MessageCircle className="w-4 h-4 text-[#25D366] flex-shrink-0" />
-                  <span className="font-medium">
-                    Chat on WhatsApp: <span className="text-white font-semibold">{effectiveWhatsApp}</span>
-                  </span>
-                  <ExternalLink className="w-3 h-3 text-[#7e9984] group-hover:text-white transition-colors ml-auto sm:ml-1" />
+                  <MessageCircle className="w-4 h-4 group-hover:text-[#25D366] transition-colors" />
                 </a>
-              </div>
 
-              {/* Call Us Phone */}
-              <div>
-                <a
-                  href={`tel:${effectivePhone.replace(/[^0-9+]/g, '')}`}
-                  className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
-                >
-                  <Phone className="w-4 h-4 text-[#c5a66a] flex-shrink-0" />
-                  <span className="font-medium">
-                    Call Us: <span className="text-white font-semibold">{effectivePhone}</span>
-                  </span>
-                </a>
-              </div>
+                {/* Call Phone Logo */}
+                {effectivePhone && (
+                  <a
+                    href={`tel:${effectivePhone.replace(/[^0-9+]/g, '')}`}
+                    className="w-10 h-10 rounded-full bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] hover:border-[#427b4d] flex items-center justify-center text-[#e8dfc7] hover:text-white transition-all shadow-xs hover:scale-110 group cursor-pointer"
+                    aria-label="Phone"
+                    title={`Call Us: ${effectivePhone}`}
+                  >
+                    <Phone className="w-4 h-4 group-hover:text-[#c5a66a] transition-colors" />
+                  </a>
+                )}
 
-              {/* Email Us */}
-              <div>
-                <a
-                  href={`mailto:${effectiveEmail}`}
-                  className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] text-[#e8dfc7] hover:text-white transition-all shadow-xs group w-full sm:w-auto"
-                >
-                  <Mail className="w-4 h-4 text-[#c5a66a] flex-shrink-0" />
-                  <span className="font-medium">
-                    Email Us: <span className="text-white font-semibold">{effectiveEmail}</span>
-                  </span>
-                </a>
+                {/* Email Logo */}
+                {effectiveEmail && (
+                  <a
+                    href={`mailto:${effectiveEmail}`}
+                    className="w-10 h-10 rounded-full bg-[#1c3f24] hover:bg-[#254d30] border border-[#2e5936] hover:border-[#427b4d] flex items-center justify-center text-[#e8dfc7] hover:text-white transition-all shadow-xs hover:scale-110 group cursor-pointer"
+                    aria-label="Email"
+                    title={`Email Us: ${effectiveEmail}`}
+                  >
+                    <Mail className="w-4 h-4 group-hover:text-[#c5a66a] transition-colors" />
+                  </a>
+                )}
               </div>
 
               {/* Botanical Sanctuary Address */}
-              <div className="flex items-start gap-2.5 pt-1.5 text-xs text-[#a3bda9]">
-                <MapPin className="w-4 h-4 text-[#c5a66a] flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 pt-3 text-xs text-[#a3bda9]">
+                <MapPin className="w-3.5 h-3.5 text-[#c5a66a] flex-shrink-0 mt-0.5" />
                 <span className="text-[#b2c8b8] leading-relaxed">
                   {effectiveAddress}
                 </span>
               </div>
-
             </div>
           </div>
 
