@@ -55,6 +55,7 @@ function AccountMessagesContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isPollingRef = useRef(false);
+  const isSeller = user?.role === 'Seller';
 
   // Authentication Guard: Redirect guests to login
   useEffect(() => {
@@ -214,7 +215,9 @@ function AccountMessagesContent() {
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#e5ebe5] pb-4">
           <div>
             <div className="flex items-center gap-2 text-xs text-[#52785a] font-medium mb-1">
-              <Link href="/buyer" className="hover:underline">My Account</Link>
+              <Link href={isSeller ? "/seller" : "/buyer"} className="hover:underline">
+                {isSeller ? "Seller Studio" : "My Account"}
+              </Link>
               <span>/</span>
               <span className="text-[#1c3f24] font-bold">Messages</span>
             </div>
@@ -299,13 +302,15 @@ function AccountMessagesContent() {
                   <Inbox className="w-10 h-10 text-[#a8c2af] mx-auto" />
                   <p className="font-semibold text-stone-700">No conversations found</p>
                   <p className="text-[11px] text-stone-500">
-                    When you contact a seller regarding a product or order, conversations will appear here.
+                    {isSeller
+                      ? 'When buyers send inquiries regarding your remedies or orders, conversations will appear here.'
+                      : 'When you contact a seller regarding a product or order, conversations will appear here.'}
                   </p>
                   <Link
-                    href="/shop"
+                    href={isSeller ? "/seller" : "/shop"}
                     className="inline-block mt-2 px-4 py-2 rounded-xl bg-[#24492d] text-white text-xs font-bold hover:bg-[#1a3821] transition"
                   >
-                    Explore Shop
+                    {isSeller ? 'Go to Seller Studio' : 'Explore Shop'}
                   </Link>
                 </div>
               ) : (
@@ -359,7 +364,11 @@ function AccountMessagesContent() {
                         </p>
 
                         <div className="flex items-center justify-between mt-1 text-[10px] text-[#52785a]">
-                          <span className="truncate">Seller: {conv.sellerName || 'Arboveya'}</span>
+                          <span className="truncate">
+                            {conv.sellerId === user?.id || isSeller
+                              ? `Customer: ${conv.buyerName || 'Buyer'}`
+                              : `Seller: ${conv.sellerName || 'Arboveya'}`}
+                          </span>
                           {conv.unreadCount > 0 && (
                             <span className="px-1.5 py-0.2 rounded-full bg-[#24492d] text-white font-extrabold text-[9px] animate-pulse">
                               {conv.unreadCount} new
@@ -401,7 +410,16 @@ function AccountMessagesContent() {
                         </span>
                       </div>
                       <p className="text-xs text-[#52785a] truncate">
-                        Contacting: <strong className="text-[#1c3f24]">{selectedConversation.sellerName || 'Arboveya Official'}</strong>
+                        {selectedConversation.sellerId === user?.id || isSeller ? (
+                          <>
+                            Customer: <strong className="text-[#1c3f24]">{selectedConversation.buyerName || 'Valued Buyer'}</strong>
+                            {selectedConversation.buyerEmail && <span className="ml-1 opacity-80">({selectedConversation.buyerEmail})</span>}
+                          </>
+                        ) : (
+                          <>
+                            Contacting: <strong className="text-[#1c3f24]">{selectedConversation.sellerName || 'Arboveya Official'}</strong>
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -421,7 +439,9 @@ function AccountMessagesContent() {
 
                   {selectedConversation.orderId && (
                     <Link
-                      href={`/buyer?tab=orders&highlight=${selectedConversation.orderId}`}
+                      href={isSeller 
+                        ? `/seller?tab=orders&highlight=${selectedConversation.orderId}` 
+                        : `/buyer?tab=orders&highlight=${selectedConversation.orderId}`}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] text-[#1c3f24] text-xs font-bold hover:bg-[#dcebdd] transition flex-shrink-0 cursor-pointer"
                     >
                       <Package className="w-3.5 h-3.5" />
@@ -483,8 +503,12 @@ function AccountMessagesContent() {
                     </div>
                   ) : (
                     messages.map((m) => {
-                      const isMe = m.isMine || m.isFromBuyer;
-                      const senderLabel = isMe ? 'You' : (m.senderRole === 'Admin' ? 'Arboveya Support' : m.senderName || 'Seller');
+                      const isMe = m.isMine ?? (m.senderId === user?.id);
+                      const senderLabel = isMe 
+                        ? 'You' 
+                        : (m.senderRole === 'Admin' 
+                            ? 'Arboveya Support' 
+                            : (m.senderName || (m.isFromBuyer ? 'Customer' : 'Seller')));
 
                       return (
                         <div
@@ -521,7 +545,9 @@ function AccountMessagesContent() {
                   <div className="flex items-end gap-2">
                     <textarea
                       rows={2}
-                      placeholder="Write your message here..."
+                      placeholder={isSeller 
+                        ? `Write your reply to ${selectedConversation.buyerName || 'the customer'}...` 
+                        : `Write your message to ${selectedConversation.sellerName || 'the seller'}...`}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => {

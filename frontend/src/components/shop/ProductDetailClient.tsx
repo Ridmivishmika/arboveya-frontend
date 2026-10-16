@@ -704,14 +704,49 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 <button
                   type="button"
                   onClick={handleOpenContactSeller}
-                  className="w-full py-2.5 px-4 rounded-lg border border-[#cfded0] bg-white hover:bg-[#edf5ee] text-[#1c3f24] text-xs sm:text-sm font-bold tracking-[0.08em] uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs mt-2"
+                  className="w-full py-3 px-4 rounded-lg border-2 border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs sm:text-sm font-bold tracking-[0.08em] uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs mt-2 hover:border-[#24492d]"
                   id="contact-seller-button"
                 >
                   <MessageSquare className="w-4 h-4 text-[#24492d]" />
-                  <span>Contact Seller</span>
+                  <span>Chat with Seller (Ask a Question)</span>
                 </button>
               </div>
             )}
+
+            {/* Merchant Identity & Live Support Card */}
+            <div className="p-4 rounded-2xl bg-[#f8faf8] border border-[#dce8dd] shadow-2xs space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#24492d] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                    {product.sellerName ? product.sellerName.charAt(0).toUpperCase() : 'A'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-stone-900">
+                        {product.sellerName || 'Arboveya Botanical Artisan'}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Verified Merchant</span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-stone-500">
+                      Direct Artisan Dispatch &bull; Replies within 1 hour
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenContactSeller}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#edf5ee] border border-[#bcd2bf] text-[#1c3f24] text-xs font-bold transition shadow-2xs cursor-pointer hover:border-[#24492d]"
+                  title="Open live chat with this seller"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                  <span>Chat with Seller</span>
+                </button>
+              </div>
+            </div>
 
             {/* Feature Badges Row (Matches Screenshot 2: 100% Natural, No Chemicals, Vegan, Non GMO) */}
             <div className="grid grid-cols-4 gap-2 pt-6 border-t border-[#f0f4f0] text-center">

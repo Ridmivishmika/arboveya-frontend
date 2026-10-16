@@ -45,7 +45,8 @@ import {
   Phone,
   MapPin,
   Globe,
-  Search
+  Search,
+  MessageSquare
 } from 'lucide-react';
 
 interface SellerOrderItem {
@@ -115,7 +116,7 @@ export default function SellerDashboardPage() {
   const { user, logout, updateUser, updateProfile, token, refreshUser, loading: authLoading } = useAuth();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'products' | 'articles' | 'orders' | 'payouts'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'articles' | 'orders' | 'payouts' | 'messages'>('products');
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
@@ -399,12 +400,14 @@ export default function SellerDashboardPage() {
         setActiveTab('products');
       } else if (tabParam === 'payouts') {
         setActiveTab('payouts');
+      } else if (tabParam === 'messages') {
+        setActiveTab('messages');
       }
     }
 
     const handleSetTab = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail === 'products' || customEvent.detail === 'articles' || customEvent.detail === 'orders' || customEvent.detail === 'payouts') {
+      if (customEvent.detail === 'products' || customEvent.detail === 'articles' || customEvent.detail === 'orders' || customEvent.detail === 'payouts' || customEvent.detail === 'messages') {
         setActiveTab(customEvent.detail);
       }
     };
@@ -855,7 +858,7 @@ export default function SellerDashboardPage() {
         {activeTab === 'products' && (
           <div className="space-y-6">
             {/* Metric KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Total Products</span>
@@ -894,6 +897,23 @@ export default function SellerDashboardPage() {
                 </p>
                 <p className="text-[11px] text-emerald-600 mt-1">Published to public store</p>
               </div>
+
+              <Link
+                href="/account/messages"
+                className="bg-white rounded-2xl border border-stone-200 p-5 shadow-2xs hover:border-[#2E4D38] hover:shadow-xs transition group block cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#24492d] uppercase tracking-wider">Customer Messages</span>
+                  <div className="p-2 rounded-xl bg-emerald-50 text-[#24492d] group-hover:bg-[#24492d] group-hover:text-white transition">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mt-2 flex items-center justify-between">
+                  <span>Chat Inbox</span>
+                  <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-[#24492d] group-hover:translate-x-1 transition" />
+                </p>
+                <p className="text-[11px] text-stone-400 mt-1">Reply to buyer questions & orders</p>
+              </Link>
             </div>
 
             {/* Product Inventory Table */}
@@ -1518,6 +1538,68 @@ export default function SellerDashboardPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: MESSAGES */}
+        {activeTab === 'messages' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-stone-100 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2E4D38] flex items-center justify-center flex-shrink-0">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-serif text-lg font-bold text-stone-900">Customer Messages & Buyer Inquiries</h2>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Respond to buyer questions, product consultations, and order shipping inquiries in real time.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/account/messages"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Open Full Messages Inbox</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 rounded-2xl bg-[#f7faf7] border border-[#dce8dd] space-y-2">
+                  <div className="flex items-center gap-2 text-[#1c3f24] font-bold text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-[#2E4D38]" />
+                    <span>Product Questions</span>
+                  </div>
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    When prospective buyers click &ldquo;Chat with Seller&rdquo; on any of your remedies, conversations appear in your inbox instantly.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-[#f7faf7] border border-[#dce8dd] space-y-2">
+                  <div className="flex items-center gap-2 text-[#1c3f24] font-bold text-sm">
+                    <Truck className="w-4 h-4 text-[#2E4D38]" />
+                    <span>Order Shipping & Support</span>
+                  </div>
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    Communicate dispatch progress, tracking updates, and delivery confirmations with buyers who ordered your items.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 text-center">
+                <Link
+                  href="/account/messages"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#2E4D38] hover:bg-[#243d2c] text-white text-xs font-bold uppercase tracking-wider transition shadow-md cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Go To Messages Dashboard</span>
+                </Link>
+              </div>
             </div>
           </div>
         )}

@@ -1660,8 +1660,19 @@ export default function BuyerDashboardPage() {
                                                </span>
                                              )}
                                            </div>
-                                           <div className="font-bold text-stone-900">
-                                             Order Total: <span className="text-[#2E4D38] font-serif text-sm">${order.totalAmount?.toFixed(2) || '0.00'}</span>
+                                           <div className="flex items-center gap-3">
+                                             <button
+                                               type="button"
+                                               onClick={() => handleContactSellerAboutOrder(order)}
+                                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] font-bold text-xs transition cursor-pointer shadow-2xs"
+                                               title="Chat with seller regarding this order"
+                                             >
+                                               <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                                               <span>Message Seller About Order</span>
+                                             </button>
+                                             <div className="font-bold text-stone-900">
+                                               Order Total: <span className="text-[#2E4D38] font-serif text-sm">${order.totalAmount?.toFixed(2) || '0.00'}</span>
+                                             </div>
                                            </div>
                                          </div>
                                        </div>
@@ -3031,7 +3042,7 @@ export default function BuyerDashboardPage() {
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between">
+            <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setSelectedOrderReceipt(null)}
@@ -3039,14 +3050,29 @@ export default function BuyerDashboardPage() {
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Invoice</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ord = selectedOrderReceipt;
+                    setSelectedOrderReceipt(null);
+                    handleContactSellerAboutOrder(ord);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition shadow-2xs cursor-pointer"
+                  title="Contact merchant about this order"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                  <span>Chat with Seller</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Invoice</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
