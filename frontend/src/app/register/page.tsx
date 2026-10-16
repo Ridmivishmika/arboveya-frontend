@@ -13,7 +13,7 @@ function RegisterForm() {
   const { register } = useAuth();
 
   const roleParam = searchParams.get('role');
-  const redirectParam = searchParams.get('redirect');
+  const redirectParam = searchParams.get('redirect') || searchParams.get('returnUrl');
 
   const [selectedRole, setSelectedRole] = useState<'Customer' | 'Seller'>('Customer');
   const [submitting, setSubmitting] = useState(false);

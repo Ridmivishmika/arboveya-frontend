@@ -5,15 +5,20 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   CheckCircle2, 
   Lock, 
   ArrowLeft, 
   ShoppingBag, 
   User,
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  X,
+  Loader2
 } from 'lucide-react';
-import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
+import { API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
+import { Product } from '@/types';
 
 declare global {
   interface Window {
@@ -27,7 +32,9 @@ declare global {
 }
 
 export default function CheckoutClient() {
-  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, token, loading: authLoading } = useAuth();
   const { 
     cart, 
     subtotal, 
@@ -54,6 +61,71 @@ export default function CheckoutClient() {
   const [orderSuccess, setOrderSuccess] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelNotice, setCancelNotice] = useState<string | null>(null);
+
+  // Contact Seller Modal State in Checkout
+  const [contactSellerModalOpen, setContactSellerModalOpen] = useState(false);
+  const [selectedContactProduct, setSelectedContactProduct] = useState<Product | null>(null);
+  const [contactSellerMessage, setContactSellerMessage] = useState('');
+  const [contactSellerLoading, setContactSellerLoading] = useState(false);
+  const [contactSellerError, setContactSellerError] = useState<string | null>(null);
+
+  // Auto-open contact seller modal if user returns from login with ?contactProduct=
+  useEffect(() => {
+    if (searchParams) {
+      const contactProdId = searchParams.get('contactProduct');
+      const shouldContact = searchParams.get('contactSeller') === '1' || searchParams.get('contactSeller') === 'true' || Boolean(contactProdId);
+      if (shouldContact && cart.length > 0) {
+        const found = contactProdId ? cart.find(i => i.product.id === contactProdId)?.product : cart[0]?.product;
+        if (found) {
+          setSelectedContactProduct(found);
+          if (user) {
+            setContactSellerModalOpen(true);
+          }
+        }
+      }
+    }
+  }, [searchParams, cart, user]);
+
+  const handleOpenContactSeller = (product?: Product) => {
+    const targetProduct = product || cart[0]?.product;
+    if (!targetProduct) return;
+    if (!user) {
+      const returnUrl = encodeURIComponent(`/checkout?contactProduct=${targetProduct.id}`);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    setSelectedContactProduct(targetProduct);
+    setContactSellerError(null);
+    setContactSellerModalOpen(true);
+  };
+
+  const handleSubmitContactSeller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedContactProduct) return;
+    if (!user || !token) {
+      const returnUrl = encodeURIComponent(`/checkout?contactProduct=${selectedContactProduct.id}`);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    const cleanMsg = contactSellerMessage.trim();
+    if (!cleanMsg) {
+      setContactSellerError('Please enter your question for the seller.');
+      return;
+    }
+
+    try {
+      setContactSellerLoading(true);
+      setContactSellerError(null);
+      const conv = await startProductConversation(selectedContactProduct.id, cleanMsg, token);
+      setContactSellerModalOpen(false);
+      setContactSellerMessage('');
+      router.push(`/account/messages?id=${conv.id}`);
+    } catch (err: any) {
+      setContactSellerError(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setContactSellerLoading(false);
+    }
+  };
 
   // Auto pre-populate user details when authenticated
   useEffect(() => {
@@ -633,6 +705,15 @@ export default function CheckoutClient() {
                                 {item.product.weight ? `Weight: ${item.product.weight}` : item.product.categoryName}
                               </p>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenContactSeller(item.product)}
+                              className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
+                              title={`Ask the artisan/seller a question about ${item.product.name}`}
+                            >
+                              <MessageSquare className="w-3 h-3 text-[#24492d]" />
+                              <span>Contact Seller</span>
+                            </button>
                           </div>
                         </div>
                       </td>
@@ -649,6 +730,27 @@ export default function CheckoutClient() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Quick Contact Seller Assistance Banner */}
+            <div className="p-3.5 rounded-xl bg-white border border-[#ccdacc] flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-[#edf5ee] text-[#24492d] flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#1c3f24] truncate">Need order assistance?</p>
+                  <p className="text-[11px] text-[#556e59] truncate">Chat directly with the artisan before purchasing</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenContactSeller(cart[0]?.product)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition whitespace-nowrap cursor-pointer shadow-2xs hover:border-[#24492d]"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                <span>Contact Seller</span>
+              </button>
             </div>
 
             {/* Shipping Method Selector */}
@@ -812,6 +914,122 @@ export default function CheckoutClient() {
         </form>
 
       </div>
+
+      {/* ================= CONTACT SELLER MODAL IN CHECKOUT ================= */}
+      {contactSellerModalOpen && selectedContactProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl border border-[#dbe6dc] space-y-4">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#e5ebe5]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#edf5ee] flex items-center justify-center text-[#24492d]">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-base sm:text-lg font-bold text-[#1c3f24] leading-tight">
+                    Contact Seller
+                  </h3>
+                  <span className="text-[11px] text-[#52785a]">
+                    Ask a question about this item before placing your order
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactSellerModalOpen(false)}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Product Summary Preview Card */}
+            <div className="p-3 rounded-xl bg-[#f7faf7] border border-[#dbe6dc] flex items-center gap-3">
+              {selectedContactProduct.imageUrl && (
+                <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-[#d2ded3] flex-shrink-0">
+                  <Image
+                    src={resolveBackendImageUrl(selectedContactProduct.imageUrl)}
+                    alt={selectedContactProduct.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-xs text-[#1c3f24] truncate">{selectedContactProduct.name}</h4>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-extrabold text-[#24492d]">
+                    ${Number(selectedContactProduct.price).toFixed(2)} USD
+                  </span>
+                  {selectedContactProduct.sellerName && (
+                    <span className="text-[10px] text-stone-500">Seller: {selectedContactProduct.sellerName}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Error Message if any */}
+            {contactSellerError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                <span>{contactSellerError}</span>
+              </div>
+            )}
+
+            {/* Question Input Form */}
+            <form onSubmit={handleSubmitContactSeller} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#1c3f24] mb-1.5">
+                  Your Message or Question
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  maxLength={4000}
+                  placeholder="e.g. Hello, what is the shelf life of this herbal remedy? Can it be dispatched expedited?"
+                  value={contactSellerMessage}
+                  onChange={(e) => setContactSellerMessage(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
+                />
+                <div className="flex items-center justify-between text-[10px] text-stone-500 mt-1">
+                  <span>Replies appear in your Messages inbox</span>
+                  <span>{contactSellerMessage.length}/4000</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e5ebe5]">
+                <button
+                  type="button"
+                  onClick={() => setContactSellerModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={contactSellerLoading || !contactSellerMessage.trim()}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {contactSellerLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending Message...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Send to Seller</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -179,8 +179,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
     logout('/');
   };
 
-  const isSellerStudio = pathname?.startsWith('/seller');
-  const isBuyerPortal = pathname?.startsWith('/buyer');
+  const isSellerStudio = pathname?.startsWith('/seller') || (pathname?.startsWith('/account/messages') && user?.role === 'Seller');
+  const isBuyerPortal = pathname?.startsWith('/buyer') || (pathname?.startsWith('/account/messages') && user?.role === 'Customer');
   const isAdminPortal = pathname?.startsWith('/admin');
 
   // Admin pages have their dedicated AdminHeader component with store navigation
@@ -291,10 +291,13 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               {/* Messages Nav Link */}
               <Link
                 href="/account/messages"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs border border-[#bcd2bf] bg-white hover:bg-[#edf5ee] text-[#1c3f24] cursor-pointer"
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs ${pathname?.startsWith('/account/messages')
+                    ? 'bg-[#2E4D38] text-white shadow-xs'
+                    : 'border border-[#bcd2bf] bg-white hover:bg-[#edf5ee] text-[#1c3f24]'
+                  } cursor-pointer`}
                 title="Customer Messages & Inquiries"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                <MessageSquare className={`w-3.5 h-3.5 ${pathname?.startsWith('/account/messages') ? 'text-white' : 'text-[#24492d]'}`} />
                 <span>Messages</span>
               </Link>
 
@@ -632,10 +635,13 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
               {/* Messages Nav Link */}
               <Link
                 href="/account/messages"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs border border-[#bcd2bf] bg-white hover:bg-[#edf5ee] text-[#1c3f24] cursor-pointer"
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs ${pathname?.startsWith('/account/messages')
+                    ? 'bg-[#2E4D38] text-white shadow-xs'
+                    : 'border border-[#bcd2bf] bg-white hover:bg-[#edf5ee] text-[#1c3f24]'
+                  } cursor-pointer`}
                 title="Customer Messages & Inquiries"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
+                <MessageSquare className={`w-3.5 h-3.5 ${pathname?.startsWith('/account/messages') ? 'text-white' : 'text-[#24492d]'}`} />
                 <span>Messages</span>
               </Link>
 

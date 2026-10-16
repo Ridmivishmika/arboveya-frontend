@@ -29,7 +29,7 @@ import {
 import { Product, ProductReview } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { submitPublicReview, API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
 
 // Customer reviews loaded directly from database
@@ -43,6 +43,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
   const { addToCart } = useCart();
   const { user, token } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   // Gallery state
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -57,6 +58,15 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
   const [contactSellerMessage, setContactSellerMessage] = useState('');
   const [contactSellerLoading, setContactSellerLoading] = useState(false);
   const [contactSellerError, setContactSellerError] = useState<string | null>(null);
+
+  // Auto-open Contact Seller modal when returning from login/registration
+  useEffect(() => {
+    if (searchParams && (searchParams.get('contactSeller') === '1' || searchParams.get('contactSeller') === 'true')) {
+      if (user) {
+        setContactSellerModalOpen(true);
+      }
+    }
+  }, [searchParams, user]);
 
   const [selectedVariant, setSelectedVariant] = useState<import('@/types').ProductVariant | undefined>(
     () => {
@@ -236,7 +246,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
 
   const handleOpenContactSeller = () => {
     if (!user) {
-      const returnUrl = encodeURIComponent(window.location.pathname);
+      const returnUrl = encodeURIComponent(`${window.location.pathname}?contactSeller=1`);
       router.push(`/login?returnUrl=${returnUrl}`);
       return;
     }
@@ -247,7 +257,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
   const handleSubmitContactSeller = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !token) {
-      const returnUrl = encodeURIComponent(window.location.pathname);
+      const returnUrl = encodeURIComponent(`${window.location.pathname}?contactSeller=1`);
       router.push(`/login?returnUrl=${returnUrl}`);
       return;
     }

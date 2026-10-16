@@ -234,7 +234,8 @@ export default function BuyerDashboardPage() {
   const handleContactSellerAboutOrder = async (order: any) => {
     const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '');
     if (!authToken) {
-      router.push('/login');
+      const returnUrl = encodeURIComponent('/buyer?tab=orders');
+      router.push(`/login?returnUrl=${returnUrl}`);
       return;
     }
     try {

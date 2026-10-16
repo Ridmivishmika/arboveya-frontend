@@ -21,8 +21,6 @@ import {
   ShoppingBag,
   Inbox
 } from 'lucide-react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import { useAuth } from '@/context/AuthContext';
 import { 
   getMyConversations, 
@@ -207,9 +205,7 @@ function AccountMessagesContent() {
 
   return (
     <div className="min-h-screen bg-[#f7f9f7] flex flex-col font-sans">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         
         {/* Breadcrumb & Title */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#e5ebe5] pb-4">
@@ -601,9 +597,7 @@ function AccountMessagesContent() {
           </div>
         </div>
 
-      </main>
-
-      <Footer />
+      </div>
     </div>
   );
 }
