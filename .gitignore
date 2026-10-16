@@ -1,0 +1,39 @@
+# Environment & Secrets (Never commit credentials)
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# .NET / C#
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+appsettings.Production.json
+
+# IDE & Editor Settings
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Operating System
+Thumbs.db
+ehthumbs.db
+.DS_Store
