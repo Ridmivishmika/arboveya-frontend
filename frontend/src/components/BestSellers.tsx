@@ -47,7 +47,10 @@ export default function BestSellers({ products }: BestSellersProps) {
             const lowestVariant = product.variants && product.variants.length > 0
               ? [...product.variants].sort((a, b) => a.price - b.price)[0]
               : undefined;
-            const displayPrice = lowestVariant ? lowestVariant.price : product.price;
+            const rawPrice = lowestVariant ? lowestVariant.price : product.price;
+            const discPct = Number(product.discountPercentage) || 0;
+            const isDiscounted = discPct > 0;
+            const displayPrice = isDiscounted ? rawPrice * (1 - discPct / 100) : rawPrice;
             const displayWeight = lowestVariant ? lowestVariant.weight : product.weight;
 
             return (
@@ -57,11 +60,18 @@ export default function BestSellers({ products }: BestSellersProps) {
               >
                 {/* Top Badge & Wishlist row */}
                 <div className="flex items-center justify-between h-5 mb-1 z-10">
-                  {product.isBestSeller ? (
-                    <span className="bg-[#2a4d31] text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs">
-                      BEST SELLER
-                    </span>
-                  ) : <span />}
+                  <div className="flex items-center gap-1">
+                    {product.isBestSeller && (
+                      <span className="bg-[#2a4d31] text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs">
+                        BEST SELLER
+                      </span>
+                    )}
+                    {isDiscounted && (
+                      <span className="bg-amber-500 text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs">
+                        {discPct}% OFF
+                      </span>
+                    )}
+                  </div>
 
                   <button
                     onClick={(e) => toggleWishlist(product.id, e)}
@@ -100,6 +110,11 @@ export default function BestSellers({ products }: BestSellersProps) {
                       <span className="text-xs font-bold text-[#1a3826]">
                         ${displayPrice.toFixed(2)}
                       </span>
+                      {isDiscounted && (
+                        <span className="text-[10px] text-stone-400 line-through">
+                          ${rawPrice.toFixed(2)}
+                        </span>
+                      )}
                       {displayWeight && (
                         <span className="text-[10px] font-medium text-[#24492d] bg-[#edf5ee] px-1.5 py-0.2 rounded border border-[#d2e2d4]">
                           {displayWeight}

@@ -213,7 +213,9 @@ export default function CartClient() {
                 </thead>
                 <tbody className="divide-y divide-[#e5ebe5]">
                   {cart.map((item) => {
-                    const linePrice = item.selectedVariant?.price ?? Number(item.product.price);
+                    const rawLinePrice = item.selectedVariant?.price ?? Number(item.product.price);
+                    const discPct = Number(item.product.discountPercentage) || 0;
+                    const linePrice = discPct > 0 ? rawLinePrice * (1 - discPct / 100) : rawLinePrice;
                     const lineTotal = linePrice * item.quantity;
                     const vKey = item.selectedVariant?.weight;
                     return (
@@ -247,6 +249,11 @@ export default function CartClient() {
                                   {item.product.weight}
                                 </span>
                               ) : null}
+                              {discPct > 0 && (
+                                <span className="inline-block mt-0.5 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
+                                  🏷️ {item.product.offerName || 'Special Offer'} ({discPct}% OFF)
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleOpenContactSeller(item.product)}
@@ -262,7 +269,12 @@ export default function CartClient() {
 
                         {/* Price Column */}
                         <td className="py-5 px-2 sm:px-4 text-center text-xs sm:text-sm font-semibold text-[#1c3f24]">
-                          ${linePrice.toFixed(2)}
+                          <div>${linePrice.toFixed(2)}</div>
+                          {discPct > 0 && (
+                            <div className="text-[10px] text-stone-400 line-through">
+                              ${rawLinePrice.toFixed(2)}
+                            </div>
+                          )}
                         </td>
 
                         {/* Quantity Column */}

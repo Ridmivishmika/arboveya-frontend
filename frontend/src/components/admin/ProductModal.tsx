@@ -24,7 +24,9 @@ import {
   Calendar,
   Truck,
   FileText,
-  RotateCcw
+  RotateCcw,
+  Tag,
+  Clock
 } from 'lucide-react';
 import { Product, Category, WellnessNeed, CreateProductInput, UpdateProductInput, ProductVariant } from '@/types';
 import { uploadProductImage, uploadMultipleProductImages, resolveBackendImageUrl } from '@/lib/api';
@@ -71,13 +73,22 @@ export default function ProductModal({
 
   // Photos state (up to 10 photos uploaded from device)
   const [photos, setPhotos] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   // New Botanical & Commercial Attributes
   const [countryOfOrigin, setCountryOfOrigin] = useState('Sri Lanka');
   const [condition, setCondition] = useState('Brand New / Fresh Harvest');
-  const [manufactureDate, setManufactureDate] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [whenToUse, setWhenToUse] = useState('');
   const [specifications, setSpecifications] = useState('');
+
+  // Discounts & Promotional Offers
+  const [hasDiscount, setHasDiscount] = useState(false);
+  const [offerName, setOfferName] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState<number | ''>('');
+
+  // Unit Type for Variants (Weight, Pieces, Leaves, Custom)
+  const [unitType, setUnitType] = useState<'weight' | 'pieces' | 'leaves' | 'custom'>('weight');
 
   // Shipping & Schedule Options
   const [shippingOptions, setShippingOptions] = useState<Array<{
@@ -107,6 +118,7 @@ export default function ProductModal({
       setKeyBenefits(initialData.keyBenefits || '');
       setIngredients(initialData.ingredients || '');
       setHowToUse(initialData.howToUse || '');
+      setWhenToUse(initialData.whenToUse || '');
       setIsBestSeller(Boolean(initialData.isBestSeller));
 
       // Photos
@@ -125,11 +137,17 @@ export default function ProductModal({
       // New Attributes
       setCountryOfOrigin(initialData.countryOfOrigin || 'Sri Lanka');
       setCondition(initialData.condition || 'Brand New / Fresh Harvest');
-      setManufactureDate(initialData.manufactureDate ? initialData.manufactureDate.split('T')[0] : '');
-      setExpiryDate(initialData.expiryDate ? initialData.expiryDate.split('T')[0] : '');
+      setExpirationDate(initialData.expirationDate || (initialData.expiryDate ? initialData.expiryDate.split('T')[0] : ''));
       setSpecifications(initialData.specifications || '');
       setHandlingTime(initialData.handlingTime || '1 business day');
       setReturnPolicy(initialData.returnPolicy || '30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
+
+      // Discounts & Offers
+      const existingDiscount = Number(initialData.discountPercentage || 0);
+      const existingOffer = initialData.offerName || '';
+      setHasDiscount(existingDiscount > 0 || Boolean(existingOffer));
+      setOfferName(existingOffer);
+      setDiscountPercentage(existingDiscount > 0 ? existingDiscount : '');
 
       // Parse multi-shipping methods
       let parsedOptions: any[] = [];
@@ -161,15 +179,25 @@ export default function ProductModal({
         setShippingOptions(defaultList);
       }
 
-      // Variants
-      if (initialData.variants && initialData.variants.length > 0) {
-        setVariants(initialData.variants.map(v => ({ ...v })));
+      // Variants & Unit Type inference
+      const loadedVariants = (initialData.variants && initialData.variants.length > 0)
+        ? initialData.variants.map(v => ({ ...v }))
+        : [{
+            weight: initialData.weight || '100g',
+            price: Number(initialData.price) || 24.99,
+            stockQuantity: Number(initialData.stockQuantity) || 50
+          }];
+      setVariants(loadedVariants);
+
+      const firstOpt = (loadedVariants[0]?.weight || initialData.weight || '').toLowerCase();
+      if (firstOpt.includes('pc') || firstOpt.includes('capsule') || firstOpt.includes('tablet')) {
+        setUnitType('pieces');
+      } else if (firstOpt.includes('leaf') || firstOpt.includes('leaves') || firstOpt.includes('bunch')) {
+        setUnitType('leaves');
+      } else if (firstOpt.includes('pack') || firstOpt.includes('bottle') || firstOpt.includes('ml') || firstOpt.includes('box')) {
+        setUnitType('custom');
       } else {
-        setVariants([{
-          weight: initialData.weight || '100g',
-          price: Number(initialData.price) || 24.99,
-          stockQuantity: Number(initialData.stockQuantity) || 50
-        }]);
+        setUnitType('weight');
       }
     } else {
       setName('');
@@ -179,12 +207,16 @@ export default function ProductModal({
       setKeyBenefits('');
       setIngredients('');
       setHowToUse('');
+      setWhenToUse('');
       setIsBestSeller(false);
       setPhotos([]);
       setCountryOfOrigin('Sri Lanka');
       setCondition('Brand New / Fresh Harvest');
-      setManufactureDate('');
-      setExpiryDate('');
+      setExpirationDate('');
+      setHasDiscount(false);
+      setOfferName('');
+      setDiscountPercentage('');
+      setUnitType('weight');
       setSpecifications('');
       setShippingOptions([
         { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
@@ -200,12 +232,15 @@ export default function ProductModal({
 
   if (!isOpen) return null;
 
-  // Handle Multi-photo upload from device (up to 10 photos)
-  const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length === 0) return;
+  // Process image files (from file input or drag-and-drop)
+  const processFilesUpload = async (files: File[]) => {
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      setError('Please select or drop valid image files (PNG, JPG, WebP, AVIF).');
+      return;
+    }
 
-    if (photos.length + files.length > 10) {
+    if (photos.length + imageFiles.length > 10) {
       setError(`You can upload a maximum of 10 photos. You already have ${photos.length} photo(s).`);
       return;
     }
@@ -214,13 +249,11 @@ export default function ProductModal({
       setUploadingImage(true);
       setError(null);
 
-      // Attempt multiple upload via backend API
       let newUrls: string[] = [];
       try {
-        newUrls = await uploadMultipleProductImages(files);
+        newUrls = await uploadMultipleProductImages(imageFiles);
       } catch {
-        // Fallback to sequential single uploads
-        for (const file of files) {
+        for (const file of imageFiles) {
           try {
             const url = await uploadProductImage(file);
             newUrls.push(url);
@@ -240,6 +273,33 @@ export default function ProductModal({
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const handleDeviceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length > 0) processFilesUpload(files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const droppedFiles = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    if (droppedFiles.length > 0) {
+      processFilesUpload(droppedFiles);
     }
   };
 
@@ -303,6 +363,11 @@ export default function ProductModal({
     const primaryShipping = shippingOptions[0];
     const hasFree = shippingOptions.some(o => o.name === 'Free Shipping' || Number(o.cost) === 0);
 
+    if (hasDiscount && (!offerName.trim() || !discountPercentage || Number(discountPercentage) <= 0)) {
+      setError('Please provide both an Offer Name and a valid Discount Percentage (or disable the offer option).');
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError(null);
@@ -320,11 +385,13 @@ export default function ProductModal({
         keyBenefits: keyBenefits.trim() || undefined,
         ingredients: ingredients.trim() || undefined,
         howToUse: howToUse.trim() || undefined,
+        whenToUse: whenToUse.trim() || undefined,
         isBestSeller: isSeller ? false : isBestSeller,
         countryOfOrigin: countryOfOrigin.trim() || undefined,
         condition: condition.trim() || undefined,
-        manufactureDate: manufactureDate ? new Date(manufactureDate).toISOString() : undefined,
-        expiryDate: expiryDate ? new Date(expiryDate).toISOString() : undefined,
+        expirationDate: expirationDate.trim() || undefined,
+        offerName: hasDiscount && offerName.trim() ? offerName.trim() : undefined,
+        discountPercentage: hasDiscount && Number(discountPercentage) > 0 ? Number(discountPercentage) : 0,
         specifications: specifications.trim() || undefined,
         shippingMethod: primaryShipping.name,
         estimatedDeliveryTime: primaryShipping.estimatedDeliveryTime,
@@ -501,18 +568,36 @@ export default function ProductModal({
               />
             </div>
 
-            {/* Photo Gallery Grid */}
+            {/* Photo Gallery Grid with Drag and Drop Support */}
             {photos.length === 0 ? (
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="p-6 border-2 border-dashed border-[#b8dabf] rounded-xl bg-white text-center cursor-pointer hover:bg-[#f2f8f3] transition-colors"
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${
+                  isDragging
+                    ? 'border-[#24492d] bg-[#ebf6ed] ring-2 ring-[#24492d]/30 scale-[1.01]'
+                    : 'border-[#b8dabf] bg-white hover:bg-[#f2f8f3]'
+                }`}
               >
-                <Upload className="w-7 h-7 mx-auto text-[#436e4b] mb-1.5" />
-                <p className="text-xs font-semibold text-[#1c3f24]">Click to upload photos from your device</p>
+                <Upload className={`w-7 h-7 mx-auto mb-1.5 transition-transform ${isDragging ? 'text-[#1c3f24] -translate-y-1' : 'text-[#436e4b]'}`} />
+                <p className="text-xs font-semibold text-[#1c3f24]">
+                  {isDragging ? 'Drop botanical images here to upload' : 'Click or Drag & Drop photos here to upload'}
+                </p>
                 <p className="text-[11px] text-[#698870] mt-0.5">PNG, JPG, WebP, AVIF up to 10MB each (max 10 photos)</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+              <div 
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1 p-2 rounded-xl transition-colors ${
+                  isDragging ? 'bg-[#eaf4eb] ring-2 ring-[#24492d] ring-dashed' : ''
+                }`}
+              >
                 {photos.map((photoUrl, idx) => {
                   const isMain = idx === 0;
                   return (
@@ -556,15 +641,33 @@ export default function ProductModal({
                     </div>
                   );
                 })}
+
+                {/* Drag and Drop Card to Add More (up to 10 photos) */}
+                {photos.length < 10 && (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center p-2 text-center cursor-pointer transition-all ${
+                      isDragging 
+                        ? 'border-[#24492d] bg-[#dbeedd] scale-105' 
+                        : 'border-[#b8dabf] bg-[#fafcfa] hover:bg-[#edf5ee]'
+                    }`}
+                  >
+                    <Upload className="w-5 h-5 text-[#436e4b] mb-1" />
+                    <span className="text-[10px] font-bold text-[#1c3f24] leading-tight">
+                      {isDragging ? 'Drop here' : 'Add Photo'}
+                    </span>
+                    <span className="text-[9px] text-[#698870]">Drag &amp; drop</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Section 4: Origin, Condition & Dates */}
+          {/* Section 4: Botanical Origin, Condition & Expiration Date */}
           <div className="space-y-3 p-4 rounded-xl bg-[#fafcfa] border border-[#d8e6da]">
             <div className="flex items-center gap-2 pb-1 border-b border-[#e6efe7]">
               <Globe className="w-4 h-4 text-[#24492d]" />
-              <h4 className="text-xs font-bold text-[#1c3f24]">Botanical Origin, Condition &amp; Lifecycle Dates</h4>
+              <h4 className="text-xs font-bold text-[#1c3f24]">Botanical Origin, Condition &amp; Expiration Date</h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -600,38 +703,28 @@ export default function ProductModal({
                 </select>
               </div>
 
-              {/* Manufacture Date */}
-              <div className="space-y-1">
+              {/* Expiration Date - Text field per request (Manufacture Date removed) */}
+              <div className="space-y-1 sm:col-span-2">
                 <label className="block text-[11px] font-semibold text-[#1c3f24] flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-[#24492d]" />
-                  Manufacture Date
+                  <Calendar className="w-3.5 h-3.5 text-[#24492d]" />
+                  Expiration Date
                 </label>
                 <input
-                  type="date"
-                  value={manufactureDate}
-                  onChange={(e) => setManufactureDate(e.target.value)}
+                  type="text"
+                  value={expirationDate}
+                  onChange={(e) => setExpirationDate(e.target.value)}
+                  placeholder="e.g. 24 Months from packaging, Best before Dec 2026, or MM/YYYY"
                   className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                 />
-              </div>
-
-              {/* Expiry Date */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold text-[#1c3f24] flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-[#24492d]" />
-                  Expiry Date / Best Before
-                </label>
-                <input
-                  type="date"
-                  value={expiryDate}
-                  onChange={(e) => setExpiryDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-                />
+                <p className="text-[10px] text-[#5d7762]">
+                  Enter the expiration period, shelf life, or best before date in text format for customers.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Section 5: Weight, Pricing & Stock Options (Without Lowest pill badge in chart) */}
-          <div className="space-y-3 p-4 rounded-xl bg-[#f0f7f1] border border-[#c9dece]">
+          {/* Section 5: Weight, Pricing & Stock Options with Unit Type Selection */}
+          <div className="space-y-3.5 p-4 rounded-xl bg-[#f0f7f1] border border-[#c9dece]">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <label className="block text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
@@ -639,39 +732,139 @@ export default function ProductModal({
                   Weight, Pricing &amp; Stock Options <span className="text-red-500">*</span>
                 </label>
                 <p className="text-[11px] text-[#5c7561] mt-0.5">
-                  Add weight variations with individual prices. The lowest price will be displayed as the base storefront price on the homepage.
+                  First select whether you sell by weight, pieces, leaves, or other options. Then configure your options and prices.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
+                  const presetName = unitType === 'weight' ? '100g' : unitType === 'pieces' ? '30 pcs' : unitType === 'leaves' ? '50 Leaves' : '1 Pack';
                   setVariants(prev => [
                     ...prev,
-                    { weight: '', price: prev.length > 0 ? prev[prev.length - 1].price : 24.99, stockQuantity: 50 }
+                    { weight: presetName, price: prev.length > 0 ? prev[prev.length - 1].price : 24.99, stockQuantity: 50 }
                   ]);
                 }}
                 className="flex items-center gap-1 text-[11px] font-semibold text-[#24492d] hover:text-[#1a3821] bg-white border border-[#24492d]/40 px-3 py-1.5 rounded-lg hover:bg-[#edf5ee] transition-all cursor-pointer shadow-2xs"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
-                Add Weight Option
+                Add {unitType === 'weight' ? 'Weight' : unitType === 'pieces' ? 'Pieces' : unitType === 'leaves' ? 'Leaves' : 'Custom'} Option
               </button>
+            </div>
+
+            {/* Step 1: Unit Type Selector */}
+            <div className="space-y-1.5 bg-white p-3 rounded-xl border border-[#c6dfca] shadow-2xs">
+              <label className="block text-[11px] font-bold text-[#2d4b32] uppercase tracking-wider">
+                Select Pricing &amp; Measurement Unit:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUnitType('weight')}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                    unitType === 'weight'
+                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
+                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
+                  }`}
+                >
+                  <Weight className="w-3.5 h-3.5" />
+                  <span>Weight (g / kg)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUnitType('pieces')}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                    unitType === 'pieces'
+                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
+                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
+                  }`}
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Pieces (pcs / count)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUnitType('leaves')}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                    unitType === 'leaves'
+                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
+                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
+                  }`}
+                >
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  <span>Leaves / Bunch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUnitType('custom')}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                    unitType === 'custom'
+                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
+                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Custom / Other</span>
+                </button>
+              </div>
+
+              {/* Quick Add Presets based on selected unit */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-[#e3ede5] mt-2">
+                <span className="text-[10px] font-bold text-[#45634b] uppercase">Quick Add:</span>
+                {(unitType === 'weight' 
+                  ? ['50g', '100g', '250g', '500g', '1kg'] 
+                  : unitType === 'pieces' 
+                  ? ['10 pcs', '30 pcs', '60 pcs', '100 pcs', '120 pcs']
+                  : unitType === 'leaves'
+                  ? ['25 Leaves', '50 Leaves', '100 Leaves', '1 Bunch', '3 Bunches']
+                  : ['1 Pack', '2 Pack Bundle', '100ml', '250ml', '500ml']
+                ).map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      if (variants.length === 1 && (!variants[0].weight || variants[0].weight.trim() === '')) {
+                        setVariants([{ ...variants[0], weight: preset }]);
+                      } else {
+                        setVariants(prev => [
+                          ...prev,
+                          { weight: preset, price: prev.length > 0 ? prev[prev.length - 1].price : 24.99, stockQuantity: 50 }
+                        ]);
+                      }
+                    }}
+                    className="px-2 py-0.5 bg-[#edf5ee] hover:bg-[#deede0] text-[#24492d] text-[11px] font-semibold rounded-md border border-[#c2d8c6] transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>{preset}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Column Headers */}
             <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-[10px] font-bold text-[#45634b] uppercase px-1">
-              <div className="col-span-5">Weight / Option (e.g. 50g, 100g, 250g)</div>
+              <div className="col-span-5">
+                {unitType === 'weight'
+                  ? 'Weight Option (e.g. 50g, 100g, 1kg)'
+                  : unitType === 'pieces'
+                  ? 'Piece / Count Option (e.g. 30 pcs, 60 capsules)'
+                  : unitType === 'leaves'
+                  ? 'Leaves / Bunch Option (e.g. 50 Leaves, 1 Bunch)'
+                  : 'Option / Packaging (e.g. 1 Pack, 250ml)'}
+              </div>
               <div className="col-span-3">Price (USD $)</div>
               <div className="col-span-3">Stock Units</div>
               <div className="col-span-1 text-center">Remove</div>
             </div>
 
-            {/* Variant Rows (Note: "Lowest" pill badge removed per user request) */}
+            {/* Variant Rows */}
             <div className="space-y-2">
               {variants.map((v, idx) => (
                 <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2.5 rounded-lg border border-[#ccdacc] shadow-2xs">
-                  {/* Weight Input */}
+                  {/* Weight / Unit Input */}
                   <div className="sm:col-span-5">
-                    <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">Weight / Option</label>
+                    <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">
+                      {unitType === 'weight' ? 'Weight' : unitType === 'pieces' ? 'Pieces' : unitType === 'leaves' ? 'Leaves' : 'Option'}
+                    </label>
                     <input
                       type="text"
                       required
@@ -681,7 +874,15 @@ export default function ProductModal({
                         updated[idx] = { ...updated[idx], weight: e.target.value };
                         setVariants(updated);
                       }}
-                      placeholder="e.g. 50g, 100g, 250g, 1kg"
+                      placeholder={
+                        unitType === 'weight'
+                          ? 'e.g. 50g, 100g, 250g, 1kg'
+                          : unitType === 'pieces'
+                          ? 'e.g. 30 pcs, 60 capsules, 100 tablets'
+                          : unitType === 'leaves'
+                          ? 'e.g. 25 Leaves, 50 Leaves, 1 Bunch'
+                          : 'e.g. 1 Pack, 250ml Bottle, 1 Box'
+                      }
                       className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                     />
                   </div>
@@ -763,6 +964,122 @@ export default function ProductModal({
                 <div>
                   Total Combined Stock: <strong className="text-[#1c3f24]">{variants.reduce((acc, v) => acc + (Number(v.stockQuantity) || 0), 0)} units</strong> ({variants.length} {variants.length === 1 ? 'option' : 'options'})
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section: Discounts & Promotional Offers (Optional for Sellers & Admins) */}
+          <div className="space-y-3 p-4 rounded-xl bg-[#fffcf5] border border-[#f3e3be]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                  <Tag className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-amber-950">Discounts &amp; Promotional Offers (Optional)</h4>
+                  <p className="text-[10px] text-amber-800">Sellers can optionally offer promotional discounts on this product to customers.</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none bg-white px-3 py-1.5 rounded-lg border border-amber-300 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={hasDiscount}
+                  onChange={(e) => {
+                    setHasDiscount(e.target.checked);
+                    if (e.target.checked && (!discountPercentage || Number(discountPercentage) <= 0)) {
+                      setDiscountPercentage(10);
+                      if (!offerName) setOfferName('Special Offer');
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-amber-900">
+                  {hasDiscount ? 'Offer Enabled' : 'Add Discount / Offer'}
+                </span>
+              </label>
+            </div>
+
+            {hasDiscount && (
+              <div className="space-y-3 pt-2 border-t border-amber-200/80 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  {/* Offer Name */}
+                  <div className="sm:col-span-7 space-y-1">
+                    <label className="block text-[11px] font-semibold text-amber-950">
+                      Offer Name / Promotion Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={offerName}
+                      onChange={(e) => setOfferName(e.target.value)}
+                      placeholder="e.g. Seasonal Herbal Sale, Launch Promo, 15% Weekend Deal"
+                      className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  {/* Discount Percentage */}
+                  <div className="sm:col-span-5 space-y-1">
+                    <label className="block text-[11px] font-semibold text-amber-950">
+                      Discount Percentage (%) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={discountPercentage}
+                        onChange={(e) => setDiscountPercentage(e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0)))}
+                        placeholder="15"
+                        className="w-full pl-3 pr-8 py-2 rounded-lg border border-amber-300 bg-white text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-700 text-xs font-bold">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preset Percentage Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold text-amber-900 uppercase">Quick Discounts:</span>
+                  {[5, 10, 15, 20, 25, 30, 50].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => setDiscountPercentage(pct)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                        discountPercentage === pct
+                          ? 'bg-amber-600 text-white shadow-2xs'
+                          : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                      }`}
+                    >
+                      {pct}% OFF
+                    </button>
+                  ))}
+                </div>
+
+                {/* Discount Live Calculation Preview */}
+                {(() => {
+                  const lowestP = variants.length > 0
+                    ? Math.min(...variants.map(v => Number(v.price) || 0))
+                    : 0;
+                  const pct = Number(discountPercentage) || 0;
+                  const discounted = lowestP * (1 - pct / 100);
+                  const savings = lowestP - discounted;
+
+                  return (
+                    <div className="p-2.5 rounded-lg bg-amber-100/70 border border-amber-200 flex items-center justify-between flex-wrap gap-2 text-xs text-amber-950">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold">Customer Storefront Price:</span>
+                        <span className="line-through text-stone-400">${lowestP.toFixed(2)}</span>
+                        <span className="font-bold text-emerald-800 text-sm">${discounted.toFixed(2)}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-700 text-white">
+                          Save ${savings.toFixed(2)} ({pct}% OFF)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-amber-800 italic">
+                        🏷️ Tag: {offerName || 'Special Offer'}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -929,11 +1246,11 @@ export default function ProductModal({
           </div>
           </div>
 
-          {/* Section 7: Product Specifications */}
+          {/* Section 7: Product Specifications (Technical Details removed per request) */}
           <div className="space-y-1.5">
             <label htmlFor="prod-specs" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-[#24492d]" />
-              Product Specifications &amp; Technical Details
+              Product Specifications
             </label>
             <textarea
               id="prod-specs"
@@ -1012,20 +1329,60 @@ export default function ProductModal({
             />
           </div>
 
-          {/* Section 12: How To Use */}
-          <div className="space-y-1.5">
-            <label htmlFor="prod-howtouse" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-[#24492d]" />
-              How To Use &amp; Dosage Directions
-            </label>
-            <textarea
-              id="prod-howtouse"
-              rows={2}
-              value={howToUse}
-              onChange={(e) => setHowToUse(e.target.value)}
-              placeholder="e.g. Take 2 capsules daily with a glass of warm water or after morning meal."
-              className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
-            />
+          {/* Section 12: How To Use & When To Use */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label htmlFor="prod-howtouse" className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-[#24492d]" />
+                How To Use &amp; Dosage Directions
+              </label>
+              <textarea
+                id="prod-howtouse"
+                rows={2}
+                value={howToUse}
+                onChange={(e) => setHowToUse(e.target.value)}
+                placeholder="e.g. Take 2 capsules daily with a glass of warm water or as recommended by an Ayurvedic physician."
+                className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
+              />
+            </div>
+
+            {/* When To Use Field with Presets & Custom Text input */}
+            <div className="p-3.5 rounded-xl bg-[#fafcfa] border border-[#d8e6da] space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <label className="block text-xs font-semibold text-[#1c3f24] flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#24492d]" />
+                  When To Use
+                </label>
+                <span className="text-[10px] text-[#557159]">Suggested meal timing for buyers</span>
+              </div>
+
+              {/* Preset timing chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {['Before Meal', 'After Meal', 'With Meal', 'Empty Stomach', 'Morning & Night', 'Anytime'].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setWhenToUse(preset)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
+                      whenToUse === preset
+                        ? 'bg-[#24492d] text-white border-[#24492d] shadow-2xs'
+                        : 'bg-white hover:bg-[#edf5ee] text-[#1c3f24] border-[#ccdacc]'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              {/* Text input to allow custom or fine-tuned value */}
+              <input
+                type="text"
+                value={whenToUse}
+                onChange={(e) => setWhenToUse(e.target.value)}
+                placeholder="e.g. Before Meal, After Meal, 30 mins before breakfast, or custom timing..."
+                className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+              />
+            </div>
           </div>
 
           {/* Live Card Preview Box */}
@@ -1071,26 +1428,56 @@ export default function ProductModal({
                 const pPrice = previewLowest ? Number(previewLowest.price || 0) : 0;
                 const pWeight = previewLowest?.weight || 'Standard Size';
                 const pStock = variants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0);
+                const discPct = hasDiscount ? Number(discountPercentage) || 0 : 0;
+                const discountedP = discPct > 0 ? pPrice * (1 - discPct / 100) : pPrice;
 
                 return (
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs font-bold text-[#1c3f24]">
-                      ${pPrice.toFixed(2)}
-                    </span>
-                    <span className="text-[10px] text-[#556e59]">
-                      ({pWeight})
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e3ede5] text-[#24492d] font-semibold">
-                      Stock: {pStock}
-                    </span>
-                    <span className="text-[10px] text-stone-500">
-                      • {countryOfOrigin || 'Origin'}
-                    </span>
-                    {shippingOptions.some(o => o.name === 'Free Shipping' || o.cost === 0) && (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
-                        Free Delivery
+                  <div className="space-y-1 mt-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {discPct > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-800">
+                            ${discountedP.toFixed(2)}
+                          </span>
+                          <span className="text-[10px] text-stone-400 line-through">
+                            ${pPrice.toFixed(2)}
+                          </span>
+                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                            {discPct}% OFF
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold text-[#1c3f24]">
+                          ${pPrice.toFixed(2)}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-[#556e59]">
+                        ({pWeight})
                       </span>
-                    )}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e3ede5] text-[#24492d] font-semibold">
+                        Stock: {pStock}
+                      </span>
+                      {offerName && hasDiscount && (
+                        <span className="text-[9px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
+                          🏷️ {offerName}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] text-stone-500 flex-wrap">
+                      <span>• Origin: {countryOfOrigin || 'Origin'}</span>
+                      {expirationDate && (
+                        <span>• Exp: {expirationDate}</span>
+                      )}
+                      {whenToUse && (
+                        <span className="text-[#24492d] font-medium">• Timing: {whenToUse}</span>
+                      )}
+                      {shippingOptions.some(o => o.name === 'Free Shipping' || o.cost === 0) && (
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
+                          Free Delivery
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })()}

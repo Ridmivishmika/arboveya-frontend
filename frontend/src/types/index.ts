@@ -52,6 +52,10 @@ export interface Product {
   adminFeedback?: string;
   countryOfOrigin?: string;
   expiryDate?: string;
+  expirationDate?: string;
+  whenToUse?: string;
+  offerName?: string;
+  discountPercentage?: number;
   manufactureDate?: string;
   condition?: string;
   specifications?: string;
@@ -98,6 +102,10 @@ export interface CreateProductInput {
   isBestSeller?: boolean;
   countryOfOrigin?: string;
   expiryDate?: string;
+  expirationDate?: string;
+  whenToUse?: string;
+  offerName?: string;
+  discountPercentage?: number;
   manufactureDate?: string;
   condition?: string;
   specifications?: string;
@@ -127,6 +135,10 @@ export interface UpdateProductInput {
   isBestSeller?: boolean;
   countryOfOrigin?: string;
   expiryDate?: string;
+  expirationDate?: string;
+  whenToUse?: string;
+  offerName?: string;
+  discountPercentage?: number;
   manufactureDate?: string;
   condition?: string;
   specifications?: string;

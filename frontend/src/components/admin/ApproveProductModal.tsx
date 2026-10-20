@@ -330,10 +330,28 @@ export default function ApproveProductModal({
                     )}
                   </>
                 )}
-                {product.expiryDate && (
+                {(product.expirationDate || product.expiryDate) && (
                   <div>
-                    <span className="text-[10px] text-stone-400 block uppercase font-bold">Expiry Date</span>
-                    <span className="font-semibold text-[#1c3f24]">{new Date(product.expiryDate).toLocaleDateString()}</span>
+                    <span className="text-[10px] text-stone-400 block uppercase font-bold">Expiration Date</span>
+                    <span className="font-semibold text-[#1c3f24]">
+                      {product.expirationDate || (product.expiryDate ? new Date(product.expiryDate).toLocaleDateString() : 'N/A')}
+                    </span>
+                  </div>
+                )}
+                {product.whenToUse && (
+                  <div>
+                    <span className="text-[10px] text-stone-400 block uppercase font-bold">When To Use</span>
+                    <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      {product.whenToUse}
+                    </span>
+                  </div>
+                )}
+                {product.discountPercentage && product.discountPercentage > 0 && (
+                  <div>
+                    <span className="text-[10px] text-rose-500 block uppercase font-bold">Discount / Offer</span>
+                    <span className="font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                      {product.offerName ? `${product.offerName} (${product.discountPercentage}% OFF)` : `${product.discountPercentage}% OFF`}
+                    </span>
                   </div>
                 )}
               </div>

@@ -100,6 +100,10 @@ interface Product {
   condition?: string;
   manufactureDate?: string;
   expiryDate?: string;
+  expirationDate?: string;
+  whenToUse?: string;
+  offerName?: string;
+  discountPercentage?: number;
   specifications?: string;
   shippingMethod?: string;
   estimatedDeliveryTime?: string;
@@ -469,6 +473,10 @@ export default function SellerDashboardPage() {
       condition: input.condition || undefined,
       manufactureDate: input.manufactureDate || undefined,
       expiryDate: input.expiryDate || undefined,
+      expirationDate: input.expirationDate || undefined,
+      whenToUse: input.whenToUse || undefined,
+      offerName: input.offerName || undefined,
+      discountPercentage: input.discountPercentage,
       specifications: input.specifications || undefined,
       shippingMethod: input.shippingMethod || undefined,
       estimatedDeliveryTime: input.estimatedDeliveryTime || undefined,

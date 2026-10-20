@@ -24,7 +24,9 @@ import {
   MessageSquare,
   Loader2,
   X,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  Tag
 } from 'lucide-react';
 import { Product, ProductReview } from '@/types';
 import { useCart } from '@/context/CartContext';
@@ -472,19 +474,49 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
               </div>
             </div>
 
-              {/* Price & Selected Weight – shows selected variant price and weight */}
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <span className="text-2xl sm:text-3xl font-bold text-[#1c3f24]">
-                ${Number(selectedVariant?.price ?? product.price).toFixed(2)}
-              </span>
-              {(selectedVariant?.weight || product.weight) && (
-                <span className="inline-flex items-center text-xs sm:text-sm font-semibold text-[#24492d] bg-[#eef6f0] border border-[#c6dfca] px-2.5 py-1 rounded-md">
-                  {selectedVariant?.weight || product.weight}
-                </span>
-              )}
-            </div>
+              {/* Price & Selected Weight with Promotional Discount */}
+            {(() => {
+              const rawPrice = Number(selectedVariant?.price ?? product.price);
+              const discPct = Number(product.discountPercentage) || 0;
+              const isDiscounted = discPct > 0;
+              const finalPrice = isDiscounted ? rawPrice * (1 - discPct / 100) : rawPrice;
 
-            {/* Botanical Origin, Condition & Delivery Badges */}
+              return (
+                <div className="space-y-1.5">
+                  {isDiscounted && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shadow-2xs">
+                      <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black uppercase">
+                        {discPct}% OFF
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Tag className="w-3 h-3 text-amber-600" />
+                        {product.offerName || 'Special Offer'}
+                      </span>
+                      <span className="text-[11px] font-normal text-amber-800">
+                        (Save ${(rawPrice - finalPrice).toFixed(2)})
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <span className="text-2xl sm:text-3xl font-bold text-[#1c3f24]">
+                      ${finalPrice.toFixed(2)}
+                    </span>
+                    {isDiscounted && (
+                      <span className="text-base text-stone-400 line-through font-medium">
+                        ${rawPrice.toFixed(2)}
+                      </span>
+                    )}
+                    {(selectedVariant?.weight || product.weight) && (
+                      <span className="inline-flex items-center text-xs sm:text-sm font-semibold text-[#24492d] bg-[#eef6f0] border border-[#c6dfca] px-2.5 py-1 rounded-md">
+                        {selectedVariant?.weight || product.weight}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Botanical Origin, Condition, Timing & Expiration Badges */}
             <div className="flex items-center gap-2 flex-wrap text-[11px] pt-1">
               {product.countryOfOrigin && (
                 <span className="inline-flex items-center gap-1 font-semibold text-[#24492d] bg-[#edf6ef] border border-[#bcdbc0] px-2 py-0.5 rounded-full">
@@ -497,16 +529,22 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                   <span>{product.condition}</span>
                 </span>
               )}
+              {product.whenToUse && (
+                <span className="inline-flex items-center gap-1 font-semibold text-[#1c3f24] bg-[#edf6ef] border border-[#bcdbc0] px-2 py-0.5 rounded-full">
+                  <Clock className="w-3 h-3 text-[#24492d]" />
+                  <span>When to use: {product.whenToUse}</span>
+                </span>
+              )}
               {product.isFreeShipping && (
                 <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">
                   <Truck className="w-3 h-3 text-emerald-700" />
                   <span>Free Shipping</span>
                 </span>
               )}
-              {product.expiryDate && (
-                <span className="inline-flex items-center gap-1 text-stone-500 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-full">
+              {(product.expirationDate || product.expiryDate) && (
+                <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-full">
                   <Calendar className="w-3 h-3 text-stone-400" />
-                  <span>Expiry: {new Date(product.expiryDate).toLocaleDateString()}</span>
+                  <span>Expiration: {product.expirationDate || (product.expiryDate ? new Date(product.expiryDate).toLocaleDateString() : '')}</span>
                 </span>
               )}
             </div>
@@ -857,16 +895,16 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                       <span className="text-stone-400 font-bold block uppercase text-[10px]">Product Condition:</span>
                       <span className="font-semibold text-[#1c3f24]">{product.condition || 'Brand New / Fresh Harvest'}</span>
                     </div>
-                    {product.manufactureDate && (
+                    {(product.expirationDate || product.expiryDate) && (
                       <div>
-                        <span className="text-stone-400 font-bold block uppercase text-[10px]">Manufacture Date:</span>
-                        <span className="text-[#1c3f24]">{new Date(product.manufactureDate).toLocaleDateString()}</span>
+                        <span className="text-stone-400 font-bold block uppercase text-[10px]">Expiration Date:</span>
+                        <span className="text-[#1c3f24] font-medium">{product.expirationDate || (product.expiryDate ? new Date(product.expiryDate).toLocaleDateString() : '')}</span>
                       </div>
                     )}
-                    {product.expiryDate && (
+                    {product.whenToUse && (
                       <div>
-                        <span className="text-stone-400 font-bold block uppercase text-[10px]">Expiry / Best Before:</span>
-                        <span className="text-[#1c3f24]">{new Date(product.expiryDate).toLocaleDateString()}</span>
+                        <span className="text-stone-400 font-bold block uppercase text-[10px]">When To Use:</span>
+                        <span className="text-[#24492d] font-semibold">{product.whenToUse}</span>
                       </div>
                     )}
                   </div>
@@ -939,7 +977,19 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
             {/* How To Use Tab */}
             {activeTab === 'howToUse' && (
               <div className="space-y-4 animate-fadeIn">
-                <p className="font-semibold text-[#1c3f24]">Recommended Daily Ritual & Directions:</p>
+                {product.whenToUse && (
+                  <div className="p-4 rounded-xl bg-[#ecf5ee] border border-[#bcdbc0] flex items-center gap-3 shadow-2xs">
+                    <div className="w-8 h-8 rounded-lg bg-[#24492d] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-[#24492d] tracking-wider block">When To Use / Suggested Timing</span>
+                      <p className="text-sm font-bold text-[#1c3f24]">{product.whenToUse}</p>
+                    </div>
+                  </div>
+                )}
+
+                <p className="font-semibold text-[#1c3f24]">Recommended Daily Ritual &amp; Directions:</p>
                 {product.howToUse ? (
                   <div className="p-5 rounded-xl bg-[#f7faf7] border border-[#e2eae2] space-y-3">
                     <p className="text-sm text-[#1c3f24] leading-relaxed whitespace-pre-line">

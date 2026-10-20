@@ -689,7 +689,10 @@ export default function ShopClient({
                   const lowestVariant = product.variants && product.variants.length > 0
                     ? [...product.variants].sort((a, b) => a.price - b.price)[0]
                     : undefined;
-                  const displayPrice = lowestVariant ? lowestVariant.price : product.price;
+                  const rawPrice = lowestVariant ? lowestVariant.price : product.price;
+                  const discPct = Number(product.discountPercentage) || 0;
+                  const isDiscounted = discPct > 0;
+                  const displayPrice = isDiscounted ? rawPrice * (1 - discPct / 100) : rawPrice;
                   const displayWeight = lowestVariant ? lowestVariant.weight : product.weight;
 
                   return (
@@ -718,6 +721,13 @@ export default function ShopClient({
                           {product.isBestSeller && (
                             <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-[#24492d] text-white shadow-sm z-10">
                               Best Seller
+                            </span>
+                          )}
+
+                          {/* Discount / Offer Badge */}
+                          {isDiscounted && (
+                            <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-amber-500 text-white shadow-sm z-10 flex items-center gap-1">
+                              <span>{discPct}% OFF</span>
                             </span>
                           )}
                         </Link>
@@ -777,6 +787,11 @@ export default function ShopClient({
                           <span className="text-xs sm:text-sm font-bold text-[#1c3f24]">
                             ${Number(displayPrice).toFixed(2)}
                           </span>
+                          {isDiscounted && (
+                            <span className="text-[11px] text-stone-400 line-through">
+                              ${Number(rawPrice).toFixed(2)}
+                            </span>
+                          )}
                           {displayWeight && (
                             <span className="text-[11px] font-semibold text-[#24492d] bg-[#edf5ee] border border-[#d2e4d5] px-1.5 py-0.5 rounded">
                               {displayWeight}
