@@ -87,8 +87,32 @@ export default function ProductModal({
   const [offerName, setOfferName] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState<number | ''>('');
 
+  // Handling & Delivery Presets
+  const HANDLING_TIME_PRESETS = [
+    '1 business day',
+    '2 business days',
+    '3 business days',
+    '4 business days',
+    '5 business days'
+  ];
+
+  const ESTIMATED_DELIVERY_PRESETS = [
+    '5-7 business days',
+    '7-14 business days',
+    '14-21 business days'
+  ];
+
+  const UNIT_PRESETS: Record<'weight' | 'pieces' | 'leaves' | 'custom', string[]> = {
+    weight: ['50g', '100g', '250g', '500g', '1kg'],
+    pieces: ['10 pcs', '30 pcs', '60 pcs', '100 pcs', '120 pcs'],
+    leaves: ['25 Leaves', '50 Leaves', '100 Leaves', '1 Bunch', '3 Bunches'],
+    custom: ['1 Pack', '2 Pack Bundle', '100ml', '250ml', '500ml']
+  };
+
   // Unit Type for Variants (Weight, Pieces, Leaves, Custom)
   const [unitType, setUnitType] = useState<'weight' | 'pieces' | 'leaves' | 'custom'>('weight');
+  const [customUnitInput, setCustomUnitInput] = useState('');
+  const [inlineCustomWeight, setInlineCustomWeight] = useState('');
 
   // Shipping & Schedule Options
   const [shippingOptions, setShippingOptions] = useState<Array<{
@@ -96,11 +120,12 @@ export default function ProductModal({
     estimatedDeliveryTime: string;
     cost: number;
   }>>([
-    { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
-    { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 },
-    { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 }
+    { name: 'Standard Shipping', estimatedDeliveryTime: '5-7 business days', cost: 4.99 },
+    { name: 'Express Shipping', estimatedDeliveryTime: '5-7 business days', cost: 14.99 },
+    { name: 'Free Shipping', estimatedDeliveryTime: '7-14 business days', cost: 0 }
   ]);
   const [handlingTime, setHandlingTime] = useState('1 business day');
+  const [handlingPreset, setHandlingPreset] = useState('1 business day');
   const [returnPolicy, setReturnPolicy] = useState('30-Day Return Window. Buyer pays return shipping for change of mind. Items must be unopened.');
 
   const [submitting, setSubmitting] = useState(false);
@@ -139,7 +164,13 @@ export default function ProductModal({
       setCondition(initialData.condition || 'Brand New / Fresh Harvest');
       setExpirationDate(initialData.expirationDate || (initialData.expiryDate ? initialData.expiryDate.split('T')[0] : ''));
       setSpecifications(initialData.specifications || '');
-      setHandlingTime(initialData.handlingTime || '1 business day');
+      const initialH = initialData.handlingTime || '1 business day';
+      setHandlingTime(initialH);
+      if (HANDLING_TIME_PRESETS.includes(initialH)) {
+        setHandlingPreset(initialH);
+      } else {
+        setHandlingPreset('Custom');
+      }
       setReturnPolicy(initialData.returnPolicy || '30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
 
       // Discounts & Offers
@@ -163,7 +194,7 @@ export default function ProductModal({
       if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
         setShippingOptions(parsedOptions.map((o: any) => ({
           name: o.name || 'Standard Shipping',
-          estimatedDeliveryTime: o.estimatedDeliveryTime || '3-5 business days',
+          estimatedDeliveryTime: o.estimatedDeliveryTime || '5-7 business days',
           cost: o.name === 'Free Shipping' ? 0 : (Number(o.cost) || 0)
         })));
       } else {
@@ -173,7 +204,7 @@ export default function ProductModal({
         const costVal = isFree ? 0 : (Number(initialData.shippingCost) || 0);
         defaultList.push({
           name: methodName,
-          estimatedDeliveryTime: initialData.estimatedDeliveryTime || (costVal === 0 ? '5-7 business days' : '3-5 business days'),
+          estimatedDeliveryTime: initialData.estimatedDeliveryTime || (costVal === 0 ? '7-14 business days' : '5-7 business days'),
           cost: costVal
         });
         setShippingOptions(defaultList);
@@ -219,11 +250,14 @@ export default function ProductModal({
       setUnitType('weight');
       setSpecifications('');
       setShippingOptions([
-        { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
-        { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 },
-        { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 }
+        { name: 'Standard Shipping', estimatedDeliveryTime: '5-7 business days', cost: 4.99 },
+        { name: 'Express Shipping', estimatedDeliveryTime: '5-7 business days', cost: 14.99 },
+        { name: 'Free Shipping', estimatedDeliveryTime: '7-14 business days', cost: 0 }
       ]);
       setHandlingTime('1 business day');
+      setHandlingPreset('1 business day');
+      setCustomUnitInput('');
+      setInlineCustomWeight('');
       setReturnPolicy('30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
       setVariants([{ weight: '100g', price: 24.99, stockQuantity: 50 }]);
     }
@@ -314,6 +348,22 @@ export default function ProductModal({
 
   const handleRemovePhoto = (index: number) => {
     setPhotos(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleAddVariantWithWeight = (weightName: string) => {
+    if (!weightName.trim()) return;
+    if (variants.length === 1 && (!variants[0].weight || variants[0].weight.trim() === '')) {
+      setVariants([{ ...variants[0], weight: weightName.trim() }]);
+    } else {
+      setVariants(prev => [
+        ...prev,
+        {
+          weight: weightName.trim(),
+          price: prev.length > 0 ? prev[prev.length - 1].price : 24.99,
+          stockQuantity: 50
+        }
+      ]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -739,10 +789,7 @@ export default function ProductModal({
                 type="button"
                 onClick={() => {
                   const presetName = unitType === 'weight' ? '100g' : unitType === 'pieces' ? '30 pcs' : unitType === 'leaves' ? '50 Leaves' : '1 Pack';
-                  setVariants(prev => [
-                    ...prev,
-                    { weight: presetName, price: prev.length > 0 ? prev[prev.length - 1].price : 24.99, stockQuantity: 50 }
-                  ]);
+                  handleAddVariantWithWeight(presetName);
                 }}
                 className="flex items-center gap-1 text-[11px] font-semibold text-[#24492d] hover:text-[#1a3821] bg-white border border-[#24492d]/40 px-3 py-1.5 rounded-lg hover:bg-[#edf5ee] transition-all cursor-pointer shadow-2xs"
               >
@@ -752,7 +799,7 @@ export default function ProductModal({
             </div>
 
             {/* Step 1: Unit Type Selector */}
-            <div className="space-y-1.5 bg-white p-3 rounded-xl border border-[#c6dfca] shadow-2xs">
+            <div className="space-y-2 bg-white p-3 rounded-xl border border-[#c6dfca] shadow-2xs">
               <label className="block text-[11px] font-bold text-[#2d4b32] uppercase tracking-wider">
                 Select Pricing &amp; Measurement Unit:
               </label>
@@ -807,36 +854,105 @@ export default function ProductModal({
                 </button>
               </div>
 
-              {/* Quick Add Presets based on selected unit */}
+              {/* Dedicated Custom Unit Creator when Custom / Other is chosen */}
+              {unitType === 'custom' && (
+                <div className="p-3 bg-[#eaf4ec] rounded-lg border border-[#badbbd] space-y-2 animate-fadeIn mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#1c3f24] uppercase">
+                      Create Custom Unit, Volume or Packaging:
+                    </span>
+                    <span className="text-[10px] text-[#4d7053]">
+                      Type your custom option and click add
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={customUnitInput}
+                      onChange={(e) => setCustomUnitInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (customUnitInput.trim()) {
+                            handleAddVariantWithWeight(customUnitInput.trim());
+                            setCustomUnitInput('');
+                          }
+                        }
+                      }}
+                      placeholder="e.g. 250ml Bottle, 1 Tin Box, 30 Tea Bags, 2-Pack Bundle"
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customUnitInput.trim()) {
+                          handleAddVariantWithWeight(customUnitInput.trim());
+                          setCustomUnitInput('');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-xs whitespace-nowrap"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Custom</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Add Presets based on selected unit + Inline Custom Option Adder */}
               <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-[#e3ede5] mt-2">
                 <span className="text-[10px] font-bold text-[#45634b] uppercase">Quick Add:</span>
-                {(unitType === 'weight' 
-                  ? ['50g', '100g', '250g', '500g', '1kg'] 
-                  : unitType === 'pieces' 
-                  ? ['10 pcs', '30 pcs', '60 pcs', '100 pcs', '120 pcs']
-                  : unitType === 'leaves'
-                  ? ['25 Leaves', '50 Leaves', '100 Leaves', '1 Bunch', '3 Bunches']
-                  : ['1 Pack', '2 Pack Bundle', '100ml', '250ml', '500ml']
-                ).map((preset) => (
+                {UNIT_PRESETS[unitType].map((preset) => (
                   <button
                     key={preset}
                     type="button"
-                    onClick={() => {
-                      if (variants.length === 1 && (!variants[0].weight || variants[0].weight.trim() === '')) {
-                        setVariants([{ ...variants[0], weight: preset }]);
-                      } else {
-                        setVariants(prev => [
-                          ...prev,
-                          { weight: preset, price: prev.length > 0 ? prev[prev.length - 1].price : 24.99, stockQuantity: 50 }
-                        ]);
-                      }
-                    }}
+                    onClick={() => handleAddVariantWithWeight(preset)}
                     className="px-2 py-0.5 bg-[#edf5ee] hover:bg-[#deede0] text-[#24492d] text-[11px] font-semibold rounded-md border border-[#c2d8c6] transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" />
                     <span>{preset}</span>
                   </button>
                 ))}
+
+                {/* Inline Custom Option Adder for any unit type */}
+                <div className="flex items-center gap-1 sm:ml-auto">
+                  <input
+                    type="text"
+                    value={inlineCustomWeight}
+                    onChange={(e) => setInlineCustomWeight(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (inlineCustomWeight.trim()) {
+                          handleAddVariantWithWeight(inlineCustomWeight.trim());
+                          setInlineCustomWeight('');
+                        }
+                      }
+                    }}
+                    placeholder={
+                      unitType === 'weight'
+                        ? 'Custom weight (e.g. 75g)...'
+                        : unitType === 'pieces'
+                        ? 'Custom count (e.g. 45 pcs)...'
+                        : unitType === 'leaves'
+                        ? 'Custom leaves/bunch...'
+                        : 'Custom size/pack...'
+                    }
+                    className="w-40 sm:w-44 px-2 py-0.5 text-xs rounded border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (inlineCustomWeight.trim()) {
+                        handleAddVariantWithWeight(inlineCustomWeight.trim());
+                        setInlineCustomWeight('');
+                      }
+                    }}
+                    className="px-2 py-0.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-[11px] font-bold rounded transition-colors cursor-pointer shadow-2xs"
+                  >
+                    + Add Custom
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -861,30 +977,57 @@ export default function ProductModal({
               {variants.map((v, idx) => (
                 <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2.5 rounded-lg border border-[#ccdacc] shadow-2xs">
                   {/* Weight / Unit Input */}
-                  <div className="sm:col-span-5">
+                  <div className="sm:col-span-5 space-y-1">
                     <label className="block sm:hidden text-[10px] font-bold text-[#45634b] mb-1">
                       {unitType === 'weight' ? 'Weight' : unitType === 'pieces' ? 'Pieces' : unitType === 'leaves' ? 'Leaves' : 'Option'}
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={v.weight}
-                      onChange={e => {
-                        const updated = [...variants];
-                        updated[idx] = { ...updated[idx], weight: e.target.value };
-                        setVariants(updated);
-                      }}
-                      placeholder={
-                        unitType === 'weight'
-                          ? 'e.g. 50g, 100g, 250g, 1kg'
-                          : unitType === 'pieces'
-                          ? 'e.g. 30 pcs, 60 capsules, 100 tablets'
-                          : unitType === 'leaves'
-                          ? 'e.g. 25 Leaves, 50 Leaves, 1 Bunch'
-                          : 'e.g. 1 Pack, 250ml Bottle, 1 Box'
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      {/* Presets + Custom Select */}
+                      <select
+                        value={UNIT_PRESETS[unitType].includes(v.weight) ? v.weight : 'Custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const updated = [...variants];
+                          if (val === 'Custom') {
+                            if (UNIT_PRESETS[unitType].includes(v.weight)) {
+                              updated[idx] = { ...updated[idx], weight: '' };
+                            }
+                          } else {
+                            updated[idx] = { ...updated[idx], weight: val };
+                          }
+                          setVariants(updated);
+                        }}
+                        className="w-2/5 min-w-[85px] px-2 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                        title="Pick preset or choose Custom to enter your own"
+                      >
+                        {UNIT_PRESETS[unitType].map((preset) => (
+                          <option key={preset} value={preset}>{preset}</option>
+                        ))}
+                        <option value="Custom">Custom...</option>
+                      </select>
+
+                      {/* Direct Editable Input */}
+                      <input
+                        type="text"
+                        required
+                        value={v.weight}
+                        onChange={e => {
+                          const updated = [...variants];
+                          updated[idx] = { ...updated[idx], weight: e.target.value };
+                          setVariants(updated);
+                        }}
+                        placeholder={
+                          unitType === 'weight'
+                            ? 'e.g. 50g, 100g, 250g'
+                            : unitType === 'pieces'
+                            ? 'e.g. 30 pcs, 60 capsules'
+                            : unitType === 'leaves'
+                            ? 'e.g. 25 Leaves, 1 Bunch'
+                            : 'e.g. 1 Pack, 250ml'
+                        }
+                        className="flex-1 px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
+                      />
+                    </div>
                   </div>
 
                   {/* Price Input */}
@@ -1104,7 +1247,7 @@ export default function ProductModal({
                     ...prev,
                     {
                       name: newName,
-                      estimatedDeliveryTime: newName === 'Express Shipping' ? '1-2 business days' : newName === 'Free Shipping' ? '5-7 business days' : '3-5 business days',
+                      estimatedDeliveryTime: newName === 'Free Shipping' ? '7-14 business days' : '5-7 business days',
                       cost: newName === 'Free Shipping' ? 0 : newName === 'Express Shipping' ? 14.99 : 4.99
                     }
                   ]);
@@ -1134,7 +1277,7 @@ export default function ProductModal({
                           ...updated[optIdx],
                           name: val,
                           cost: val === 'Free Shipping' ? 0 : updated[optIdx].cost === 0 ? 4.99 : updated[optIdx].cost,
-                          estimatedDeliveryTime: updated[optIdx].estimatedDeliveryTime || (val === 'Express Shipping' ? '1-2 business days' : val === 'Free Shipping' ? '5-7 business days' : '3-5 business days')
+                          estimatedDeliveryTime: updated[optIdx].estimatedDeliveryTime || (val === 'Free Shipping' ? '7-14 business days' : '5-7 business days')
                         };
                         setShippingOptions(updated);
                       }}
@@ -1146,23 +1289,61 @@ export default function ProductModal({
                     </select>
                   </div>
 
-                  {/* Estimated Delivery Time */}
+                  {/* Estimated Delivery Time Dropdown with Presets & Custom Input */}
                   <div className="sm:col-span-4 space-y-1">
                     <label className="block text-[10px] font-bold text-[#38533e] uppercase">
                       Estimated Delivery Time
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={opt.estimatedDeliveryTime}
-                      onChange={(e) => {
-                        const updated = [...shippingOptions];
-                        updated[optIdx] = { ...updated[optIdx], estimatedDeliveryTime: e.target.value };
-                        setShippingOptions(updated);
-                      }}
-                      placeholder="e.g. 3-5 business days"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-                    />
+                    {(() => {
+                      const isPreset = ESTIMATED_DELIVERY_PRESETS.includes(opt.estimatedDeliveryTime);
+                      const selectedVal = isPreset ? opt.estimatedDeliveryTime : 'Custom';
+
+                      return (
+                        <div className="space-y-1">
+                          <select
+                            value={selectedVal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const updated = [...shippingOptions];
+                              if (val === 'Custom') {
+                                updated[optIdx] = {
+                                  ...updated[optIdx],
+                                  estimatedDeliveryTime: isPreset ? '' : updated[optIdx].estimatedDeliveryTime
+                                };
+                              } else {
+                                updated[optIdx] = {
+                                  ...updated[optIdx],
+                                  estimatedDeliveryTime: val
+                                };
+                              }
+                              setShippingOptions(updated);
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                          >
+                            <option value="5-7 business days">5-7 business days</option>
+                            <option value="7-14 business days">7-14 business days</option>
+                            <option value="14-21 business days">14-21 business days</option>
+                            <option value="Custom">Custom Estimate...</option>
+                          </select>
+
+                          {selectedVal === 'Custom' && (
+                            <input
+                              type="text"
+                              required
+                              value={opt.estimatedDeliveryTime}
+                              onChange={(e) => {
+                                const updated = [...shippingOptions];
+                                updated[optIdx] = { ...updated[optIdx], estimatedDeliveryTime: e.target.value };
+                                setShippingOptions(updated);
+                              }}
+                              placeholder="e.g. 2-4 business days, 1-3 weeks"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#24492d]/50 bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 animate-fadeIn"
+                              autoFocus={!opt.estimatedDeliveryTime}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Shipping Cost ($) */}
@@ -1221,29 +1402,54 @@ export default function ProductModal({
                 <label className="block text-[11px] font-semibold text-[#1c3f24]">
                   Handling &amp; Dispatch Time
                 </label>
-                <input
-                  type="text"
-                  value={handlingTime}
-                  onChange={(e) => setHandlingTime(e.target.value)}
-                  placeholder="e.g. Dispatched within 24 hours"
-                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-                />
+                <select
+                  value={handlingPreset}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setHandlingPreset(val);
+                    if (val !== 'Custom') {
+                      setHandlingTime(val);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                >
+                  <option value="1 business day">1 business day</option>
+                  <option value="2 business days">2 business days</option>
+                  <option value="3 business days">3 business days</option>
+                  <option value="4 business days">4 business days</option>
+                  <option value="5 business days">5 business days</option>
+                  <option value="Custom">Custom (Enter your own days)...</option>
+                </select>
+
+                {handlingPreset === 'Custom' && (
+                  <div className="mt-1.5 animate-fadeIn">
+                    <input
+                      type="text"
+                      value={handlingTime}
+                      onChange={(e) => setHandlingTime(e.target.value)}
+                      placeholder="e.g. 6 business days, Same day dispatch..."
+                      className="w-full px-3 py-2 rounded-lg border border-[#24492d]/50 bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20"
+                      autoFocus
+                    />
+                    <p className="text-[10px] text-[#557159] mt-0.5">Specify your custom handling schedule for buyers.</p>
+                  </div>
+                )}
               </div>
 
-            {/* Return Policy */}
-            <div className="space-y-1 pt-1">
-              <label className="block text-[11px] font-semibold text-[#1c3f24]">
-                Return Shipping &amp; Policy Details
-              </label>
-              <textarea
-                rows={2}
-                value={returnPolicy}
-                onChange={(e) => setReturnPolicy(e.target.value)}
-                placeholder="Describe return window, eligible conditions, and who pays return postage..."
-                className="w-full px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] resize-none"
-              />
+              {/* Return Policy */}
+              <div className="space-y-1 pt-1">
+                <label className="block text-[11px] font-semibold text-[#1c3f24]">
+                  Return Shipping &amp; Policy Details
+                </label>
+                <textarea
+                  rows={2}
+                  value={returnPolicy}
+                  onChange={(e) => setReturnPolicy(e.target.value)}
+                  placeholder="Describe return window, eligible conditions, and who pays return postage..."
+                  className="w-full px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] resize-none"
+                />
+              </div>
             </div>
-          </div>
           </div>
 
           {/* Section 7: Product Specifications (Technical Details removed per request) */}
