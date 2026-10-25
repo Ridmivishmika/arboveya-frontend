@@ -46,6 +46,10 @@ interface ProductModalProps {
   isSeller?: boolean;
 }
 
+interface ModalVariant extends ProductVariant {
+  isCustomWeight?: boolean;
+}
+
 export default function ProductModal({
   isOpen,
   onClose,
@@ -69,7 +73,7 @@ export default function ProductModal({
   const [ingredients, setIngredients] = useState('');
   const [howToUse, setHowToUse] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [variants, setVariants] = useState<ModalVariant[]>([]);
 
   // Photos state (up to 10 photos uploaded from device)
   const [photos, setPhotos] = useState<string[]>([]);
@@ -84,8 +88,11 @@ export default function ProductModal({
 
   // Discounts & Promotional Offers
   const [hasDiscount, setHasDiscount] = useState(false);
+  const [offerSelection, setOfferSelection] = useState<'buy2' | 'buy3' | 'custom'>('buy2');
   const [offerName, setOfferName] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState<number | ''>('');
+  const [customOfferName, setCustomOfferName] = useState('');
+  const [customDiscountPercentage, setCustomDiscountPercentage] = useState<number | ''>('');
 
   // Handling & Delivery Presets
   const HANDLING_TIME_PRESETS = [
@@ -106,7 +113,7 @@ export default function ProductModal({
     weight: ['50g', '100g', '250g', '500g', '1kg'],
     pieces: ['10 pcs', '30 pcs', '60 pcs', '100 pcs', '120 pcs'],
     leaves: ['25 Leaves', '50 Leaves', '100 Leaves', '1 Bunch', '3 Bunches'],
-    custom: ['1 Pack', '2 Pack Bundle', '100ml', '250ml', '500ml']
+    custom: ['50g', '100g', '250g', '500g', '1kg', '1 Pack', '2 Pack Bundle', '100ml', '250ml', '500ml']
   };
 
   // Unit Type for Variants (Weight, Pieces, Leaves, Custom)
@@ -119,10 +126,11 @@ export default function ProductModal({
     name: string;
     estimatedDeliveryTime: string;
     cost: number;
+    isCustomDelivery?: boolean;
   }>>([
-    { name: 'Standard Shipping', estimatedDeliveryTime: '5-7 business days', cost: 4.99 },
-    { name: 'Express Shipping', estimatedDeliveryTime: '5-7 business days', cost: 14.99 },
-    { name: 'Free Shipping', estimatedDeliveryTime: '7-14 business days', cost: 0 }
+    { name: 'Standard Shipping', estimatedDeliveryTime: '5-7 business days', cost: 4.99, isCustomDelivery: false },
+    { name: 'Express Shipping', estimatedDeliveryTime: '5-7 business days', cost: 14.99, isCustomDelivery: false },
+    { name: 'Free Shipping', estimatedDeliveryTime: '7-14 business days', cost: 0, isCustomDelivery: false }
   ]);
   const [handlingTime, setHandlingTime] = useState('1 business day');
   const [handlingPreset, setHandlingPreset] = useState('1 business day');
@@ -133,6 +141,37 @@ export default function ProductModal({
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Discount preset selection handler
+  const handleSelectOfferPreset = (preset: 'buy2' | 'buy3' | 'custom') => {
+    setOfferSelection(preset);
+    if (preset === 'buy2') {
+      setOfferName('Buy 2 Get 10% Off');
+      setDiscountPercentage(10);
+    } else if (preset === 'buy3') {
+      setOfferName('Buy 3 Get 20% Off');
+      setDiscountPercentage(20);
+    } else {
+      setOfferName(customOfferName || '');
+      setDiscountPercentage(customDiscountPercentage !== '' ? customDiscountPercentage : '');
+    }
+  };
+
+  const handleApplyCustomOffer = () => {
+    if (!customOfferName.trim()) {
+      setError('Please enter a Custom Offer Name (e.g. "Buy 4 Get 25% Off").');
+      return;
+    }
+    const pct = Number(customDiscountPercentage);
+    if (isNaN(pct) || pct <= 0 || pct > 90) {
+      setError('Please enter a valid Discount Percentage between 1% and 90%.');
+      return;
+    }
+    setOfferSelection('custom');
+    setOfferName(customOfferName.trim());
+    setDiscountPercentage(pct);
+    setError(null);
+  };
 
   useEffect(() => {
     if (initialData && mode === 'edit') {
@@ -176,9 +215,31 @@ export default function ProductModal({
       // Discounts & Offers
       const existingDiscount = Number(initialData.discountPercentage || 0);
       const existingOffer = initialData.offerName || '';
-      setHasDiscount(existingDiscount > 0 || Boolean(existingOffer));
+      const hasD = existingDiscount > 0 || Boolean(existingOffer);
+      setHasDiscount(hasD);
       setOfferName(existingOffer);
       setDiscountPercentage(existingDiscount > 0 ? existingDiscount : '');
+
+      if (hasD) {
+        const lower = existingOffer.toLowerCase();
+        if (existingDiscount === 10 && (lower.includes('buy 2') || existingOffer === 'Buy 2 Get 10% Off')) {
+          setOfferSelection('buy2');
+          setCustomOfferName('');
+          setCustomDiscountPercentage('');
+        } else if (existingDiscount === 20 && (lower.includes('buy 3') || existingOffer === 'Buy 3 Get 20% Off')) {
+          setOfferSelection('buy3');
+          setCustomOfferName('');
+          setCustomDiscountPercentage('');
+        } else {
+          setOfferSelection('custom');
+          setCustomOfferName(existingOffer);
+          setCustomDiscountPercentage(existingDiscount > 0 ? existingDiscount : '');
+        }
+      } else {
+        setOfferSelection('buy2');
+        setCustomOfferName('');
+        setCustomDiscountPercentage('');
+      }
 
       // Parse multi-shipping methods
       let parsedOptions: any[] = [];
@@ -192,31 +253,42 @@ export default function ProductModal({
         }
       }
       if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
-        setShippingOptions(parsedOptions.map((o: any) => ({
-          name: o.name || 'Standard Shipping',
-          estimatedDeliveryTime: o.estimatedDeliveryTime || '5-7 business days',
-          cost: o.name === 'Free Shipping' ? 0 : (Number(o.cost) || 0)
-        })));
+        setShippingOptions(parsedOptions.map((o: any) => {
+          const isPreset = ESTIMATED_DELIVERY_PRESETS.includes(o.estimatedDeliveryTime);
+          return {
+            name: o.name || 'Standard Shipping',
+            estimatedDeliveryTime: o.estimatedDeliveryTime || '5-7 business days',
+            cost: o.name === 'Free Shipping' ? 0 : (Number(o.cost) || 0),
+            isCustomDelivery: !isPreset && Boolean(o.estimatedDeliveryTime)
+          };
+        }));
       } else {
         const defaultList: any[] = [];
         const isFree = initialData.isFreeShipping || Number(initialData.shippingCost || 0) === 0;
         const methodName = initialData.shippingMethod || (isFree ? 'Free Shipping' : 'Standard Shipping');
         const costVal = isFree ? 0 : (Number(initialData.shippingCost) || 0);
+        const estTime = initialData.estimatedDeliveryTime || (costVal === 0 ? '7-14 business days' : '5-7 business days');
+        const isPreset = ESTIMATED_DELIVERY_PRESETS.includes(estTime);
         defaultList.push({
           name: methodName,
-          estimatedDeliveryTime: initialData.estimatedDeliveryTime || (costVal === 0 ? '7-14 business days' : '5-7 business days'),
-          cost: costVal
+          estimatedDeliveryTime: estTime,
+          cost: costVal,
+          isCustomDelivery: !isPreset && Boolean(estTime)
         });
         setShippingOptions(defaultList);
       }
 
       // Variants & Unit Type inference
       const loadedVariants = (initialData.variants && initialData.variants.length > 0)
-        ? initialData.variants.map(v => ({ ...v }))
+        ? initialData.variants.map(v => {
+            const isPreset = UNIT_PRESETS.weight.includes(v.weight) || UNIT_PRESETS.pieces.includes(v.weight) || UNIT_PRESETS.leaves.includes(v.weight) || UNIT_PRESETS.custom.includes(v.weight);
+            return { ...v, isCustomWeight: !isPreset };
+          })
         : [{
             weight: initialData.weight || '100g',
             price: Number(initialData.price) || 24.99,
-            stockQuantity: Number(initialData.stockQuantity) || 50
+            stockQuantity: Number(initialData.stockQuantity) || 50,
+            isCustomWeight: false
           }];
       setVariants(loadedVariants);
 
@@ -245,21 +317,24 @@ export default function ProductModal({
       setCondition('Brand New / Fresh Harvest');
       setExpirationDate('');
       setHasDiscount(false);
+      setOfferSelection('buy2');
       setOfferName('');
       setDiscountPercentage('');
+      setCustomOfferName('');
+      setCustomDiscountPercentage('');
       setUnitType('weight');
       setSpecifications('');
       setShippingOptions([
-        { name: 'Standard Shipping', estimatedDeliveryTime: '5-7 business days', cost: 4.99 },
-        { name: 'Express Shipping', estimatedDeliveryTime: '5-7 business days', cost: 14.99 },
-        { name: 'Free Shipping', estimatedDeliveryTime: '7-14 business days', cost: 0 }
+        { name: 'Standard Shipping', estimatedDeliveryTime: '5-7 business days', cost: 4.99, isCustomDelivery: false },
+        { name: 'Express Shipping', estimatedDeliveryTime: '5-7 business days', cost: 14.99, isCustomDelivery: false },
+        { name: 'Free Shipping', estimatedDeliveryTime: '7-14 business days', cost: 0, isCustomDelivery: false }
       ]);
       setHandlingTime('1 business day');
       setHandlingPreset('1 business day');
       setCustomUnitInput('');
       setInlineCustomWeight('');
       setReturnPolicy('30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
-      setVariants([{ weight: '100g', price: 24.99, stockQuantity: 50 }]);
+      setVariants([{ weight: '100g', price: 24.99, stockQuantity: 50, isCustomWeight: false }]);
     }
     setError(null);
   }, [initialData, mode, isOpen, categories]);
@@ -352,16 +427,18 @@ export default function ProductModal({
 
   const handleAddVariantWithWeight = (weightName: string) => {
     if (!weightName.trim()) return;
+    const isPreset = UNIT_PRESETS[unitType].includes(weightName.trim());
     if (variants.length === 1 && (!variants[0].weight || variants[0].weight.trim() === '')) {
-      setVariants([{ ...variants[0], weight: weightName.trim() }]);
+      setVariants([{ ...variants[0], weight: weightName.trim(), isCustomWeight: !isPreset } as any]);
     } else {
       setVariants(prev => [
         ...prev,
         {
           weight: weightName.trim(),
           price: prev.length > 0 ? prev[prev.length - 1].price : 24.99,
-          stockQuantity: 50
-        }
+          stockQuantity: 50,
+          isCustomWeight: !isPreset
+        } as any
       ]);
     }
   };
@@ -410,6 +487,19 @@ export default function ProductModal({
       return;
     }
 
+    for (const opt of shippingOptions) {
+      if (!opt.estimatedDeliveryTime || !opt.estimatedDeliveryTime.trim()) {
+        setError(`Please specify an estimated delivery time for "${opt.name}".`);
+        return;
+      }
+    }
+
+    const resolvedHandlingTime = handlingPreset === 'Custom' ? handlingTime.trim() : handlingPreset;
+    if (!resolvedHandlingTime) {
+      setError('Please specify a valid handling and dispatch time.');
+      return;
+    }
+
     const primaryShipping = shippingOptions[0];
     const hasFree = shippingOptions.some(o => o.name === 'Free Shipping' || Number(o.cost) === 0);
 
@@ -444,13 +534,21 @@ export default function ProductModal({
         discountPercentage: hasDiscount && Number(discountPercentage) > 0 ? Number(discountPercentage) : 0,
         specifications: specifications.trim() || undefined,
         shippingMethod: primaryShipping.name,
-        estimatedDeliveryTime: primaryShipping.estimatedDeliveryTime,
-        handlingTime: handlingTime.trim() || undefined,
+        estimatedDeliveryTime: primaryShipping.estimatedDeliveryTime.trim(),
+        handlingTime: resolvedHandlingTime,
         isFreeShipping: hasFree,
         shippingCost: primaryShipping.name === 'Free Shipping' ? 0 : Number(primaryShipping.cost) || 0,
         returnPolicy: returnPolicy.trim() || undefined,
-        shippingOptions: JSON.stringify(shippingOptions),
-        variants: sortedVariants
+        shippingOptions: JSON.stringify(shippingOptions.map(o => ({
+          name: o.name,
+          estimatedDeliveryTime: o.estimatedDeliveryTime.trim(),
+          cost: o.name === 'Free Shipping' ? 0 : Number(o.cost) || 0
+        }))),
+        variants: sortedVariants.map(v => ({
+          weight: v.weight.trim(),
+          price: Number(v.price),
+          stockQuantity: Number(v.stockQuantity)
+        }))
       });
 
       onClose();
@@ -798,110 +896,106 @@ export default function ProductModal({
               </button>
             </div>
 
-            {/* Step 1: Unit Type Selector */}
-            <div className="space-y-2 bg-white p-3 rounded-xl border border-[#c6dfca] shadow-2xs">
-              <label className="block text-[11px] font-bold text-[#2d4b32] uppercase tracking-wider">
-                Select Pricing &amp; Measurement Unit:
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUnitType('weight')}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                    unitType === 'weight'
-                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
-                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
-                  }`}
-                >
-                  <Weight className="w-3.5 h-3.5" />
-                  <span>Weight (g / kg)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUnitType('pieces')}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                    unitType === 'pieces'
-                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
-                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5" />
-                  <span>Pieces (pcs / count)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUnitType('leaves')}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                    unitType === 'leaves'
-                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
-                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
-                  }`}
-                >
-                  <FlaskConical className="w-3.5 h-3.5" />
-                  <span>Leaves / Bunch</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUnitType('custom')}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                    unitType === 'custom'
-                      ? 'bg-[#24492d] text-white border-[#24492d] shadow-xs'
-                      : 'bg-[#fafcfa] text-[#2d4b32] border-[#ccdacc] hover:bg-[#edf5ee]'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Custom / Other</span>
-                </button>
+            {/* Step 1: Unit Type Selector (Dropdown for Weight, Pieces, Leaves, Custom / Other) */}
+            <div className="space-y-2 bg-white p-3.5 rounded-xl border border-[#c6dfca] shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div>
+                  <label htmlFor="unit-type-select" className="block text-[11px] font-bold text-[#1c3f24] uppercase tracking-wide">
+                    Select Pricing &amp; Measurement Unit:
+                  </label>
+                  <p className="text-[10px] text-[#5c7561] mt-0.5">
+                    Select how this product is quantified (Weight, Pieces, Leaves, or Custom).
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    id="unit-type-select"
+                    value={unitType}
+                    onChange={(e) => {
+                      const newType = e.target.value as 'weight' | 'pieces' | 'leaves' | 'custom';
+                      setUnitType(newType);
+                      // Update single/initial row to match the selected unit type
+                      if (variants.length === 1) {
+                        const defaultVal =
+                          newType === 'weight' ? '100g'
+                          : newType === 'pieces' ? '30 pcs'
+                          : newType === 'leaves' ? '25 Leaves'
+                          : (customUnitInput ? `1 ${customUnitInput}` : '1 Pack');
+                        setVariants([{
+                          ...variants[0],
+                          weight: defaultVal,
+                          isCustomWeight: newType === 'custom'
+                        }]);
+                      }
+                    }}
+                    className="w-full sm:w-auto px-3.5 py-2 rounded-lg border border-[#24492d]/50 bg-[#fafcfa] text-[#1c3f24] text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#24492d]/25 cursor-pointer shadow-2xs"
+                  >
+                    <option value="weight">Weight (g / kg)</option>
+                    <option value="pieces">Pieces (pcs / count / capsules)</option>
+                    <option value="leaves">Leaves (Leaves / Bunch)</option>
+                    <option value="custom">Custom / Other (Editable)</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Dedicated Custom Unit Creator when Custom / Other is chosen */}
+              {/* Dedicated Custom / Other Unit input when Custom / Other is chosen */}
               {unitType === 'custom' && (
-                <div className="p-3 bg-[#eaf4ec] rounded-lg border border-[#badbbd] space-y-2 animate-fadeIn mt-2">
+                <div className="p-3 bg-[#eaf4ec] rounded-lg border border-[#badbbd] space-y-2 animate-fadeIn mt-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-[#1c3f24] uppercase">
-                      Create Custom Unit, Volume or Packaging:
+                      Custom Unit, Volume or Packaging Name:
                     </span>
                     <span className="text-[10px] text-[#4d7053]">
-                      Type your custom option and click add
+                      Type your custom unit and it updates your options
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={customUnitInput}
-                      onChange={(e) => setCustomUnitInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomUnitInput(val);
+                        if (variants.length === 1 && (!variants[0].weight || variants[0].weight === '1 Pack' || variants[0].weight.includes(customUnitInput))) {
+                          setVariants([{
+                            ...variants[0],
+                            weight: val ? `1 ${val}` : '1 Pack',
+                            isCustomWeight: true
+                          }]);
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           if (customUnitInput.trim()) {
-                            handleAddVariantWithWeight(customUnitInput.trim());
-                            setCustomUnitInput('');
+                            handleAddVariantWithWeight(`1 ${customUnitInput.trim()}`);
                           }
                         }
                       }}
-                      placeholder="e.g. 250ml Bottle, 1 Tin Box, 30 Tea Bags, 2-Pack Bundle"
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/30"
+                      placeholder="e.g. Capsules, Bottle, Tin Box, Tea Bags, 2-Pack Bundle"
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 font-medium"
+                      autoFocus
                     />
                     <button
                       type="button"
                       onClick={() => {
                         if (customUnitInput.trim()) {
-                          handleAddVariantWithWeight(customUnitInput.trim());
-                          setCustomUnitInput('');
+                          handleAddVariantWithWeight(`1 ${customUnitInput.trim()}`);
                         }
                       }}
                       className="px-3 py-1.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-xs whitespace-nowrap"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add Custom</span>
+                      <span>Add Option</span>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Quick Add Presets based on selected unit + Inline Custom Option Adder */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-[#e3ede5] mt-2">
-                <span className="text-[10px] font-bold text-[#45634b] uppercase">Quick Add:</span>
+              {/* Quick Add Presets based on selected unit */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-[#e3ede5] mt-1">
+                <span className="text-[10px] font-bold text-[#45634b] uppercase">Quick Presets:</span>
                 {UNIT_PRESETS[unitType].map((preset) => (
                   <button
                     key={preset}
@@ -913,46 +1007,6 @@ export default function ProductModal({
                     <span>{preset}</span>
                   </button>
                 ))}
-
-                {/* Inline Custom Option Adder for any unit type */}
-                <div className="flex items-center gap-1 sm:ml-auto">
-                  <input
-                    type="text"
-                    value={inlineCustomWeight}
-                    onChange={(e) => setInlineCustomWeight(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (inlineCustomWeight.trim()) {
-                          handleAddVariantWithWeight(inlineCustomWeight.trim());
-                          setInlineCustomWeight('');
-                        }
-                      }
-                    }}
-                    placeholder={
-                      unitType === 'weight'
-                        ? 'Custom weight (e.g. 75g)...'
-                        : unitType === 'pieces'
-                        ? 'Custom count (e.g. 45 pcs)...'
-                        : unitType === 'leaves'
-                        ? 'Custom leaves/bunch...'
-                        : 'Custom size/pack...'
-                    }
-                    className="w-40 sm:w-44 px-2 py-0.5 text-xs rounded border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (inlineCustomWeight.trim()) {
-                        handleAddVariantWithWeight(inlineCustomWeight.trim());
-                        setInlineCustomWeight('');
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-[11px] font-bold rounded transition-colors cursor-pointer shadow-2xs"
-                  >
-                    + Add Custom
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -964,8 +1018,8 @@ export default function ProductModal({
                   : unitType === 'pieces'
                   ? 'Piece / Count Option (e.g. 30 pcs, 60 capsules)'
                   : unitType === 'leaves'
-                  ? 'Leaves / Bunch Option (e.g. 50 Leaves, 1 Bunch)'
-                  : 'Option / Packaging (e.g. 1 Pack, 250ml)'}
+                  ? 'Leaves / Bunch Option (e.g. 25 Leaves, 1 Bunch)'
+                  : `Custom Option (e.g. 1 ${customUnitInput || 'Pack'}, 250ml)`}
               </div>
               <div className="col-span-3">Price (USD $)</div>
               <div className="col-span-3">Stock Units</div>
@@ -983,50 +1037,72 @@ export default function ProductModal({
                     </label>
                     <div className="flex items-center gap-1.5">
                       {/* Presets + Custom Select */}
-                      <select
-                        value={UNIT_PRESETS[unitType].includes(v.weight) ? v.weight : 'Custom'}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const updated = [...variants];
-                          if (val === 'Custom') {
-                            if (UNIT_PRESETS[unitType].includes(v.weight)) {
-                              updated[idx] = { ...updated[idx], weight: '' };
-                            }
-                          } else {
-                            updated[idx] = { ...updated[idx], weight: val };
-                          }
-                          setVariants(updated);
-                        }}
-                        className="w-2/5 min-w-[85px] px-2 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
-                        title="Pick preset or choose Custom to enter your own"
-                      >
-                        {UNIT_PRESETS[unitType].map((preset) => (
-                          <option key={preset} value={preset}>{preset}</option>
-                        ))}
-                        <option value="Custom">Custom...</option>
-                      </select>
+                      {(() => {
+                        const isPresetWeight = UNIT_PRESETS[unitType].includes(v.weight);
+                        const isCustom = (v as any).isCustomWeight !== undefined ? (v as any).isCustomWeight : !isPresetWeight;
 
-                      {/* Direct Editable Input */}
-                      <input
-                        type="text"
-                        required
-                        value={v.weight}
-                        onChange={e => {
-                          const updated = [...variants];
-                          updated[idx] = { ...updated[idx], weight: e.target.value };
-                          setVariants(updated);
-                        }}
-                        placeholder={
-                          unitType === 'weight'
-                            ? 'e.g. 50g, 100g, 250g'
-                            : unitType === 'pieces'
-                            ? 'e.g. 30 pcs, 60 capsules'
-                            : unitType === 'leaves'
-                            ? 'e.g. 25 Leaves, 1 Bunch'
-                            : 'e.g. 1 Pack, 250ml'
-                        }
-                        className="flex-1 px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
-                      />
+                        return (
+                          <>
+                            <select
+                              value={isCustom ? 'Custom' : v.weight}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const updated = [...variants];
+                                if (val === 'Custom') {
+                                  updated[idx] = {
+                                    ...updated[idx],
+                                    isCustomWeight: true
+                                  } as any;
+                                } else {
+                                  updated[idx] = {
+                                    ...updated[idx],
+                                    weight: val,
+                                    isCustomWeight: false
+                                  } as any;
+                                }
+                                setVariants(updated);
+                              }}
+                              className="w-2/5 min-w-[85px] px-2 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
+                              title="Pick preset or choose Custom to enter your own weight"
+                            >
+                              {UNIT_PRESETS[unitType].map((preset) => (
+                                <option key={preset} value={preset}>{preset}</option>
+                              ))}
+                              <option value="Custom">Custom...</option>
+                            </select>
+
+                            {/* Direct Editable Input */}
+                            <input
+                              type="text"
+                              required
+                              value={v.weight}
+                              onChange={e => {
+                                const updated = [...variants];
+                                updated[idx] = {
+                                  ...updated[idx],
+                                  weight: e.target.value,
+                                  isCustomWeight: true
+                                } as any;
+                                setVariants(updated);
+                              }}
+                              placeholder={
+                                unitType === 'weight'
+                                  ? 'e.g. 50g, 75g, 100g, 250g'
+                                  : unitType === 'pieces'
+                                  ? 'e.g. 30 pcs, 60 capsules'
+                                  : unitType === 'leaves'
+                                  ? 'e.g. 25 Leaves, 1 Bunch'
+                                  : 'e.g. 1 Pack, 250ml'
+                              }
+                              className={`flex-1 px-3 py-2 rounded-lg border text-xs focus:outline-none transition-all ${
+                                isCustom
+                                  ? 'border-[#24492d] bg-[#f7fbf8] text-[#1c3f24] focus:ring-2 focus:ring-[#24492d]/20 ring-1 ring-[#24492d]/30 font-medium'
+                                  : 'border-[#ccdacc] bg-white text-[#1c3f24] focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]'
+                              }`}
+                            />
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1093,6 +1169,32 @@ export default function ProductModal({
               ))}
             </div>
 
+            {/* Button to add more rows */}
+            <div className="pt-1 flex items-center justify-between flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextPreset =
+                    unitType === 'weight'
+                      ? (UNIT_PRESETS.weight.find(p => !variants.some(v => v.weight === p)) || '250g')
+                      : unitType === 'pieces'
+                      ? (UNIT_PRESETS.pieces.find(p => !variants.some(v => v.weight === p)) || '60 pcs')
+                      : unitType === 'leaves'
+                      ? (UNIT_PRESETS.leaves.find(p => !variants.some(v => v.weight === p)) || '50 Leaves')
+                      : (customUnitInput ? `2 ${customUnitInput}` : '2 Pack Bundle');
+                  handleAddVariantWithWeight(nextPreset);
+                }}
+                className="px-4 py-2 rounded-lg bg-white border border-[#24492d] hover:bg-[#edf5ee] text-[#24492d] text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Add Row ({unitType === 'weight' ? 'Weight' : unitType === 'pieces' ? 'Pieces' : unitType === 'leaves' ? 'Leaves' : 'Option'})</span>
+              </button>
+
+              <span className="text-[11px] text-[#5c7561]">
+                {variants.length} {variants.length === 1 ? 'row configured' : 'rows configured'}
+              </span>
+            </div>
+
             {/* Summary Info */}
             {variants.length > 0 && (
               <div className="flex flex-wrap items-center justify-between text-[11px] text-[#3d5942] bg-[#e4f0e6] px-3 py-2 rounded-lg border border-[#c3dec7]">
@@ -1112,7 +1214,7 @@ export default function ProductModal({
           </div>
 
           {/* Section: Discounts & Promotional Offers (Optional for Sellers & Admins) */}
-          <div className="space-y-3 p-4 rounded-xl bg-[#fffcf5] border border-[#f3e3be]">
+          <div className="space-y-3.5 p-4 rounded-xl bg-[#fffcf5] border border-[#f3e3be]">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
@@ -1120,18 +1222,27 @@ export default function ProductModal({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-amber-950">Discounts &amp; Promotional Offers (Optional)</h4>
-                  <p className="text-[10px] text-amber-800">Sellers can optionally offer promotional discounts on this product to customers.</p>
+                  <p className="text-[10px] text-amber-800">Choose a preset offer like Buy 2 / Buy 3 or customize any promotional deal for customers.</p>
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none bg-white px-3 py-1.5 rounded-lg border border-amber-300 shadow-2xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none bg-white px-3 py-1.5 rounded-lg border border-amber-300 shadow-2xs hover:bg-amber-50/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={hasDiscount}
                   onChange={(e) => {
-                    setHasDiscount(e.target.checked);
-                    if (e.target.checked && (!discountPercentage || Number(discountPercentage) <= 0)) {
-                      setDiscountPercentage(10);
-                      if (!offerName) setOfferName('Special Offer');
+                    const checked = e.target.checked;
+                    setHasDiscount(checked);
+                    if (checked) {
+                      if (offerSelection === 'buy2') {
+                        setOfferName('Buy 2 Get 10% Off');
+                        setDiscountPercentage(10);
+                      } else if (offerSelection === 'buy3') {
+                        setOfferName('Buy 3 Get 20% Off');
+                        setDiscountPercentage(20);
+                      } else {
+                        setOfferName(customOfferName || 'Special Offer');
+                        setDiscountPercentage(customDiscountPercentage || 10);
+                      }
                     }
                   }}
                   className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
@@ -1144,59 +1255,184 @@ export default function ProductModal({
 
             {hasDiscount && (
               <div className="space-y-3 pt-2 border-t border-amber-200/80 animate-fadeIn">
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                  {/* Offer Name */}
-                  <div className="sm:col-span-7 space-y-1">
-                    <label className="block text-[11px] font-semibold text-amber-950">
-                      Offer Name / Promotion Title <span className="text-red-500">*</span>
+                {/* Offer Selection Options */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-amber-950 uppercase tracking-wide">
+                      Select Promotional Offer:
                     </label>
-                    <input
-                      type="text"
-                      value={offerName}
-                      onChange={(e) => setOfferName(e.target.value)}
-                      placeholder="e.g. Seasonal Herbal Sale, Launch Promo, 15% Weekend Deal"
-                      className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    />
+                    <span className="text-[10px] text-amber-800">
+                      Pick preset or choose Customize to set your own deal
+                    </span>
                   </div>
 
-                  {/* Discount Percentage */}
-                  <div className="sm:col-span-5 space-y-1">
-                    <label className="block text-[11px] font-semibold text-amber-950">
-                      Discount Percentage (%) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="1"
-                        max="90"
-                        value={discountPercentage}
-                        onChange={(e) => setDiscountPercentage(e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0)))}
-                        placeholder="15"
-                        className="w-full pl-3 pr-8 py-2 rounded-lg border border-amber-300 bg-white text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-700 text-xs font-bold">%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preset Percentage Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold text-amber-900 uppercase">Quick Discounts:</span>
-                  {[5, 10, 15, 20, 25, 30, 50].map((pct) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Preset 1: Buy 2 Get 10% Off */}
                     <button
-                      key={pct}
                       type="button"
-                      onClick={() => setDiscountPercentage(pct)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                        discountPercentage === pct
-                          ? 'bg-amber-600 text-white shadow-2xs'
-                          : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                      onClick={() => handleSelectOfferPreset('buy2')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        offerSelection === 'buy2'
+                          ? 'bg-amber-100/90 border-amber-600 ring-2 ring-amber-500/30 shadow-xs'
+                          : 'bg-white border-amber-200/80 hover:border-amber-400 hover:bg-amber-50/40'
                       }`}
                     >
-                      {pct}% OFF
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-bold text-amber-950">Buy 2 Get 10% Off</span>
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white">
+                          10% OFF
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-800 mt-1">Preset multi-item discount</span>
                     </button>
-                  ))}
+
+                    {/* Preset 2: Buy 3 Get 20% Off */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectOfferPreset('buy3')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        offerSelection === 'buy3'
+                          ? 'bg-amber-100/90 border-amber-600 ring-2 ring-amber-500/30 shadow-xs'
+                          : 'bg-white border-amber-200/80 hover:border-amber-400 hover:bg-amber-50/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-bold text-amber-950">Buy 3 Get 20% Off</span>
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white">
+                          20% OFF
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-800 mt-1">Preset volume savings deal</span>
+                    </button>
+
+                    {/* Option 3: Customize */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectOfferPreset('custom')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        offerSelection === 'custom'
+                          ? 'bg-amber-100/90 border-amber-600 ring-2 ring-amber-500/30 shadow-xs'
+                          : 'bg-white border-amber-200/80 hover:border-amber-400 hover:bg-amber-50/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-bold text-amber-950">Customize Offer</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-600 text-white">
+                          Custom
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-800 mt-1">Seller can set any offer</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* If Customize is chosen, show Custom Offer Builder */}
+                {offerSelection === 'custom' ? (
+                  <div className="p-3 bg-white rounded-xl border border-amber-300 space-y-3 animate-fadeIn">
+                    <div className="flex items-center justify-between pb-1 border-b border-amber-100">
+                      <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        Custom Offer Builder:
+                      </span>
+                      <span className="text-[10px] text-amber-700">Enter your custom offer title and discount percentage</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      {/* Custom Offer Title */}
+                      <div className="sm:col-span-7 space-y-1">
+                        <label className="block text-[10px] font-bold text-amber-950 uppercase">
+                          Custom Offer Name / Title <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={customOfferName}
+                          onChange={(e) => {
+                            setCustomOfferName(e.target.value);
+                            setOfferName(e.target.value);
+                          }}
+                          placeholder="e.g. Buy 4 Get 25% Off, Holiday Special, Flash Deal"
+                          className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      {/* Custom Discount % */}
+                      <div className="sm:col-span-3 space-y-1">
+                        <label className="block text-[10px] font-bold text-amber-950 uppercase">
+                          Discount (%) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="1"
+                            max="90"
+                            value={customDiscountPercentage}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0));
+                              setCustomDiscountPercentage(val);
+                              setDiscountPercentage(val);
+                            }}
+                            placeholder="15"
+                            className="w-full pl-3 pr-7 py-1.5 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-700 text-xs font-bold">%</span>
+                        </div>
+                      </div>
+
+                      {/* Add / Apply Offer Button */}
+                      <div className="sm:col-span-2 flex items-end">
+                        <button
+                          type="button"
+                          onClick={handleApplyCustomOffer}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-2xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Apply</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Percentage Chips */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-amber-100">
+                      <span className="text-[10px] font-bold text-amber-900 uppercase">Quick Discounts:</span>
+                      {[5, 10, 15, 20, 25, 30, 40, 50].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => {
+                            setCustomDiscountPercentage(pct);
+                            setDiscountPercentage(pct);
+                            if (!customOfferName) {
+                              const autoName = `${pct}% Off Special Deal`;
+                              setCustomOfferName(autoName);
+                              setOfferName(autoName);
+                            }
+                          }}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                            discountPercentage === pct
+                              ? 'bg-amber-600 text-white shadow-2xs'
+                              : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                          }`}
+                        >
+                          {pct}% OFF
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* Summary of Selected Preset */
+                  <div className="p-2.5 rounded-lg bg-white border border-amber-300 flex items-center justify-between flex-wrap gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-800 font-medium">Selected Preset Offer:</span>
+                      <strong className="text-amber-950 font-bold">{offerName}</strong>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black">
+                        {discountPercentage}% OFF
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-700 italic">
+                      Applied automatically to this product
+                    </span>
+                  </div>
+                )}
 
                 {/* Discount Live Calculation Preview */}
                 {(() => {
@@ -1295,8 +1531,8 @@ export default function ProductModal({
                       Estimated Delivery Time
                     </label>
                     {(() => {
-                      const isPreset = ESTIMATED_DELIVERY_PRESETS.includes(opt.estimatedDeliveryTime);
-                      const selectedVal = isPreset ? opt.estimatedDeliveryTime : 'Custom';
+                      const isCustom = (opt as any).isCustomDelivery || !ESTIMATED_DELIVERY_PRESETS.includes(opt.estimatedDeliveryTime);
+                      const selectedVal = isCustom ? 'Custom' : opt.estimatedDeliveryTime;
 
                       return (
                         <div className="space-y-1">
@@ -1308,32 +1544,37 @@ export default function ProductModal({
                               if (val === 'Custom') {
                                 updated[optIdx] = {
                                   ...updated[optIdx],
-                                  estimatedDeliveryTime: isPreset ? '' : updated[optIdx].estimatedDeliveryTime
+                                  isCustomDelivery: true
                                 };
                               } else {
                                 updated[optIdx] = {
                                   ...updated[optIdx],
-                                  estimatedDeliveryTime: val
+                                  estimatedDeliveryTime: val,
+                                  isCustomDelivery: false
                                 };
                               }
                               setShippingOptions(updated);
                             }}
                             className="w-full px-2.5 py-1.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
                           >
-                            <option value="5-7 business days">5-7 business days</option>
-                            <option value="7-14 business days">7-14 business days</option>
-                            <option value="14-21 business days">14-21 business days</option>
+                            {ESTIMATED_DELIVERY_PRESETS.map((preset) => (
+                              <option key={preset} value={preset}>{preset}</option>
+                            ))}
                             <option value="Custom">Custom Estimate...</option>
                           </select>
 
-                          {selectedVal === 'Custom' && (
+                          {isCustom && (
                             <input
                               type="text"
                               required
                               value={opt.estimatedDeliveryTime}
                               onChange={(e) => {
                                 const updated = [...shippingOptions];
-                                updated[optIdx] = { ...updated[optIdx], estimatedDeliveryTime: e.target.value };
+                                updated[optIdx] = {
+                                  ...updated[optIdx],
+                                  estimatedDeliveryTime: e.target.value,
+                                  isCustomDelivery: true
+                                };
                                 setShippingOptions(updated);
                               }}
                               placeholder="e.g. 2-4 business days, 1-3 weeks"
@@ -1413,11 +1654,9 @@ export default function ProductModal({
                   }}
                   className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] cursor-pointer"
                 >
-                  <option value="1 business day">1 business day</option>
-                  <option value="2 business days">2 business days</option>
-                  <option value="3 business days">3 business days</option>
-                  <option value="4 business days">4 business days</option>
-                  <option value="5 business days">5 business days</option>
+                  {HANDLING_TIME_PRESETS.map((preset) => (
+                    <option key={preset} value={preset}>{preset}</option>
+                  ))}
                   <option value="Custom">Custom (Enter your own days)...</option>
                 </select>
 
@@ -1425,6 +1664,7 @@ export default function ProductModal({
                   <div className="mt-1.5 animate-fadeIn">
                     <input
                       type="text"
+                      required
                       value={handlingTime}
                       onChange={(e) => setHandlingTime(e.target.value)}
                       placeholder="e.g. 6 business days, Same day dispatch..."
