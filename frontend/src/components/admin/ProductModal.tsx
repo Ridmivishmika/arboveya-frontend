@@ -891,7 +891,7 @@ export default function ProductModal({
               </div>
             </div>
 
-            {/* Step 1: Unit Type Selector (Dropdown for Weight, Pieces, Leaves, Custom / Other) */}
+            {/* Step 1: Unit Type Selector */}
             <div className="space-y-2.5 bg-white p-3.5 rounded-xl border border-[#c6dfca] shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
@@ -899,25 +899,24 @@ export default function ProductModal({
                     Select Pricing &amp; Measurement Unit:
                   </label>
                   <p className="text-[10px] text-[#5c7561] mt-0.5">
-                    Select how this product is quantified (Weight, Pieces, Leaves, or Custom).
+                    Select whether you quantify by Weight, Pieces, Leaves, or Custom.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <select
                     id="unit-type-select"
                     value={unitType}
                     onChange={(e) => {
                       const newType = e.target.value as 'weight' | 'pieces' | 'leaves' | 'custom';
                       setUnitType(newType);
-                      setUnitSavedSuccess(false);
-                      // Update single/initial row to match the selected unit type
+                      // Update single/initial row to match the selected unit type if default
                       if (variants.length === 1 && (!variants[0].weight || variants[0].weight === '100g' || variants[0].weight === '30 pcs' || variants[0].weight === '25 Leaves' || variants[0].weight === '1 Pack')) {
                         const defaultVal =
                           newType === 'weight' ? '100g'
                           : newType === 'pieces' ? '30 pcs'
                           : newType === 'leaves' ? '25 Leaves'
-                          : (savedCustomUnit ? `1 ${savedCustomUnit}` : '');
+                          : (customUnitInput.trim() ? `1 ${customUnitInput.trim()}` : '');
                         setVariants([{
                           ...variants[0],
                           weight: defaultVal,
@@ -932,105 +931,36 @@ export default function ProductModal({
                     <option value="leaves">Leaves (Leaves / Bunch)</option>
                     <option value="custom">Custom / Other (Editable)</option>
                   </select>
-                </div>
-              </div>
 
-              {/* Dedicated Custom / Other Unit input when Custom / Other is chosen */}
-              {unitType === 'custom' && (
-                <div className="p-3 bg-[#eaf4ec] rounded-lg border border-[#badbbd] space-y-2 animate-fadeIn mt-1">
-                  <div className="flex items-center justify-between flex-wrap gap-1">
-                    <span className="text-[11px] font-bold text-[#1c3f24] uppercase flex items-center gap-1.5">
-                      Type Custom Unit / Measurement Name:
-                    </span>
-                    <span className="text-[10px] text-[#4d7053]">
-                      Type any unit (e.g. Liter, Bottles, Capsules, Pack) and click Save Unit
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  {/* Directly editable custom unit input when Custom is selected */}
+                  {unitType === 'custom' && (
                     <input
                       type="text"
                       value={customUnitInput}
                       onChange={(e) => {
-                        setCustomUnitInput(e.target.value);
-                        setUnitSavedSuccess(false);
+                        const val = e.target.value;
+                        setCustomUnitInput(val);
+                        setSavedCustomUnit(val);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (customUnitInput.trim()) {
-                            setSavedCustomUnit(customUnitInput.trim());
-                            setUnitSavedSuccess(true);
-                            if (variants.length === 1 && (!variants[0].weight || variants[0].weight === '100g' || variants[0].weight === '30 pcs' || variants[0].weight === '1 Pack')) {
-                              setVariants([{
-                                ...variants[0],
-                                weight: `1 ${customUnitInput.trim()}`,
-                                isCustomWeight: true
-                              }]);
-                            }
-                          }
-                        }
-                      }}
-                      placeholder="e.g. Liter, Bottles, Capsules, Milliliter, Pack..."
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 font-medium"
+                      placeholder="Type custom unit (e.g. Liter, Bottles, Capsules)..."
+                      className="w-full sm:w-56 px-3 py-2 rounded-lg border border-[#24492d] bg-[#f7fbf8] text-[#1c3f24] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 shadow-2xs animate-fadeIn"
                       autoFocus
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (customUnitInput.trim()) {
-                          setSavedCustomUnit(customUnitInput.trim());
-                          setUnitSavedSuccess(true);
-                          if (variants.length === 1 && (!variants[0].weight || variants[0].weight === '100g' || variants[0].weight === '30 pcs' || variants[0].weight === '1 Pack')) {
-                            setVariants([{
-                              ...variants[0],
-                              weight: `1 ${customUnitInput.trim()}`,
-                              isCustomWeight: true
-                            }]);
-                          }
-                        }
-                      }}
-                      className="px-3.5 py-1.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Save Unit</span>
-                    </button>
-                  </div>
-                  {unitSavedSuccess && savedCustomUnit && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-[#1c3f24] font-semibold bg-white/80 px-2.5 py-1 rounded-md border border-[#9dcf9f] animate-fadeIn">
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Custom unit saved as <strong>"{savedCustomUnit}"</strong>! You can now add and customize options below.</span>
-                    </div>
                   )}
                 </div>
-              )}
-
-              {/* Quick Add Presets based on selected unit */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-[#e3ede5] mt-1">
-                <span className="text-[10px] font-bold text-[#45634b] uppercase">Quick Presets:</span>
-                {UNIT_PRESETS[unitType].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => handleAddVariantWithWeight(preset)}
-                    className="px-2 py-0.5 bg-[#edf5ee] hover:bg-[#deede0] text-[#24492d] text-[11px] font-semibold rounded-md border border-[#c2d8c6] transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>{preset}</span>
-                  </button>
-                ))}
               </div>
             </div>
 
-            {/* Column Headers */}
+            {/* Column Headers - Only 4 columns: [Unit Name] Option, Price (USD $), Stock Units, Remove */}
             <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-[10px] font-bold text-[#45634b] uppercase px-1">
               <div className="col-span-5">
                 {unitType === 'weight'
                   ? 'Weight Option (e.g. 50g, 100g, 1kg)'
                   : unitType === 'pieces'
-                  ? 'Piece / Count Option (e.g. 30 pcs, 60 capsules)'
+                  ? 'Pieces Option (e.g. 30 pcs, 60 capsules)'
                   : unitType === 'leaves'
-                  ? 'Leaves / Bunch Option (e.g. 25 Leaves, 1 Bunch)'
-                  : `${(savedCustomUnit || customUnitInput).trim() || 'Custom'} Option (e.g. 1 ${(savedCustomUnit || customUnitInput).trim() || 'Unit'}, 2 ${(savedCustomUnit || customUnitInput).trim() || 'Units'})`}
+                  ? 'Leaves Option (e.g. 25 Leaves, 1 Bunch)'
+                  : `${customUnitInput.trim() ? `${customUnitInput.trim()} Option` : 'Custom Option'}`}
               </div>
               <div className="col-span-3">Price (USD $)</div>
               <div className="col-span-3">Stock Units</div>
@@ -1047,10 +977,10 @@ export default function ProductModal({
                       {unitType === 'weight'
                         ? 'Weight Option (e.g. 50g, 100g, 1kg)'
                         : unitType === 'pieces'
-                        ? 'Piece / Count Option (e.g. 30 pcs, 60 capsules)'
+                        ? 'Pieces Option (e.g. 30 pcs, 60 capsules)'
                         : unitType === 'leaves'
-                        ? 'Leaves / Bunch Option (e.g. 25 Leaves, 1 Bunch)'
-                        : `${(savedCustomUnit || customUnitInput).trim() || 'Custom'} Option`}
+                        ? 'Leaves Option (e.g. 25 Leaves, 1 Bunch)'
+                        : `${customUnitInput.trim() ? `${customUnitInput.trim()} Option` : 'Custom Option'}`}
                     </label>
                     <input
                       type="text"
@@ -1071,9 +1001,9 @@ export default function ProductModal({
                           ? 'e.g. 30 pcs, 60 capsules'
                           : unitType === 'leaves'
                           ? 'e.g. 25 Leaves, 1 Bunch'
-                          : (savedCustomUnit || customUnitInput)
-                          ? `e.g. 1 ${(savedCustomUnit || customUnitInput).trim()}, 2 ${(savedCustomUnit || customUnitInput).trim()}`
-                          : 'e.g. 30 pcs, 60 capsules, 100g'
+                          : customUnitInput.trim()
+                          ? `e.g. 1 ${customUnitInput.trim()}, 2 ${customUnitInput.trim()}`
+                          : 'e.g. 1 Liter, 2 Liters'
                       }
                       className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                     />
@@ -1153,7 +1083,7 @@ export default function ProductModal({
                       ? (UNIT_PRESETS.pieces.find(p => !variants.some(v => v.weight === p)) || '')
                       : unitType === 'leaves'
                       ? (UNIT_PRESETS.leaves.find(p => !variants.some(v => v.weight === p)) || '')
-                      : (savedCustomUnit ? `2 ${savedCustomUnit}` : '');
+                      : (customUnitInput.trim() ? `2 ${customUnitInput.trim()}` : '');
 
                   setVariants(prev => [
                     ...prev,
