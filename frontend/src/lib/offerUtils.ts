@@ -7,18 +7,33 @@
  */
 
 export interface ProductOfferTier {
-  id: 'buy2' | 'buy3' | 'buyMore';
-  label: string; // e.g. "Buy 2 Get 10% Off"
-  minQty: number; // 2 for buy2, 3 for buy3, 4 for buyMore
+  id: 'wholeProduct' | 'buy2' | 'buy3' | 'buyMore';
+  label: string; // e.g. "Buy 2 Get 10% Off" or "Special Herbal Sale"
+  minQty: number; // 1 for wholeProduct, 2 for buy2, 3 for buy3, 4 for buyMore
   percentage: number;
 }
 
 /**
  * Parses all enabled offer tiers from offerName string
- * (Format e.g.: "Buy 2 Get 10% Off | Buy 3 Get 15% Off | Buy more than 3 Get 20% Off")
+ * (Format e.g.: "Buy 2 Get 10% Off | Buy 3 Get 15% Off | Buy more than 3 Get 20% Off"
+ *  OR "Whole Product: Special Herbal Sale | 15% Off")
  */
 export function parseOfferTiers(offerName?: string, defaultDiscount?: number): ProductOfferTier[] {
   if (!offerName || !offerName.trim()) return [];
+
+  // Check for Whole Product offer pattern first
+  const matchWhole = offerName.match(/(?:\[Whole Product\]|Whole Product:)\s*([^|;\n]+)/i);
+  if (matchWhole) {
+    const rawLabel = matchWhole[1].trim();
+    const pctMatch = offerName.match(/(\d+(?:\.\d+)?)%/);
+    const pct = pctMatch ? parseFloat(pctMatch[1]) : (defaultDiscount || 0);
+    return [{
+      id: 'wholeProduct',
+      label: rawLabel || 'Special Product Offer',
+      minQty: 1,
+      percentage: pct > 0 ? pct : (defaultDiscount || 0)
+    }];
+  }
 
   const tiers: ProductOfferTier[] = [];
   const parts = offerName.split(/[|;,]/).map(p => p.trim()).filter(Boolean);
@@ -86,20 +101,30 @@ export function parseOfferTiers(offerName?: string, defaultDiscount?: number): P
     }
   }
 
-  // If no tier matched from parts but defaultDiscount > 0, attempt single offer recovery
+  // If no tier matched from parts but defaultDiscount > 0, check if it's a Buy X or Whole Product offer
   if (tiers.length === 0 && defaultDiscount && defaultDiscount > 0) {
     const rawMatch = offerName.match(/buy\s*(\d+)/i);
-    const qty = rawMatch ? parseInt(rawMatch[1], 10) : 2;
-    tiers.push({
-      id: qty === 2 ? 'buy2' : qty === 3 ? 'buy3' : 'buyMore',
-      label: qty > 3 ? `Buy more than 3 Get ${defaultDiscount}% Off` : `Buy ${qty} Get ${defaultDiscount}% Off`,
-      minQty: qty,
-      percentage: defaultDiscount
-    });
+    if (rawMatch) {
+      const qty = parseInt(rawMatch[1], 10);
+      tiers.push({
+        id: qty === 2 ? 'buy2' : qty === 3 ? 'buy3' : 'buyMore',
+        label: qty > 3 ? `Buy more than 3 Get ${defaultDiscount}% Off` : `Buy ${qty} Get ${defaultDiscount}% Off`,
+        minQty: qty,
+        percentage: defaultDiscount
+      });
+    } else {
+      // Whole product offer: applies to every item from quantity 1
+      tiers.push({
+        id: 'wholeProduct',
+        label: offerName.trim(),
+        minQty: 1,
+        percentage: defaultDiscount
+      });
+    }
   }
 
   // De-duplicate by id (keep latest)
-  const map = new Map<'buy2' | 'buy3' | 'buyMore', ProductOfferTier>();
+  const map = new Map<'wholeProduct' | 'buy2' | 'buy3' | 'buyMore', ProductOfferTier>();
   for (const t of tiers) {
     map.set(t.id, t);
   }
@@ -110,7 +135,8 @@ export function parseOfferTiers(offerName?: string, defaultDiscount?: number): P
 /**
  * Returns the best active tier for a given purchase quantity.
  * For example:
- * - quantity = 1 => null
+ * - wholeProduct (minQty 1): applies for 1, 2, 5, 10... (each item discounted)
+ * - quantity = 1 & tiered offers => null (regular price)
  * - quantity = 2 => buy2 (if enabled)
  * - quantity = 3 => buy3 (if enabled) else buy2
  * - quantity = 10 => buyMore (if enabled) else buy3 else buy2
@@ -119,12 +145,12 @@ export function getActiveOfferTierForQuantity(
   tiers: ProductOfferTier[],
   quantity: number
 ): ProductOfferTier | null {
-  if (!tiers || tiers.length === 0 || quantity < 2) return null;
+  if (!tiers || tiers.length === 0 || quantity < 1) return null;
 
   const qualifying = tiers.filter(t => quantity >= t.minQty);
   if (qualifying.length === 0) return null;
 
-  // Pick highest minQty tier (e.g. buyMore for 10 items)
+  // Pick highest minQty tier (e.g. buyMore for 10 items, or wholeProduct if minQty is 1)
   qualifying.sort((a, b) => b.minQty - a.minQty || b.percentage - a.percentage);
   return qualifying[0];
 }

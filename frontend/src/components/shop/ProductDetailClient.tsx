@@ -546,22 +546,22 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                         <div className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1.5 pt-0.5">
                           <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                           <span>
-                            Offer applied: <strong>{activeTier.label}</strong> (Valid for all {quantity} items — Save ${calc.savingsTotal.toFixed(2)})
+                            Offer applied: <strong>{activeTier.label}</strong> (Valid for all {quantity} {quantity === 1 ? 'item' : 'items'} — Save ${calc.savingsTotal.toFixed(2)})
                           </span>
                         </div>
-                      ) : (
+                      ) : allTiers.length > 0 && allTiers[0].minQty > quantity ? (
                         <div className="text-[11px] text-amber-800 font-medium pt-0.5">
                           💡 Add {allTiers[0].minQty - quantity} more item(s) to unlock <strong>{allTiers[0].label}</strong>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
 
                   {/* Subtotal & Line Total Calculation for Buyer */}
-                  {quantity > 1 && (
+                  {(quantity > 1 || calc.isDiscountApplied) && (
                     <div className="p-2.5 rounded-lg bg-[#f4f8f4] border border-[#d5e4d7] text-xs text-[#24492d] flex items-center justify-between flex-wrap gap-2">
                       <span className="font-semibold">
-                        Subtotal for <strong>{quantity} items</strong>:
+                        Subtotal for <strong>{quantity} {quantity === 1 ? 'item' : 'items'}</strong>:
                       </span>
                       <div className="flex items-baseline gap-2">
                         <span className="text-base font-bold text-[#1c3f24]">
