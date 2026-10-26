@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, Star } from 'lucide-react';
+import { Heart, Star, Tag } from 'lucide-react';
 import { Product } from '@/types';
 import { resolveBackendImageUrl } from '@/lib/api';
+import { parseOfferTiers } from '@/lib/offerUtils';
 
 interface BestSellersProps {
   products: Product[];
@@ -48,9 +49,8 @@ export default function BestSellers({ products }: BestSellersProps) {
               ? [...product.variants].sort((a, b) => a.price - b.price)[0]
               : undefined;
             const rawPrice = lowestVariant ? lowestVariant.price : product.price;
-            const discPct = Number(product.discountPercentage) || 0;
-            const isDiscounted = discPct > 0;
-            const displayPrice = isDiscounted ? rawPrice * (1 - discPct / 100) : rawPrice;
+            const tiers = parseOfferTiers(product.offerName, Number(product.discountPercentage));
+            const hasOffers = tiers.length > 0;
             const displayWeight = lowestVariant ? lowestVariant.weight : product.weight;
 
             return (
@@ -66,9 +66,10 @@ export default function BestSellers({ products }: BestSellersProps) {
                         BEST SELLER
                       </span>
                     )}
-                    {isDiscounted && (
-                      <span className="bg-amber-500 text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs">
-                        {discPct}% OFF
+                    {hasOffers && (
+                      <span className="bg-amber-500 text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs flex items-center gap-0.5">
+                        <Tag className="w-2 h-2" />
+                        <span>{tiers[0].label}</span>
                       </span>
                     )}
                   </div>
@@ -108,19 +109,29 @@ export default function BestSellers({ products }: BestSellersProps) {
 
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-bold text-[#1a3826]">
-                        ${displayPrice.toFixed(2)}
+                        ${rawPrice.toFixed(2)}
                       </span>
-                      {isDiscounted && (
-                        <span className="text-[10px] text-stone-400 line-through">
-                          ${rawPrice.toFixed(2)}
-                        </span>
-                      )}
                       {displayWeight && (
                         <span className="text-[10px] font-medium text-[#24492d] bg-[#edf5ee] px-1.5 py-0.2 rounded border border-[#d2e2d4]">
                           {displayWeight}
                         </span>
                       )}
                     </div>
+
+                    {/* All Offers list (Offer Name Only) */}
+                    {hasOffers && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {tiers.map((t) => (
+                          <span
+                            key={t.id}
+                            className="text-[8px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded flex items-center gap-0.5"
+                          >
+                            <Tag className="w-2 h-2 text-amber-600" />
+                            <span>{t.label}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Star Rating */}
                     <div className="flex items-center gap-0.5 text-[9px]">

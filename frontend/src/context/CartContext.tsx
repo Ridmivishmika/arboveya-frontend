@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product, ProductVariant, ShippingOption } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { parseOfferMinQuantity, calculateEffectivePrice } from '@/lib/offerUtils';
 
 export interface CartItem {
   product: Product;
@@ -276,9 +277,13 @@ const DEFAULT_SHIPPING_METHODS: ShippingOption[] = [
 
   const subtotal = activeCart.reduce((sum, item) => {
     const rawPrice = item.selectedVariant?.price ?? item.product.price;
-    const discPct = Number(item.product.discountPercentage) || 0;
-    const linePrice = discPct > 0 ? rawPrice * (1 - discPct / 100) : rawPrice;
-    return sum + linePrice * item.quantity;
+    const calc = calculateEffectivePrice(
+      rawPrice,
+      Number(item.product.discountPercentage) || 0,
+      item.product.offerName,
+      item.quantity
+    );
+    return sum + calc.totalPrice;
   }, 0);
 
   const discountAmount = coupon

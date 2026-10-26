@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { parseOfferMinQuantity, calculateEffectivePrice } from '@/lib/offerUtils';
 import { resolveBackendImageUrl, startProductConversation } from '@/lib/api';
 import { Product } from '@/types';
 
@@ -214,9 +215,17 @@ export default function CartClient() {
                 <tbody className="divide-y divide-[#e5ebe5]">
                   {cart.map((item) => {
                     const rawLinePrice = item.selectedVariant?.price ?? Number(item.product.price);
-                    const discPct = Number(item.product.discountPercentage) || 0;
-                    const linePrice = discPct > 0 ? rawLinePrice * (1 - discPct / 100) : rawLinePrice;
-                    const lineTotal = linePrice * item.quantity;
+                    const calc = calculateEffectivePrice(
+                      rawLinePrice,
+                      Number(item.product.discountPercentage) || 0,
+                      item.product.offerName,
+                      item.quantity
+                    );
+                    const linePrice = calc.unitPrice;
+                    const lineTotal = calc.totalPrice;
+                    const isDiscountApplied = calc.isDiscountApplied;
+                    const activeTier = calc.activeTier;
+                    const allTiers = calc.allTiers;
                     const vKey = item.selectedVariant?.weight;
                     return (
                       <tr key={`${item.product.id}_${vKey ?? 'default'}`} className="hover:bg-[#fafcfa] transition-colors">
@@ -249,10 +258,16 @@ export default function CartClient() {
                                   {item.product.weight}
                                 </span>
                               ) : null}
-                              {discPct > 0 && (
-                                <span className="inline-block mt-0.5 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
-                                  🏷️ {item.product.offerName || 'Special Offer'} ({discPct}% OFF)
-                                </span>
+                              {allTiers.length > 0 && (
+                                isDiscountApplied ? (
+                                  <span className="inline-block mt-0.5 text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                    🏷️ {activeTier?.label || item.product.offerName} (Applied to {item.quantity} items — Save ${calc.savingsTotal.toFixed(2)})
+                                  </span>
+                                ) : (
+                                  <span className="inline-block mt-0.5 text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                    🏷️ {allTiers[0].label} (Add {allTiers[0].minQty - item.quantity} more to unlock)
+                                  </span>
+                                )
                               )}
                               <button
                                 type="button"
@@ -270,7 +285,7 @@ export default function CartClient() {
                         {/* Price Column */}
                         <td className="py-5 px-2 sm:px-4 text-center text-xs sm:text-sm font-semibold text-[#1c3f24]">
                           <div>${linePrice.toFixed(2)}</div>
-                          {discPct > 0 && (
+                          {isDiscountApplied && (
                             <div className="text-[10px] text-stone-400 line-through">
                               ${rawLinePrice.toFixed(2)}
                             </div>

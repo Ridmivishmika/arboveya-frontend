@@ -1005,13 +1005,14 @@ export async function startOrderConversation(
   return data;
 }
 
-export async function getMyConversations(token?: string): Promise<Conversation[]> {
+export async function getMyConversations(token?: string, view?: 'seller' | 'buyer'): Promise<Conversation[]> {
   const headers: Record<string, string> = {};
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}/conversations/my`, {
+  const url = view ? `${API_BASE_URL}/conversations/my?view=${view}` : `${API_BASE_URL}/conversations/my`;
+  const res = await fetch(url, {
     headers,
     cache: "no-store",
   });

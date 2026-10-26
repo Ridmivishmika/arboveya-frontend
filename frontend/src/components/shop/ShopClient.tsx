@@ -16,12 +16,14 @@ import {
   Truck, 
   X,
   Eye,
-  Search
+  Search,
+  Tag
 } from 'lucide-react';
 import { Product, Category, WellnessNeed } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { resolveBackendImageUrl } from '@/lib/api';
+import { parseOfferMinQuantity, parseOfferTiers } from '@/lib/offerUtils';
 
 interface ShopClientProps {
   initialProducts: Product[];
@@ -689,10 +691,8 @@ export default function ShopClient({
                   const lowestVariant = product.variants && product.variants.length > 0
                     ? [...product.variants].sort((a, b) => a.price - b.price)[0]
                     : undefined;
-                  const rawPrice = lowestVariant ? lowestVariant.price : product.price;
-                  const discPct = Number(product.discountPercentage) || 0;
-                  const isDiscounted = discPct > 0;
-                  const displayPrice = isDiscounted ? rawPrice * (1 - discPct / 100) : rawPrice;
+                  const rawPrice = lowestVariant ? lowestVariant.price : product.price;                  const tiers = parseOfferTiers(product.offerName, Number(product.discountPercentage));
+                  const hasOffers = tiers.length > 0;
                   const displayWeight = lowestVariant ? lowestVariant.weight : product.weight;
 
                   return (
@@ -724,10 +724,11 @@ export default function ShopClient({
                             </span>
                           )}
 
-                          {/* Discount / Offer Badge */}
-                          {isDiscounted && (
+                          {/* Top Offer Badge (Offer Name Only) */}
+                          {hasOffers && (
                             <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-amber-500 text-white shadow-sm z-10 flex items-center gap-1">
-                              <span>{discPct}% OFF</span>
+                              <Tag className="w-2.5 h-2.5" />
+                              <span>{tiers[0].label}</span>
                             </span>
                           )}
                         </Link>
@@ -749,7 +750,7 @@ export default function ShopClient({
                               className={`w-full py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                 isAdded 
                                    ? 'bg-[#15803d] text-white' 
-                                  : 'bg-white text-[#1c3f24] hover:bg-[#24492d] hover:text-white'
+                                   : 'bg-white text-[#1c3f24] hover:bg-[#24492d] hover:text-white'
                               }`}
                             >
                               {isAdded ? (
@@ -782,16 +783,11 @@ export default function ShopClient({
                           {product.name}
                         </h3>
 
-                        {/* Price & Weight - Default displays lowest variant value with weight */}
+                        {/* Price & Weight - Standard Product Price (Not Discount Price) */}
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span className="text-xs sm:text-sm font-bold text-[#1c3f24]">
-                            ${Number(displayPrice).toFixed(2)}
+                            ${Number(rawPrice).toFixed(2)}
                           </span>
-                          {isDiscounted && (
-                            <span className="text-[11px] text-stone-400 line-through">
-                              ${Number(rawPrice).toFixed(2)}
-                            </span>
-                          )}
                           {displayWeight && (
                             <span className="text-[11px] font-semibold text-[#24492d] bg-[#edf5ee] border border-[#d2e4d5] px-1.5 py-0.5 rounded">
                               {displayWeight}
@@ -803,6 +799,21 @@ export default function ShopClient({
                             </span>
                           )}
                         </div>
+
+                        {/* All Promotional Offers Displayed With Product (Offer Name Only) */}
+                        {tiers.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                            {tiers.map((t) => (
+                              <span
+                                key={t.id}
+                                className="text-[9px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                              >
+                                <Tag className="w-2.5 h-2.5 text-amber-600" />
+                                <span>{t.label}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Stars */}
                         <div className="flex items-center text-[#24492d] mt-1 gap-0.5">

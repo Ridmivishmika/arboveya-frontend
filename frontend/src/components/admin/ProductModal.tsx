@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Product, Category, WellnessNeed, CreateProductInput, UpdateProductInput, ProductVariant } from '@/types';
 import { uploadProductImage, uploadMultipleProductImages, resolveBackendImageUrl } from '@/lib/api';
+import { parseOfferTiers, ProductOfferTier } from '@/lib/offerUtils';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -86,13 +87,14 @@ export default function ProductModal({
   const [whenToUse, setWhenToUse] = useState('');
   const [specifications, setSpecifications] = useState('');
 
-  // Discounts & Promotional Offers
+  // Discounts & Promotional Offers: Only Buy 2, Buy 3, Buy more than 3
   const [hasDiscount, setHasDiscount] = useState(false);
-  const [offerSelection, setOfferSelection] = useState<'buy2' | 'buy3' | 'custom'>('buy2');
-  const [offerName, setOfferName] = useState('');
-  const [discountPercentage, setDiscountPercentage] = useState<number | ''>('');
-  const [customOfferName, setCustomOfferName] = useState('');
-  const [customDiscountPercentage, setCustomDiscountPercentage] = useState<number | ''>('');
+  const [buy2Active, setBuy2Active] = useState(true);
+  const [buy2Percentage, setBuy2Percentage] = useState<number | ''>(10);
+  const [buy3Active, setBuy3Active] = useState(true);
+  const [buy3Percentage, setBuy3Percentage] = useState<number | ''>(15);
+  const [buyMoreActive, setBuyMoreActive] = useState(true);
+  const [buyMorePercentage, setBuyMorePercentage] = useState<number | ''>(20);
 
   // Handling & Delivery Presets
   const HANDLING_TIME_PRESETS = [
@@ -144,36 +146,7 @@ export default function ProductModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Discount preset selection handler
-  const handleSelectOfferPreset = (preset: 'buy2' | 'buy3' | 'custom') => {
-    setOfferSelection(preset);
-    if (preset === 'buy2') {
-      setOfferName('Buy 2 Get 10% Off');
-      setDiscountPercentage(10);
-    } else if (preset === 'buy3') {
-      setOfferName('Buy 3 Get 20% Off');
-      setDiscountPercentage(20);
-    } else {
-      setOfferName(customOfferName || '');
-      setDiscountPercentage(customDiscountPercentage !== '' ? customDiscountPercentage : '');
-    }
-  };
 
-  const handleApplyCustomOffer = () => {
-    if (!customOfferName.trim()) {
-      setError('Please enter a Custom Offer Name (e.g. "Buy 4 Get 25% Off").');
-      return;
-    }
-    const pct = Number(customDiscountPercentage);
-    if (isNaN(pct) || pct <= 0 || pct > 90) {
-      setError('Please enter a valid Discount Percentage between 1% and 90%.');
-      return;
-    }
-    setOfferSelection('custom');
-    setOfferName(customOfferName.trim());
-    setDiscountPercentage(pct);
-    setError(null);
-  };
 
   useEffect(() => {
     if (initialData && mode === 'edit') {
@@ -214,33 +187,33 @@ export default function ProductModal({
       }
       setReturnPolicy(initialData.returnPolicy || '30-Day Return Window. Buyer pays return shipping. Items must be unopened.');
 
-      // Discounts & Offers
-      const existingDiscount = Number(initialData.discountPercentage || 0);
+      // Discounts & Offers: parse Buy 2, Buy 3, Buy more than 3
       const existingOffer = initialData.offerName || '';
-      const hasD = existingDiscount > 0 || Boolean(existingOffer);
+      const existingDiscount = Number(initialData.discountPercentage || 0);
+      const parsedTiers = parseOfferTiers(existingOffer, existingDiscount);
+      const hasD = parsedTiers.length > 0 || existingDiscount > 0 || Boolean(existingOffer);
       setHasDiscount(hasD);
-      setOfferName(existingOffer);
-      setDiscountPercentage(existingDiscount > 0 ? existingDiscount : '');
+
+      const t2 = parsedTiers.find(t => t.id === 'buy2');
+      const t3 = parsedTiers.find(t => t.id === 'buy3');
+      const tMore = parsedTiers.find(t => t.id === 'buyMore');
 
       if (hasD) {
-        const lower = existingOffer.toLowerCase();
-        if (existingDiscount === 10 && (lower.includes('buy 2') || existingOffer === 'Buy 2 Get 10% Off')) {
-          setOfferSelection('buy2');
-          setCustomOfferName('');
-          setCustomDiscountPercentage('');
-        } else if (existingDiscount === 20 && (lower.includes('buy 3') || existingOffer === 'Buy 3 Get 20% Off')) {
-          setOfferSelection('buy3');
-          setCustomOfferName('');
-          setCustomDiscountPercentage('');
-        } else {
-          setOfferSelection('custom');
-          setCustomOfferName(existingOffer);
-          setCustomDiscountPercentage(existingDiscount > 0 ? existingDiscount : '');
-        }
+        setBuy2Active(Boolean(t2));
+        setBuy2Percentage(t2 ? t2.percentage : 10);
+
+        setBuy3Active(Boolean(t3));
+        setBuy3Percentage(t3 ? t3.percentage : 15);
+
+        setBuyMoreActive(Boolean(tMore));
+        setBuyMorePercentage(tMore ? tMore.percentage : 20);
       } else {
-        setOfferSelection('buy2');
-        setCustomOfferName('');
-        setCustomDiscountPercentage('');
+        setBuy2Active(true);
+        setBuy2Percentage(10);
+        setBuy3Active(true);
+        setBuy3Percentage(15);
+        setBuyMoreActive(true);
+        setBuyMorePercentage(20);
       }
 
       // Parse multi-shipping methods
@@ -321,11 +294,12 @@ export default function ProductModal({
       setCondition('Brand New / Fresh Harvest');
       setExpirationDate('');
       setHasDiscount(false);
-      setOfferSelection('buy2');
-      setOfferName('');
-      setDiscountPercentage('');
-      setCustomOfferName('');
-      setCustomDiscountPercentage('');
+      setBuy2Active(true);
+      setBuy2Percentage(10);
+      setBuy3Active(true);
+      setBuy3Percentage(15);
+      setBuyMoreActive(true);
+      setBuyMorePercentage(20);
       setUnitType('weight');
       setSpecifications('');
       setShippingOptions([
@@ -509,10 +483,30 @@ export default function ProductModal({
     const primaryShipping = shippingOptions[0];
     const hasFree = shippingOptions.some(o => o.name === 'Free Shipping' || Number(o.cost) === 0);
 
-    if (hasDiscount && (!offerName.trim() || !discountPercentage || Number(discountPercentage) <= 0)) {
-      setError('Please provide both an Offer Name and a valid Discount Percentage (or disable the offer option).');
+    const activeOfferStrings: string[] = [];
+    if (buy2Active && Number(buy2Percentage) > 0) {
+      activeOfferStrings.push(`Buy 2 Get ${buy2Percentage}% Off`);
+    }
+    if (buy3Active && Number(buy3Percentage) > 0) {
+      activeOfferStrings.push(`Buy 3 Get ${buy3Percentage}% Off`);
+    }
+    if (buyMoreActive && Number(buyMorePercentage) > 0) {
+      activeOfferStrings.push(`Buy more than 3 Get ${buyMorePercentage}% Off`);
+    }
+
+    if (hasDiscount && activeOfferStrings.length === 0) {
+      setError('Please select at least one offer option (Buy 2, Buy 3, or Buy more than 3) with a valid percentage, or disable the offer option.');
       return;
     }
+
+    const resolvedOfferName = hasDiscount && activeOfferStrings.length > 0 ? activeOfferStrings.join(' | ') : undefined;
+    const resolvedDiscount = hasDiscount && activeOfferStrings.length > 0
+      ? Math.max(
+          buy2Active ? Number(buy2Percentage) || 0 : 0,
+          buy3Active ? Number(buy3Percentage) || 0 : 0,
+          buyMoreActive ? Number(buyMorePercentage) || 0 : 0
+        )
+      : 0;
 
     try {
       setSubmitting(true);
@@ -536,8 +530,8 @@ export default function ProductModal({
         countryOfOrigin: countryOfOrigin.trim() || undefined,
         condition: condition.trim() || undefined,
         expirationDate: expirationDate.trim() || undefined,
-        offerName: hasDiscount && offerName.trim() ? offerName.trim() : undefined,
-        discountPercentage: hasDiscount && Number(discountPercentage) > 0 ? Number(discountPercentage) : 0,
+        offerName: resolvedOfferName,
+        discountPercentage: resolvedDiscount,
         specifications: specifications.trim() || undefined,
         shippingMethod: primaryShipping.name,
         estimatedDeliveryTime: primaryShipping.estimatedDeliveryTime.trim(),
@@ -1133,7 +1127,7 @@ export default function ProductModal({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-amber-950">Discounts &amp; Promotional Offers (Optional)</h4>
-                  <p className="text-[10px] text-amber-800">Choose a preset offer like Buy 2 / Buy 3 or customize any promotional deal for customers.</p>
+                  <p className="text-[10px] text-amber-800">Set volume offers like "Buy 2 Get 10% Off" where item quantity and discount percentage can be customized.</p>
                 </div>
               </div>
               <label className="flex items-center gap-2 cursor-pointer select-none bg-white px-3 py-1.5 rounded-lg border border-amber-300 shadow-2xs hover:bg-amber-50/50 transition-colors">
@@ -1144,229 +1138,278 @@ export default function ProductModal({
                     const checked = e.target.checked;
                     setHasDiscount(checked);
                     if (checked) {
-                      if (offerSelection === 'buy2') {
-                        setOfferName('Buy 2 Get 10% Off');
-                        setDiscountPercentage(10);
-                      } else if (offerSelection === 'buy3') {
-                        setOfferName('Buy 3 Get 20% Off');
-                        setDiscountPercentage(20);
-                      } else {
-                        setOfferName(customOfferName || 'Special Offer');
-                        setDiscountPercentage(customDiscountPercentage || 10);
+                      if (!buy2Active && !buy3Active && !buyMoreActive) {
+                        setBuy2Active(true);
+                        setBuy2Percentage(10);
+                        setBuy3Active(true);
+                        setBuy3Percentage(15);
+                        setBuyMoreActive(true);
+                        setBuyMorePercentage(20);
                       }
                     }
                   }}
                   className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
                 />
                 <span className="text-xs font-bold text-amber-900">
-                  {hasDiscount ? 'Offer Enabled' : 'Add Discount / Offer'}
+                  {hasDiscount ? 'Promotional Offers Enabled' : 'Add Promotional Offers'}
                 </span>
               </label>
             </div>
 
             {hasDiscount && (
-              <div className="space-y-3 pt-2 border-t border-amber-200/80 animate-fadeIn">
-                {/* Offer Selection Options */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-bold text-amber-950 uppercase tracking-wide">
-                      Select Promotional Offer:
-                    </label>
-                    <span className="text-[10px] text-amber-800">
-                      Pick preset or choose Customize to set your own deal
-                    </span>
+              <div className="space-y-3.5 pt-2 border-t border-amber-200/80 animate-fadeIn">
+                <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs text-amber-950 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Select Multiple Promotional Offers (Percentage Only is Editable):</span>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* Preset 1: Buy 2 Get 10% Off */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectOfferPreset('buy2')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        offerSelection === 'buy2'
-                          ? 'bg-amber-100/90 border-amber-600 ring-2 ring-amber-500/30 shadow-xs'
-                          : 'bg-white border-amber-200/80 hover:border-amber-400 hover:bg-amber-50/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-bold text-amber-950">Buy 2 Get 10% Off</span>
-                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white">
-                          10% OFF
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-amber-800 mt-1">Preset multi-item discount</span>
-                    </button>
-
-                    {/* Preset 2: Buy 3 Get 20% Off */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectOfferPreset('buy3')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        offerSelection === 'buy3'
-                          ? 'bg-amber-100/90 border-amber-600 ring-2 ring-amber-500/30 shadow-xs'
-                          : 'bg-white border-amber-200/80 hover:border-amber-400 hover:bg-amber-50/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-bold text-amber-950">Buy 3 Get 20% Off</span>
-                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white">
-                          20% OFF
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-amber-800 mt-1">Preset volume savings deal</span>
-                    </button>
-
-                    {/* Option 3: Customize */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectOfferPreset('custom')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        offerSelection === 'custom'
-                          ? 'bg-amber-100/90 border-amber-600 ring-2 ring-amber-500/30 shadow-xs'
-                          : 'bg-white border-amber-200/80 hover:border-amber-400 hover:bg-amber-50/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-bold text-amber-950">Customize Offer</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-600 text-white">
-                          Custom
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-amber-800 mt-1">Seller can set any offer</span>
-                    </button>
-                  </div>
+                  <p className="text-[11px] text-amber-800">
+                    Sellers can select one, two, or all three offer options below. Offer names are standardized, and only the discount percentage (%) is editable.
+                  </p>
                 </div>
 
-                {/* If Customize is chosen, show Custom Offer Builder */}
-                {offerSelection === 'custom' ? (
-                  <div className="p-3 bg-white rounded-xl border border-amber-300 space-y-3 animate-fadeIn">
-                    <div className="flex items-center justify-between pb-1 border-b border-amber-100">
-                      <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                        Custom Offer Builder:
+                {/* 3 Offer Option Cards: Buy 2, Buy 3, Buy more than 3 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Option 1: Buy 2 */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${
+                    buy2Active 
+                      ? 'bg-white border-amber-400 shadow-xs ring-1 ring-amber-400/30' 
+                      : 'bg-stone-50 border-stone-200 opacity-70'
+                  }`}>
+                    <div className="flex items-center justify-between pb-2 border-b border-amber-100">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={buy2Active}
+                          onChange={(e) => setBuy2Active(e.target.checked)}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-amber-950">Buy 2 Offer</span>
+                      </label>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                        Qty: 2
                       </span>
-                      <span className="text-[10px] text-amber-700">Enter your custom offer title and discount percentage</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                      {/* Custom Offer Title */}
-                      <div className="sm:col-span-7 space-y-1">
-                        <label className="block text-[10px] font-bold text-amber-950 uppercase">
-                          Custom Offer Name / Title <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={customOfferName}
-                          onChange={(e) => {
-                            setCustomOfferName(e.target.value);
-                            setOfferName(e.target.value);
-                          }}
-                          placeholder="e.g. Buy 4 Get 25% Off, Holiday Special, Flash Deal"
-                          className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        />
-                      </div>
-
-                      {/* Custom Discount % */}
-                      <div className="sm:col-span-3 space-y-1">
-                        <label className="block text-[10px] font-bold text-amber-950 uppercase">
-                          Discount (%) <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
+                    <div className="mt-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
+                        <span>Buy 2 Get</span>
+                        <div className="relative w-24">
                           <input
                             type="number"
                             min="1"
                             max="90"
-                            value={customDiscountPercentage}
+                            disabled={!buy2Active}
+                            value={buy2Percentage}
                             onChange={(e) => {
                               const val = e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0));
-                              setCustomDiscountPercentage(val);
-                              setDiscountPercentage(val);
+                              setBuy2Percentage(val);
                             }}
-                            placeholder="15"
-                            className="w-full pl-3 pr-7 py-1.5 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="w-full px-2 py-1 pr-7 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs font-bold text-right focus:outline-none focus:ring-2 focus:ring-amber-500/30 disabled:bg-stone-100 disabled:text-stone-400"
                           />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-700 text-xs font-bold">%</span>
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-800 pointer-events-none">
+                            %
+                          </span>
                         </div>
+                        <span>Off</span>
                       </div>
 
-                      {/* Add / Apply Offer Button */}
-                      <div className="sm:col-span-2 flex items-end">
-                        <button
-                          type="button"
-                          onClick={handleApplyCustomOffer}
-                          className="w-full px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-2xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Apply</span>
-                        </button>
+                      <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-900 font-semibold flex items-center justify-between">
+                        <span className="text-stone-500 font-normal">Offer Name:</span>
+                        <span className="font-bold">Buy 2 Get {buy2Percentage || 0}% Off</span>
                       </div>
-                    </div>
-
-                    {/* Quick Percentage Chips */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-amber-100">
-                      <span className="text-[10px] font-bold text-amber-900 uppercase">Quick Discounts:</span>
-                      {[5, 10, 15, 20, 25, 30, 40, 50].map((pct) => (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() => {
-                            setCustomDiscountPercentage(pct);
-                            setDiscountPercentage(pct);
-                            if (!customOfferName) {
-                              const autoName = `${pct}% Off Special Deal`;
-                              setCustomOfferName(autoName);
-                              setOfferName(autoName);
-                            }
-                          }}
-                          className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                            discountPercentage === pct
-                              ? 'bg-amber-600 text-white shadow-2xs'
-                              : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
-                          }`}
-                        >
-                          {pct}% OFF
-                        </button>
-                      ))}
                     </div>
                   </div>
-                ) : (
-                  /* Summary of Selected Preset */
-                  <div className="p-2.5 rounded-lg bg-white border border-amber-300 flex items-center justify-between flex-wrap gap-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-800 font-medium">Selected Preset Offer:</span>
-                      <strong className="text-amber-950 font-bold">{offerName}</strong>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black">
-                        {discountPercentage}% OFF
+
+                  {/* Option 2: Buy 3 */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${
+                    buy3Active 
+                      ? 'bg-white border-amber-400 shadow-xs ring-1 ring-amber-400/30' 
+                      : 'bg-stone-50 border-stone-200 opacity-70'
+                  }`}>
+                    <div className="flex items-center justify-between pb-2 border-b border-amber-100">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={buy3Active}
+                          onChange={(e) => setBuy3Active(e.target.checked)}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-amber-950">Buy 3 Offer</span>
+                      </label>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                        Qty: 3
                       </span>
                     </div>
-                    <span className="text-[10px] text-amber-700 italic">
-                      Applied automatically to this product
-                    </span>
-                  </div>
-                )}
 
-                {/* Discount Live Calculation Preview */}
+                    <div className="mt-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
+                        <span>Buy 3 Get</span>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            min="1"
+                            max="90"
+                            disabled={!buy3Active}
+                            value={buy3Percentage}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0));
+                              setBuy3Percentage(val);
+                            }}
+                            className="w-full px-2 py-1 pr-7 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs font-bold text-right focus:outline-none focus:ring-2 focus:ring-amber-500/30 disabled:bg-stone-100 disabled:text-stone-400"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-800 pointer-events-none">
+                            %
+                          </span>
+                        </div>
+                        <span>Off</span>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-900 font-semibold flex items-center justify-between">
+                        <span className="text-stone-500 font-normal">Offer Name:</span>
+                        <span className="font-bold">Buy 3 Get {buy3Percentage || 0}% Off</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Option 3: Buy more than 3 */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${
+                    buyMoreActive 
+                      ? 'bg-white border-amber-400 shadow-xs ring-1 ring-amber-400/30' 
+                      : 'bg-stone-50 border-stone-200 opacity-70'
+                  }`}>
+                    <div className="flex items-center justify-between pb-2 border-b border-amber-100">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={buyMoreActive}
+                          onChange={(e) => setBuyMoreActive(e.target.checked)}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-amber-950">Buy &gt; 3 Offer</span>
+                      </label>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                        Qty: 4+ (e.g. 10)
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
+                        <span>Buy &gt; 3 Get</span>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            min="1"
+                            max="90"
+                            disabled={!buyMoreActive}
+                            value={buyMorePercentage}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0));
+                              setBuyMorePercentage(val);
+                            }}
+                            className="w-full px-2 py-1 pr-7 rounded-lg border border-amber-300 bg-[#fffcf5] text-amber-950 text-xs font-bold text-right focus:outline-none focus:ring-2 focus:ring-amber-500/30 disabled:bg-stone-100 disabled:text-stone-400"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-800 pointer-events-none">
+                            %
+                          </span>
+                        </div>
+                        <span>Off</span>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-900 font-semibold flex items-center justify-between">
+                        <span className="text-stone-500 font-normal">Offer Name:</span>
+                        <span className="font-bold">Buy more than 3 Get {buyMorePercentage || 0}% Off</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Price Handling Live Calculation & Simulation Preview */}
                 {(() => {
                   const lowestP = variants.length > 0
                     ? Math.min(...variants.map(v => Number(v.price) || 0))
-                    : 0;
-                  const pct = Number(discountPercentage) || 0;
-                  const discounted = lowestP * (1 - pct / 100);
-                  const savings = lowestP - discounted;
+                    : 24.99;
+
+                  const p2 = buy2Active ? Number(buy2Percentage) || 0 : 0;
+                  const p3 = buy3Active ? Number(buy3Percentage) || 0 : p2;
+                  const pMore = buyMoreActive ? Number(buyMorePercentage) || 0 : (buy3Active ? p3 : p2);
+
+                  const u2 = p2 > 0 ? lowestP * (1 - p2 / 100) : lowestP;
+                  const tot2 = u2 * 2;
+                  const sav2 = (lowestP * 2) - tot2;
+
+                  const u3 = p3 > 0 ? lowestP * (1 - p3 / 100) : lowestP;
+                  const tot3 = u3 * 3;
+                  const sav3 = (lowestP * 3) - tot3;
+
+                  const u10 = pMore > 0 ? lowestP * (1 - pMore / 100) : lowestP;
+                  const tot10 = u10 * 10;
+                  const sav10 = (lowestP * 10) - tot10;
 
                   return (
-                    <div className="p-2.5 rounded-lg bg-amber-100/70 border border-amber-200 flex items-center justify-between flex-wrap gap-2 text-xs text-amber-950">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold">Customer Storefront Price:</span>
-                        <span className="line-through text-stone-400">${lowestP.toFixed(2)}</span>
-                        <span className="font-bold text-emerald-800 text-sm">${discounted.toFixed(2)}</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-700 text-white">
-                          Save ${savings.toFixed(2)} ({pct}% OFF)
+                    <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-2.5 text-xs text-amber-950">
+                      <div className="flex items-center justify-between flex-wrap gap-1 font-bold text-[11px] text-amber-900">
+                        <span className="flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-amber-700" />
+                          Live Price Calculation Preview Across Purchase Quantities:
+                        </span>
+                        <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full font-black">
+                          Automatic Multi-Tier Logic
                         </span>
                       </div>
-                      <span className="text-[10px] font-medium text-amber-800 italic">
-                        🏷️ Tag: {offerName || 'Special Offer'}
-                      </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                        {/* 1 Item */}
+                        <div className="p-2.5 bg-white rounded-lg border border-stone-200">
+                          <span className="block text-[10px] text-stone-500 font-semibold uppercase">1 Item (Qty 1):</span>
+                          <span className="text-sm font-bold text-stone-800">${lowestP.toFixed(2)}</span>
+                          <span className="text-[10px] text-stone-500 block mt-0.5">Regular price (no offer)</span>
+                        </div>
+
+                        {/* 2 Items */}
+                        <div className={`p-2.5 bg-white rounded-lg border ${buy2Active ? 'border-amber-300 ring-1 ring-amber-300' : 'border-stone-200'}`}>
+                          <span className="block text-[10px] text-amber-900 font-bold uppercase">2 Items (Qty 2):</span>
+                          <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-sm font-black text-amber-950">${tot2.toFixed(2)}</span>
+                            {p2 > 0 && <span className="text-[10px] text-stone-400 line-through">${(lowestP * 2).toFixed(2)}</span>}
+                          </div>
+                          <span className="text-[10px] text-amber-800 font-semibold block mt-0.5">
+                            {buy2Active ? `$${u2.toFixed(2)} each (Save $${sav2.toFixed(2)})` : 'No Buy 2 offer active'}
+                          </span>
+                        </div>
+
+                        {/* 3 Items */}
+                        <div className={`p-2.5 bg-white rounded-lg border ${buy3Active ? 'border-amber-400 ring-1 ring-amber-400' : 'border-stone-200'}`}>
+                          <span className="block text-[10px] text-amber-900 font-bold uppercase">3 Items (Qty 3):</span>
+                          <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-sm font-black text-amber-950">${tot3.toFixed(2)}</span>
+                            {p3 > 0 && <span className="text-[10px] text-stone-400 line-through">${(lowestP * 3).toFixed(2)}</span>}
+                          </div>
+                          <span className="text-[10px] text-amber-800 font-semibold block mt-0.5">
+                            {buy3Active ? `$${u3.toFixed(2)} each (Save $${sav3.toFixed(2)})` : p2 > 0 ? `Uses Buy 2: $${u2.toFixed(2)} each` : 'No offer active'}
+                          </span>
+                        </div>
+
+                        {/* 10 Items Demonstration */}
+                        <div className={`p-2.5 bg-white rounded-lg border ${buyMoreActive ? 'border-emerald-400 ring-2 ring-emerald-400/30' : 'border-stone-200'}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="block text-[10px] text-emerald-800 font-black uppercase">10 Items (Qty 10):</span>
+                            {buyMoreActive && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 rounded font-bold">Buy &gt; 3 Active</span>}
+                          </div>
+                          <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-sm font-black text-emerald-900">${tot10.toFixed(2)}</span>
+                            {pMore > 0 && <span className="text-[10px] text-stone-400 line-through">${(lowestP * 10).toFixed(2)}</span>}
+                          </div>
+                          <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">
+                            ${u10.toFixed(2)} each (Buyer saves ${sav10.toFixed(2)} total!)
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-amber-800 font-medium pt-0.5 flex items-center gap-1">
+                        <span>✨</span>
+                        <span>Even if a customer selects 10 products, the <strong>Buy more than 3</strong> offer applies to all 10 items accurately during checkout.</span>
+                      </p>
                     </div>
                   );
                 })()}
@@ -1785,40 +1828,29 @@ export default function ProductModal({
                 const pPrice = previewLowest ? Number(previewLowest.price || 0) : 0;
                 const pWeight = previewLowest?.weight || 'Standard Size';
                 const pStock = variants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0);
-                const discPct = hasDiscount ? Number(discountPercentage) || 0 : 0;
-                const discountedP = discPct > 0 ? pPrice * (1 - discPct / 100) : pPrice;
+                const activeTiers = hasDiscount ? [
+                  buy2Active && Number(buy2Percentage) > 0 ? `Buy 2 Get ${buy2Percentage}% Off` : null,
+                  buy3Active && Number(buy3Percentage) > 0 ? `Buy 3 Get ${buy3Percentage}% Off` : null,
+                  buyMoreActive && Number(buyMorePercentage) > 0 ? `Buy more than 3 Get ${buyMorePercentage}% Off` : null
+                ].filter(Boolean) as string[] : [];
 
                 return (
                   <div className="space-y-1 mt-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      {discPct > 0 ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-emerald-800">
-                            ${discountedP.toFixed(2)}
-                          </span>
-                          <span className="text-[10px] text-stone-400 line-through">
-                            ${pPrice.toFixed(2)}
-                          </span>
-                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full">
-                            {discPct}% OFF
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs font-bold text-[#1c3f24]">
-                          ${pPrice.toFixed(2)}
-                        </span>
-                      )}
+                      <span className="text-xs font-bold text-[#1c3f24]">
+                        ${pPrice.toFixed(2)}
+                      </span>
                       <span className="text-[10px] text-[#556e59]">
                         ({pWeight})
                       </span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e3ede5] text-[#24492d] font-semibold">
                         Stock: {pStock}
                       </span>
-                      {offerName && hasDiscount && (
-                        <span className="text-[9px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
-                          🏷️ {offerName}
+                      {activeTiers.map((t) => (
+                        <span key={t} className="text-[9px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
+                          🏷️ {t}
                         </span>
-                      )}
+                      ))}
                     </div>
 
                     <div className="flex items-center gap-2 text-[10px] text-stone-500 flex-wrap">

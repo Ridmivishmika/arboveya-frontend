@@ -53,7 +53,9 @@ function AccountMessagesContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isPollingRef = useRef(false);
-  const isSeller = user?.role === 'Seller';
+  const isAdmin = user?.role === 'Admin';
+  const [adminViewMode, setAdminViewMode] = useState<'seller' | 'buyer'>('seller');
+  const isSeller = user?.role === 'Seller' || (isAdmin && adminViewMode === 'seller');
 
   // Authentication Guard: Redirect guests to login
   useEffect(() => {
@@ -68,7 +70,8 @@ function AccountMessagesContent() {
     if (!token) return;
     try {
       if (!silent) setLoadingList(true);
-      const data = await getMyConversations(token);
+      const viewParam = isAdmin ? adminViewMode : undefined;
+      const data = await getMyConversations(token, viewParam);
       setConversations(data);
       return data;
     } catch (err: any) {
@@ -76,7 +79,7 @@ function AccountMessagesContent() {
     } finally {
       if (!silent) setLoadingList(false);
     }
-  }, [token]);
+  }, [token, isAdmin, adminViewMode]);
 
   useEffect(() => {
     if (user && token) {
@@ -215,6 +218,74 @@ function AccountMessagesContent() {
               <span>{errorMsg}</span>
             </div>
             <button onClick={() => setErrorMsg(null)} className="font-bold hover:underline">Dismiss</button>
+          </div>
+        )}
+
+        {/* Admin Operational Mode Banner */}
+        {isAdmin && (
+          <div className="mb-4 p-4 rounded-2xl bg-[#edf5ee] border border-[#bcd2bf] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#24492d] text-white flex items-center justify-center shadow-xs">
+                <Store className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider">
+                    Arboveya Store — Admin & Seller Live Chat
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#24492d] text-white uppercase tracking-wider">
+                    Seller Active
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#52785a]">
+                  You have full seller chat privileges enabled to converse directly with buyers regarding store products and orders.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto">
+              <div className="flex items-center bg-white rounded-xl border border-[#cfded0] p-0.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminViewMode('seller');
+                    setSelectedConversation(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    adminViewMode === 'seller'
+                      ? 'bg-[#24492d] text-white shadow-2xs'
+                      : 'text-stone-600 hover:text-[#1c3f24]'
+                  }`}
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  <span>Seller Chats</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminViewMode('buyer');
+                    setSelectedConversation(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    adminViewMode === 'buyer'
+                      ? 'bg-[#24492d] text-white shadow-2xs'
+                      : 'text-stone-600 hover:text-[#1c3f24]'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>My Buyer Inquiries</span>
+                </button>
+              </div>
+
+              <Link
+                href="/admin/messages"
+                className="px-3 py-1.5 rounded-xl border border-[#bcd2bf] bg-white text-[#24492d] text-xs font-bold hover:bg-[#dcebdd] transition flex items-center gap-1.5 shadow-2xs"
+                title="View platform oversight console"
+              >
+                <span>All Platform Chats</span>
+                <ExternalLink className="w-3 h-3 text-[#52785a]" />
+              </Link>
+            </div>
           </div>
         )}
 

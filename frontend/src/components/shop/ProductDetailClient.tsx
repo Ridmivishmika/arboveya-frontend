@@ -31,6 +31,7 @@ import {
 import { Product, ProductReview } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { parseOfferMinQuantity, parseOfferTiers, calculateEffectivePrice } from '@/lib/offerUtils';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { submitPublicReview, API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
 
@@ -474,44 +475,111 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
               </div>
             </div>
 
-              {/* Price & Selected Weight with Promotional Discount */}
+              {/* Price & Available Promotional Offers */}
             {(() => {
               const rawPrice = Number(selectedVariant?.price ?? product.price);
-              const discPct = Number(product.discountPercentage) || 0;
-              const isDiscounted = discPct > 0;
-              const finalPrice = isDiscounted ? rawPrice * (1 - discPct / 100) : rawPrice;
+              const calc = calculateEffectivePrice(
+                rawPrice,
+                Number(product.discountPercentage) || 0,
+                product.offerName,
+                quantity
+              );
+              const allTiers = calc.allTiers;
+              const activeTier = calc.activeTier;
 
               return (
-                <div className="space-y-1.5">
-                  {isDiscounted && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shadow-2xs">
-                      <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black uppercase">
-                        {discPct}% OFF
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Tag className="w-3 h-3 text-amber-600" />
-                        {product.offerName || 'Special Offer'}
-                      </span>
-                      <span className="text-[11px] font-normal text-amber-800">
-                        (Save ${(rawPrice - finalPrice).toFixed(2)})
-                      </span>
-                    </div>
-                  )}
+                <div className="space-y-3">
+                  {/* Main Product Price Display (Standard Price - Not Discount Price upfront) */}
                   <div className="flex items-baseline gap-3 flex-wrap">
                     <span className="text-2xl sm:text-3xl font-bold text-[#1c3f24]">
-                      ${finalPrice.toFixed(2)}
+                      ${rawPrice.toFixed(2)}
                     </span>
-                    {isDiscounted && (
-                      <span className="text-base text-stone-400 line-through font-medium">
-                        ${rawPrice.toFixed(2)}
-                      </span>
-                    )}
                     {(selectedVariant?.weight || product.weight) && (
                       <span className="inline-flex items-center text-xs sm:text-sm font-semibold text-[#24492d] bg-[#eef6f0] border border-[#c6dfca] px-2.5 py-1 rounded-md">
                         {selectedVariant?.weight || product.weight}
                       </span>
                     )}
                   </div>
+
+                  {/* Display All Promotional Offers with Product (Offer Names Only) */}
+                  {allTiers.length > 0 && (
+                    <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-2">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <span className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-amber-600" />
+                          Available Offers:
+                        </span>
+                        <span className="text-[10px] text-amber-800 font-medium">
+                          Click an offer to select quantity
+                        </span>
+                      </div>
+
+                      {/* Offer Pills: Displaying Offer Name Only (not discount price) */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {allTiers.map((tier) => {
+                          const isCurrentActive = activeTier?.id === tier.id;
+                          return (
+                            <button
+                              key={tier.id}
+                              type="button"
+                              onClick={() => setQuantity(tier.minQty)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                                isCurrentActive
+                                  ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-500/40'
+                                  : 'bg-white hover:bg-amber-100/70 text-amber-950 border border-amber-300'
+                              }`}
+                            >
+                              <Tag className={`w-3.5 h-3.5 ${isCurrentActive ? 'text-white' : 'text-amber-600'}`} />
+                              <span>{tier.label}</span>
+                              {isCurrentActive && (
+                                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-800 text-white text-[9px] font-black uppercase">
+                                  Active ({quantity} items)
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Active Status & Calculation Explanation */}
+                      {activeTier ? (
+                        <div className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1.5 pt-0.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                          <span>
+                            Offer applied: <strong>{activeTier.label}</strong> (Valid for all {quantity} items — Save ${calc.savingsTotal.toFixed(2)})
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-amber-800 font-medium pt-0.5">
+                          💡 Add {allTiers[0].minQty - quantity} more item(s) to unlock <strong>{allTiers[0].label}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Subtotal & Line Total Calculation for Buyer */}
+                  {quantity > 1 && (
+                    <div className="p-2.5 rounded-lg bg-[#f4f8f4] border border-[#d5e4d7] text-xs text-[#24492d] flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-semibold">
+                        Subtotal for <strong>{quantity} items</strong>:
+                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-base font-bold text-[#1c3f24]">
+                          ${calc.totalPrice.toFixed(2)}
+                        </span>
+                        {calc.isDiscountApplied && (
+                          <span className="text-[11px] text-stone-400 line-through">
+                            ${(rawPrice * quantity).toFixed(2)}
+                          </span>
+                        )}
+                        {calc.isDiscountApplied && (
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            ${calc.unitPrice.toFixed(2)} each (Save ${calc.savingsTotal.toFixed(2)})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}

@@ -1061,13 +1061,24 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                         </Link>
 
                         <Link
-                          href={user.role === 'Admin' ? '/admin/messages' : '/account/messages'}
+                          href="/account/messages"
                           onClick={() => setProfileDropdownOpen(false)}
                           className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-[#2E4D38]" />
-                          <span>Messages & Inbox</span>
+                          <span>{user.role === 'Admin' ? 'Seller & Buyer Chat' : 'Messages & Inbox'}</span>
                         </Link>
+
+                        {user.role === 'Admin' && (
+                          <Link
+                            href="/admin/messages"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                          >
+                            <Store className="w-3.5 h-3.5 text-[#2E4D38]" />
+                            <span>Admin Communication Console</span>
+                          </Link>
+                        )}
 
                         <button
                           onClick={() => {
@@ -1230,16 +1241,31 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             )}
 
             {user && (
-              <Link
-                href={user.role === 'Admin' ? '/admin/messages' : '/account/messages'}
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] hover:bg-[#edf5ee]"
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-[#24492d]" />
-                  <span>Messages & Inbox</span>
-                </div>
-              </Link>
+              <>
+                <Link
+                  href="/account/messages"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] hover:bg-[#edf5ee]"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-[#24492d]" />
+                    <span>{user.role === 'Admin' ? 'Seller & Buyer Chat' : 'Messages & Inbox'}</span>
+                  </div>
+                </Link>
+
+                {user.role === 'Admin' && (
+                  <Link
+                    href="/admin/messages"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] hover:bg-[#edf5ee]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-[#24492d]" />
+                      <span>Admin Communication Console</span>
+                    </div>
+                  </Link>
+                )}
+              </>
             )}
 
 
