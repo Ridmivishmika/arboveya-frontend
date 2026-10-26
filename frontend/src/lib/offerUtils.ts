@@ -21,15 +21,15 @@ export interface ProductOfferTier {
 export function parseOfferTiers(offerName?: string, defaultDiscount?: number): ProductOfferTier[] {
   if (!offerName || !offerName.trim()) return [];
 
-  // Check for Whole Product offer pattern first
-  const matchWhole = offerName.match(/(?:\[Whole Product\]|Whole Product:)\s*([^|;\n]+)/i);
+  // Check for Custom Offer or Whole Product offer pattern first
+  const matchWhole = offerName.match(/(?:\[Custom Offer\]|Custom Offer:|\[Whole Product\]|Whole Product:)\s*([^|;\n]+)/i);
   if (matchWhole) {
     const rawLabel = matchWhole[1].trim();
     const pctMatch = offerName.match(/(\d+(?:\.\d+)?)%/);
     const pct = pctMatch ? parseFloat(pctMatch[1]) : (defaultDiscount || 0);
     return [{
       id: 'wholeProduct',
-      label: rawLabel || 'Special Product Offer',
+      label: rawLabel || 'Special Custom Offer',
       minQty: 1,
       percentage: pct > 0 ? pct : (defaultDiscount || 0)
     }];
