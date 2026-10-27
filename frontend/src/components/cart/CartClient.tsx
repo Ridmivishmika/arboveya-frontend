@@ -136,13 +136,6 @@ export default function CartClient() {
   return (
     <div className="min-h-screen bg-white text-[#1c3f24] font-sans">
       
-      {/* Top Banner: Free Shipping Notification */}
-      <div className="bg-[#24492d] text-white text-[11px] sm:text-xs tracking-wider py-2 px-4 text-center font-medium">
-        Free Shipping on Orders Over $50
-      </div>
-
-      
-
       {/* Cart Container */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         
@@ -186,9 +179,6 @@ export default function CartClient() {
             <h2 className="font-serif text-2xl font-bold text-[#1c3f24]">
               Your Cart is Currently Empty
             </h2>
-            <p className="text-xs sm:text-sm text-[#556e59] leading-relaxed">
-              Explore our certified organic botanicals, herbal teas, and traditional remedies to fill your sanctuary with wellness.
-            </p>
             <Link
               href="/shop"
               className="inline-flex items-center justify-center px-7 py-3.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase rounded-md shadow-sm transition-colors"
@@ -269,15 +259,6 @@ export default function CartClient() {
                                   </span>
                                 )
                               )}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenContactSeller(item.product)}
-                                className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
-                                title={`Chat with the seller about ${item.product.name}`}
-                              >
-                                <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
-                                <span>Chat with Seller</span>
-                              </button>
                             </div>
                           </div>
                         </td>
@@ -339,72 +320,11 @@ export default function CartClient() {
               </table>
             </div>
 
-            {/* Bottom Section: Coupon and Summary */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4 items-start">
-              
-              {/* Left Column: Coupon Code */}
-              <div className="lg:col-span-6 space-y-3">
-                <form onSubmit={handleApplyCoupon} className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    placeholder="Coupon Code"
-                    className="flex-1 max-w-xs px-4 py-2.5 rounded-md border border-[#ccdacc] bg-white text-xs sm:text-sm text-[#1c3f24] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#24492d] focus:border-[#24492d]"
-                  />
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase rounded-md shadow-xs transition-colors cursor-pointer"
-                  >
-                    APPLY
-                  </button>
-                </form>
+            {/* Bottom Section: Order Summary */}
+            <div className="flex justify-end pt-4">
 
-                {couponSuccess && (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#15803d]">
-                    <Check className="w-4 h-4" />
-                    <span>{couponSuccess}</span>
-                    <button
-                      onClick={removeCoupon}
-                      className="ml-2 text-gray-400 hover:text-red-600 text-xs underline cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-                {couponError && (
-                  <p className="text-xs text-red-600 font-medium">{couponError}</p>
-                )}
-                {!coupon && (
-                  <p className="text-[11px] text-[#637d68]">
-                    Tip: Use coupon <span className="font-bold text-[#24492d]">HERBAL10</span> for 10% off!
-                  </p>
-                )}
-
-                {/* Chat with Seller Assistance Banner */}
-                <div className="p-3.5 rounded-xl bg-[#f8faf8] border border-[#d6dfd7] flex items-center justify-between gap-3 shadow-2xs mt-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-[#edf5ee] text-[#24492d] flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-[#1c3f24] truncate">Have questions about your items?</p>
-                      <p className="text-[11px] text-[#556e59] truncate">Chat directly with the herbal seller</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenContactSeller(cart[0]?.product)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-bold transition whitespace-nowrap cursor-pointer shadow-2xs hover:border-[#24492d]"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
-                    <span>Chat with Seller</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Right Column: Order Summary Card */}
-              <div className="lg:col-span-6 bg-[#f7faf7] border border-[#e0eae0] rounded-xl p-6 sm:p-7 space-y-4">
+              {/* Order Summary Card */}
+              <div className="w-full lg:max-w-md bg-[#f7faf7] border border-[#e0eae0] rounded-xl p-6 sm:p-7 space-y-4">
                 
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="font-bold text-[#1c3f24] uppercase tracking-wider">SUBTOTAL</span>
@@ -492,6 +412,15 @@ export default function CartClient() {
                   >
                     CONTINUE SHOPPING
                   </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenContactSeller(cart[0]?.product)}
+                    className="w-full py-3 px-6 rounded-md border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs sm:text-sm font-bold tracking-[0.08em] uppercase transition-all flex items-center justify-center gap-2 cursor-pointer text-center hover:border-[#24492d]"
+                  >
+                    <MessageSquare className="w-4 h-4 text-[#24492d]" />
+                    <span>Chat with Seller</span>
+                  </button>
                 </div>
 
               </div>
@@ -519,12 +448,9 @@ export default function CartClient() {
               </button>
             </div>
 
-            <h3 className="font-serif text-xl font-bold text-[#1c3f24] mb-2">
+            <h3 className="font-serif text-xl font-bold text-[#1c3f24] mb-5">
               Registration Required for Checkout
             </h3>
-            <p className="text-xs sm:text-sm text-stone-600 mb-6 leading-relaxed">
-              To guarantee secure payment, order dispatch, and live shipment tracking, please register an Arboveya account or log in to continue.
-            </p>
 
             <div className="space-y-3">
               <Link

@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import { getSiteSettings } from '@/lib/api';
 import { CartProvider } from '@/context/CartContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { Analytics } from '@vercel/analytics/next';
 
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
@@ -55,6 +56,7 @@ export default async function RootLayout({
           src="https://www.payhere.lk/lib/payhere-2.0.js"
           strategy="afterInteractive"
         />
+        <Analytics />
       </body>
     </html>
   );

@@ -663,11 +663,6 @@ export default function ShopClient({
                     ? `No products found in "${selectedCategory}"`
                     : 'No products match your criteria'}
                 </h3>
-                <p className="text-xs text-[#627a66] max-w-sm mx-auto">
-                  {isFiltered 
-                    ? "Try clearing your search query or filters to view our full botanical catalog."
-                    : "No products available in this category yet."}
-                </p>
                 <button
                   onClick={() => {
                     handleClearSearch();

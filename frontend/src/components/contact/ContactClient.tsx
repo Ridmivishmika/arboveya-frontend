@@ -106,12 +106,9 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
           
           {/* Left Column: Form */}
           <div className="lg:col-span-7">
-            <h2 className="font-serif text-lg sm:text-xl font-bold tracking-wider text-stone-900 uppercase mb-2">
+            <h2 className="font-serif text-lg sm:text-xl font-bold tracking-wider text-stone-900 uppercase mb-6">
               WE&apos;D LOVE TO HEAR FROM YOU
             </h2>
-            <p className="text-stone-500 text-xs sm:text-sm leading-relaxed mb-6">
-              Have a question or need help? Send us a message and we&apos;ll get back to you as soon as possible.
-            </p>
 
             {/* Notification Banners */}
             {errorMessage && (

@@ -717,12 +717,9 @@ function BlogContent() {
               </button>
             </div>
 
-            <h3 className="font-serif text-xl font-bold text-[#1c3f24] mb-2">
+            <h3 className="font-serif text-xl font-bold text-[#1c3f24] mb-5">
               Registration Required to Author Blogs
             </h3>
-            <p className="text-xs sm:text-sm text-stone-600 mb-6 leading-relaxed">
-              Normal visitors can read and explore our botanical blog. To create, edit, or submit blogs, you must be a registered buyer or seller.
-            </p>
 
             <div className="space-y-3">
               <Link
@@ -741,10 +738,6 @@ function BlogContent() {
                 <span>Sign In to Existing Account</span>
               </Link>
             </div>
-
-            <p className="text-[11px] text-center text-stone-400 mt-4">
-              All submitted blogs are moderated by our editorial team before publication.
-            </p>
           </div>
         </div>
       )}

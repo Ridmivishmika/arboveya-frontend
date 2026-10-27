@@ -759,11 +759,11 @@ export default function SellerDashboardPage() {
 
           <div className="space-y-3 pt-2">
             <Link
-              href="/login?role=Seller&redirect=/seller"
+              href="/login?redirect=/seller"
               className="w-full py-3 px-5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-sm transition flex items-center justify-center gap-2"
             >
               <LogIn className="w-4 h-4" />
-              <span>Sign In as Herbal Seller</span>
+              <span>Sign In to Continue</span>
             </Link>
 
             <Link

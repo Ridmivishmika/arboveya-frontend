@@ -6,13 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { forgotPassword, resetPassword } from '@/lib/api';
 import { 
-  UserCheck, 
-  Store, 
   ArrowRight, 
   CheckCircle2, 
   AlertCircle, 
   UserPlus, 
-  Info, 
   KeyRound, 
   Mail, 
   Lock, 
@@ -66,7 +63,7 @@ function LoginForm() {
 
     try {
       const profile = await login(email, selectedRole, password);
-      setSuccessMsg(`Signed in successfully as ${profile?.fullName || profile?.firstName || profile?.role || selectedRole}!`);
+      setSuccessMsg(`Signed in successfully as ${profile?.fullName || profile?.firstName || 'User'}!`);
 
       setTimeout(() => {
         if (redirectParam) {
@@ -159,7 +156,6 @@ function LoginForm() {
   };
 
   const registerUrl = `/register?${new URLSearchParams({
-    ...(selectedRole ? { role: selectedRole } : {}),
     ...(redirectParam ? { redirect: redirectParam } : {})
   }).toString()}`;
 
@@ -177,61 +173,17 @@ function LoginForm() {
             </span>
           </Link>
           <h1 className="text-2xl font-serif font-bold text-stone-900">
-            {selectedRole === 'Seller' ? 'Sign In to Seller Dashboard' : 'Welcome Back'}
+            Welcome Back
           </h1>
-          <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
-            {redirectParam?.includes('checkout')
-              ? 'Sign in to complete your checkout and use your saved delivery address.'
-              : redirectParam?.includes('blog')
-              ? 'Sign in to publish your herbal blog and contribute to Arboveya.'
-              : selectedRole === 'Seller'
-              ? 'Access your botanical catalog, add products, and manage stock.'
-              : 'Sign in to view orders, track packages, and manage your wishlist.'}
-          </p>
-        </div>
-
-        {/* Registered Users Only Notice */}
-        <div className="mb-5 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 text-amber-900 text-xs flex items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-amber-700 flex-shrink-0" />
-            <span>Sign in is for <strong>registered users only</strong>. First time here?</span>
-          </div>
-          <Link
-            href={registerUrl}
-            className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md transition text-[11px] whitespace-nowrap"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Register First</span>
-          </Link>
-        </div>
-
-        {/* Role Selector Tabs (Customer & Seller Only) */}
-        <div className="grid grid-cols-2 gap-2 bg-stone-100/90 p-1.5 rounded-2xl mb-6 border border-stone-200">
-          <button
-            type="button"
-            onClick={() => setSelectedRole('Customer')}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              selectedRole === 'Customer'
-                ? 'bg-[#2E4D38] text-white shadow-sm'
-                : 'text-stone-600 hover:bg-stone-50'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>Buyer (Customer)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedRole('Seller')}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              selectedRole === 'Seller'
-                ? 'bg-[#2E4D38] text-white shadow-sm'
-                : 'text-stone-600 hover:bg-stone-50'
-            }`}
-          >
-            <Store className="w-4 h-4" />
-            <span>Herbal Seller</span>
-          </button>
+          {redirectParam?.includes('checkout') ? (
+            <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
+              Sign in to complete your checkout and use your saved delivery address.
+            </p>
+          ) : redirectParam?.includes('blog') ? (
+            <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
+              Sign in to publish your herbal blog and contribute to Arboveya.
+            </p>
+          ) : null}
         </div>
 
         {/* Form Card */}
@@ -272,7 +224,7 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={selectedRole === 'Seller' ? 'seller@botanicals.com' : 'you@example.com'}
+                placeholder="you@example.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
               />
             </div>
@@ -303,7 +255,7 @@ function LoginForm() {
               disabled={submitting}
               className="w-full mt-4 py-3.5 rounded-xl bg-[#2E4D38] hover:bg-[#223d2b] text-white text-xs font-bold uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <span>{submitting ? 'Verifying Account...' : `Sign In as ${selectedRole === 'Seller' ? 'Seller' : 'Buyer'}`}</span>
+              <span>{submitting ? 'Verifying Account...' : 'Sign In'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

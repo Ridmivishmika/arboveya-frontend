@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import Link from 'next/link';
@@ -116,13 +116,6 @@ export default function BecomeSellerSection() {
                 <Store className="w-4 h-4 text-[#a3e6b5] group-hover:scale-110 transition-transform" />
                 <span>Become a Seller</span>
                 <ArrowRight className="w-4 h-4" />
-              </Link>
-
-              <Link
-                href="/login?role=Seller&redirect=/seller"
-                className="text-xs font-bold text-[#2E4D38] hover:underline py-2"
-              >
-                Already a seller? Log in here &rarr;
               </Link>
             </div>
 
