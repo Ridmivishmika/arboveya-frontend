@@ -74,13 +74,7 @@ export default function CategoryModal({
       setImageUrl(uploadedUrl);
     } catch (err: any) {
       console.error('Failed to upload category image:', err);
-      // Fallback to local blob object url if backend endpoint fails
-      try {
-        const localPreview = URL.createObjectURL(file);
-        setImageUrl(localPreview);
-      } catch (_) {
-        setError(err.message || 'Failed to upload category image from device.');
-      }
+      setError(err.message || 'Failed to upload category image to server. Please check your backend connection or cloud storage.');
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) {

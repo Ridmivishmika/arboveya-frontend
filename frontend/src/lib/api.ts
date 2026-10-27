@@ -38,6 +38,11 @@ export function resolveBackendImageUrl(url?: string | null, fallback = "/images/
   const trimmed = url.trim();
   if (!trimmed) return fallback;
 
+  // Invalidate dead browser-session blob URLs saved into database
+  if (trimmed.startsWith("blob:")) {
+    return fallback;
+  }
+
   const backendOrigin = getBackendOrigin();
 
   // Handle legacy/local uploads saved in DB with localhost:5287 or 127.0.0.1:5287

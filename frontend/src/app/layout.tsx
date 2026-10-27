@@ -32,7 +32,14 @@ export const metadata: Metadata = {
   title: "Arboveya — Nature's Healing, Perfected",
   description: "Premium herbal wellness products crafted from nature's finest ingredients to support a healthier and balanced lifestyle.",
   icons: {
-    icon: '/images/logo-badge.png',
+    icon: [
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
 };
 

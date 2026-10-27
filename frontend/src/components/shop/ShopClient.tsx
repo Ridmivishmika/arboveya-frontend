@@ -821,20 +821,20 @@ export default function ShopClient({
                             </div>
                           )}
 
-                          {/* Best Seller Badge */}
-                          {product.isBestSeller && (
-                            <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-[#24492d] text-white shadow-sm z-10">
-                              Best Seller
-                            </span>
-                          )}
-
-                          {/* Top Offer Badge (Offer Name Only) */}
-                          {hasOffers && (
-                            <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-amber-500 text-white shadow-sm z-10 flex items-center gap-1">
-                              <Tag className="w-2.5 h-2.5" />
-                              <span>{tiers[0].label}</span>
-                            </span>
-                          )}
+                          {/* Best Seller & Offer Badges Container */}
+                          <div className="absolute top-2.5 left-2.5 right-2.5 flex flex-wrap items-start justify-between gap-1.5 z-10 pointer-events-none">
+                            {product.isBestSeller && (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-[#24492d] text-white shadow-sm flex-shrink-0">
+                                Best Seller
+                              </span>
+                            )}
+                            {hasOffers && (
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-amber-500 text-white shadow-sm flex items-center gap-1 max-w-full ${!product.isBestSeller ? 'ml-auto' : ''}`}>
+                                <Tag className="w-2.5 h-2.5 flex-shrink-0" />
+                                <span className="truncate">{tiers[0].label}</span>
+                              </span>
+                            )}
+                          </div>
                         </Link>
 
                         {/* Quick Add / View Overlay on Hover (Separate from Link) */}

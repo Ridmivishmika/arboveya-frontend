@@ -50,6 +50,25 @@ import {
 import { uploadBlogImage, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
 import BlogRenderer, { stripBlogFormatting } from '@/components/blog/BlogRenderer';
 
+// Smart fallback matching specific botanical blog topics (e.g. Jamaican Guaco, tea, moringa, skincare)
+function getBlogFallbackImage(title?: string, category?: string): string {
+  const lowerTitle = (title || '').toLowerCase();
+  const lowerCat = (category || '').toLowerCase();
+  if (lowerTitle.includes('guaco') || lowerTitle.includes('jamaican') || lowerTitle.includes('mikania')) {
+    return '/images/jamaican-guaco.jpg';
+  }
+  if (lowerTitle.includes('tea') || lowerCat.includes('tea')) {
+    return '/images/blog-herbal-tea.jpg';
+  }
+  if (lowerTitle.includes('skin') || lowerCat.includes('skin') || lowerTitle.includes('face')) {
+    return '/images/blog-skincare.jpg';
+  }
+  if (lowerTitle.includes('moringa') || lowerTitle.includes('leaf') || lowerTitle.includes('leaves')) {
+    return '/images/blog-moringa.jpg';
+  }
+  return '/images/blog-moringa.jpg';
+}
+
 const CATEGORIES = ['All', 'Wellness', 'Herbal Tea', 'Skincare', 'Nutrition', 'Mindfulness'];
 
 function BlogContent() {
@@ -65,6 +84,13 @@ function BlogContent() {
   const [myBlogsLoading, setMyBlogsLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [blogImgErrors, setBlogImgErrors] = useState<Record<string, boolean>>({});
+
+  const getBlogImageSrc = (blogId: string, url?: string, title?: string, category?: string) => {
+    const fallback = getBlogFallbackImage(title, category);
+    if (blogImgErrors[blogId] || !url) return fallback;
+    return resolveBackendImageUrl(url, fallback);
+  };
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -697,9 +723,10 @@ function BlogContent() {
                   <div className="flex items-center gap-4">
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0">
                       <Image
-                        src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
+                        src={getBlogImageSrc(blog.id, blog.imageUrl, blog.title, blog.category)}
                         alt={blog.title}
                         fill
+                        onError={() => setBlogImgErrors(prev => ({ ...prev, [blog.id]: true }))}
                         className="object-cover"
                       />
                     </div>
@@ -791,10 +818,11 @@ function BlogContent() {
                     {/* Card Thumbnail */}
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
                       <Image
-                        src={resolveBackendImageUrl(blog.imageUrl, '/images/blog-moringa.jpg')}
+                        src={getBlogImageSrc(blog.id, blog.imageUrl, blog.title, blog.category)}
                         alt={blog.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
+                        onError={() => setBlogImgErrors(prev => ({ ...prev, [blog.id]: true }))}
                         className="object-cover group-hover:scale-104 transition-transform duration-500"
                       />
                       {blog.category && (
@@ -1338,10 +1366,11 @@ function BlogContent() {
             {/* Top Featured Hero Image */}
             <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
               <Image
-                src={resolveBackendImageUrl(readingBlog.imageUrl, '/images/blog-moringa.jpg')}
+                src={getBlogImageSrc(readingBlog.id, readingBlog.imageUrl, readingBlog.title, readingBlog.category)}
                 alt={readingBlog.title}
                 fill
                 priority
+                onError={() => setBlogImgErrors(prev => ({ ...prev, [readingBlog.id]: true }))}
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />

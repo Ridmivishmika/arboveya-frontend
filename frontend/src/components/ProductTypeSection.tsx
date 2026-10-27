@@ -11,6 +11,20 @@ interface ProductTypeSectionProps {
   categories?: Category[];
 }
 
+// Curated botanical photography fallbacks tailored by category keywords
+function getCategoryPresetImage(name: string): string {
+  const lower = (name || '').toLowerCase();
+  if (lower.includes('tea') || lower.includes('beverage')) return '/images/gotu-kola-tea.jpg';
+  if (lower.includes('betel') || lower.includes('chewing')) return '/images/betel-quid-ingredients.jpg';
+  if (lower.includes('leave') || lower.includes('herb')) return '/images/moringa-dried-leaves.jpg';
+  if (lower.includes('cook') || lower.includes('spice')) return '/images/turmeric-curcumin.jpg';
+  if (lower.includes('medicine') || lower.includes('traditional') || lower.includes('remed') || lower.includes('wellness')) return '/images/ashwagandha-capsules.jpg';
+  if (lower.includes('aquarium') || lower.includes('fish')) return '/images/botanical-sprig.jpg';
+  if (lower.includes('garden') || lower.includes('compost') || lower.includes('fertil') || lower.includes('seed')) return '/images/turkey-berry-seeds.jpg';
+  if (lower.includes('eco') || lower.includes('natural') || lower.includes('skin') || lower.includes('care')) return '/images/aloe-vera-gel.jpg';
+  return '/images/botanical-sprig.jpg';
+}
+
 export default function ProductTypeSection({ categories = [] }: ProductTypeSectionProps) {
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
@@ -36,9 +50,11 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
           {categories.length > 0 ? (
             categories.map((category) => {
               const hasError = imgErrors[category.id];
-              const hasValidImage = category.imageUrl && !hasError && (
-                category.imageUrl.startsWith('/') || category.imageUrl.startsWith('http')
-              );
+              const presetFallback = getCategoryPresetImage(category.name);
+              const hasUploaded = Boolean(category.imageUrl && (category.imageUrl.startsWith('/') || category.imageUrl.startsWith('http')));
+              const displaySrc = (!hasError && hasUploaded)
+                ? resolveBackendImageUrl(category.imageUrl, presetFallback)
+                : presetFallback;
 
               return (
                 <Link
@@ -48,18 +64,14 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
                 >
                   {/* Circular Image Badge */}
                   <div className="relative w-18 h-18 sm:w-22 sm:h-22 rounded-full bg-[#edf4ee] border-2 border-[#ccdccd] group-hover:border-[#24492d] group-hover:scale-108 transition-all duration-300 shadow-xs overflow-hidden flex items-center justify-center">
-                    {hasValidImage ? (
-                      <Image
-                        src={resolveBackendImageUrl(category.imageUrl, '/images/herbal-detox-tea.jpg')}
-                        alt={category.name}
-                        fill
-                        sizes="88px"
-                        onError={() => handleImgError(category.id)}
-                        className="object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    ) : (
-                      <Tag className="w-7 h-7 text-[#24492d] stroke-[1.7]" />
-                    )}
+                    <Image
+                      src={displaySrc}
+                      alt={category.name}
+                      fill
+                      sizes="88px"
+                      onError={() => handleImgError(category.id)}
+                      className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
                   </div>
 
                   {/* Category Name */}

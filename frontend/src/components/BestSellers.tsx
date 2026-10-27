@@ -59,17 +59,17 @@ export default function BestSellers({ products }: BestSellersProps) {
                 className="group relative bg-white border border-[#e2eae2] rounded-xl p-3.5 flex flex-col justify-between hover:shadow-lg hover:border-[#2f5436] transition-all duration-300 min-h-[170px] w-full max-w-[280px] sm:w-[190px] md:w-[200px] flex-shrink-0"
               >
                 {/* Top Badge & Wishlist row */}
-                <div className="flex items-center justify-between h-5 mb-1 z-10">
-                  <div className="flex items-center gap-1">
+                <div className="flex items-start justify-between min-h-[20px] mb-1 z-10 gap-1">
+                  <div className="flex flex-wrap items-center gap-1 flex-1 min-w-0">
                     {product.isBestSeller && (
-                      <span className="bg-[#2a4d31] text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs">
+                      <span className="bg-[#2a4d31] text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs flex-shrink-0">
                         BEST SELLER
                       </span>
                     )}
                     {hasOffers && (
-                      <span className="bg-amber-500 text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs flex items-center gap-0.5">
-                        <Tag className="w-2 h-2" />
-                        <span>{tiers[0].label}</span>
+                      <span className="bg-amber-500 text-white text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-xs flex items-center gap-0.5 max-w-full">
+                        <Tag className="w-2 h-2 flex-shrink-0" />
+                        <span className="truncate">{tiers[0].label}</span>
                       </span>
                     )}
                   </div>
