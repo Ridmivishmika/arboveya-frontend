@@ -148,15 +148,18 @@ export default function AdminProductsPage() {
     showToast(`Product "${productToDelete.name}" deleted.`);
   };
 
-  const handleConfirmApprove = async (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string) => {
+  const handleConfirmApprove = async (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string, categoryIds?: string[]) => {
+    const finalCategoryIds = categoryIds && categoryIds.length > 0 ? categoryIds : [categoryId];
     const approved = await approveProduct(productId, { 
-      categoryId, 
+      categoryId: finalCategoryIds[0] || categoryId,
+      categoryIds: finalCategoryIds,
+      additionalCategoryIds: finalCategoryIds.length > 1 ? finalCategoryIds.slice(1) : undefined,
       wellnessNeedId,
       approvalStatus: 'Approved', 
       adminFeedback: feedback 
     });
     
-    const catObj = categories.find(c => c.id === categoryId);
+    const catObj = categories.find(c => c.id === (finalCategoryIds[0] || categoryId));
     const assignedCatName = catObj?.name || approved.categoryName || 'Selected Category';
 
     showToast(`Product "${approved.name}" approved and published to shop!`);
@@ -199,7 +202,9 @@ export default function AdminProductsPage() {
       const matchesCategory = 
         selectedCategoryFilter === 'all' || 
         p.categoryId === selectedCategoryFilter ||
-        p.categoryName?.toLowerCase() === selectedCategoryFilter.toLowerCase();
+        p.categoryIds?.includes(selectedCategoryFilter) ||
+        p.categoryName?.toLowerCase() === selectedCategoryFilter.toLowerCase() ||
+        p.categoryNames?.some(cn => cn.toLowerCase() === selectedCategoryFilter.toLowerCase());
 
       return matchesSearch && matchesCategory;
     });
@@ -657,9 +662,22 @@ export default function AdminProductsPage() {
                             {/* Category & Wellness Need */}
                             <td className="py-3.5 px-6">
                               <div className="flex flex-col gap-1 items-start">
-                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#edf5ee] text-[#24492d] border border-[#d2e4d5]">
-                                  {prod.categoryName || 'Botanical'}
-                                </span>
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {prod.categoryNames && prod.categoryNames.length > 0 ? (
+                                    prod.categoryNames.map((cName, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#edf5ee] text-[#24492d] border border-[#d2e4d5]"
+                                      >
+                                        {cName}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#edf5ee] text-[#24492d] border border-[#d2e4d5]">
+                                      {prod.categoryName || 'Botanical'}
+                                    </span>
+                                  )}
+                                </div>
                                 {(prod.wellnessNeedName || prod.wellnessNeed) && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#fbf5e8] text-[#8a5d1b] border border-[#f0debb]">
                                     <Sparkles className="w-2.5 h-2.5 text-[#b58129]" />

@@ -35,6 +35,8 @@ export interface Product {
   weight?: string;
   categoryId?: string;
   categoryName?: string;
+  categoryIds?: string[];
+  categoryNames?: string[];
   wellnessNeedId?: string;
   wellnessNeedName?: string;
   wellnessNeed?: string;
@@ -73,6 +75,8 @@ export interface Product {
 
 export interface ApproveProductInput {
   categoryId: string;
+  categoryIds?: string[];
+  additionalCategoryIds?: string[];
   wellnessNeedId?: string;
   approvalStatus?: string;
   adminFeedback?: string;
@@ -89,6 +93,8 @@ export interface PaginatedProducts<T> {
 export interface CreateProductInput {
   name: string;
   categoryId?: string;
+  categoryIds?: string[];
+  additionalCategoryIds?: string[];
   wellnessNeedId?: string;
   price: number;
   stockQuantity: number;
@@ -122,6 +128,8 @@ export interface CreateProductInput {
 export interface UpdateProductInput {
   name?: string;
   categoryId?: string;
+  categoryIds?: string[];
+  additionalCategoryIds?: string[];
   wellnessNeedId?: string;
   price?: number;
   stockQuantity?: number;
@@ -160,6 +168,7 @@ export interface ProductReview {
   comment: string;
   verified?: boolean;
   orderId?: string;
+  images?: string[];
 }
 
 export interface PublicReviewInput {
@@ -168,6 +177,7 @@ export interface PublicReviewInput {
   comment: string;
   userId?: string;
   userEmail?: string;
+  images?: string[];
 }
 
 export interface WellnessNeed {
@@ -216,6 +226,7 @@ export interface BlogPost {
   title: string;
   content: string;
   category?: string;
+  categories?: string[];
   imageUrl?: string;
   isApproved: boolean;
   createdAt: string;
@@ -226,6 +237,7 @@ export interface CreateBlogPostInput {
   title: string;
   content: string;
   category?: string;
+  categories?: string[];
   imageUrl?: string;
 }
 
@@ -233,6 +245,7 @@ export interface UpdateBlogPostInput {
   title?: string;
   content?: string;
   category?: string;
+  categories?: string[];
   imageUrl?: string;
 }
 

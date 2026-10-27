@@ -816,6 +816,38 @@ export async function uploadBlogImage(file: File, token?: string): Promise<strin
   return data.imageUrl.startsWith("/") ? `${backendOrigin}${data.imageUrl}` : data.imageUrl;
 }
 
+export async function uploadReviewImages(files: File[], token?: string): Promise<string[]> {
+  if (!files || files.length === 0) return [];
+
+  const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("arboveya_token") : "") || "";
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+
+  const res = await fetch(`${API_BASE_URL}/reviews/upload-images`, {
+    method: "POST",
+    headers: {
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    let errorMsg = "Failed to upload review photos";
+    try {
+      const errBody = await res.json();
+      errorMsg = errBody.message || errorMsg;
+    } catch (_) {}
+    throw new Error(errorMsg);
+  }
+
+  const data = await res.json();
+  const backendOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+  const urls: string[] = (data.imageUrls || []).map((u: string) => 
+    u.startsWith("/") ? `${backendOrigin}${u}` : u
+  );
+  return urls;
+}
+
 // ----------------- Auth / Password Recovery APIs ----------------- //
 
 export interface ForgotPasswordResponse {

@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { BlogPost } from '@/types';
 import { API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
+import BlogRenderer, { stripBlogFormatting } from '@/components/blog/BlogRenderer';
 import { 
   BookOpen, 
   CheckCircle2, 
@@ -23,7 +24,10 @@ import {
   Check,
   X,
   Store,
-  UserCheck
+  UserCheck,
+  Tag,
+  Plus,
+  Edit3
 } from 'lucide-react';
 
 export default function AdminBlogsPage() {
@@ -32,9 +36,28 @@ export default function AdminBlogsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'all'>('pending');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedBlog, setSelectedBlog] = useState<BlogPost | null>(null);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Category Edit State for Admin
+  const [editingCategoryBlog, setEditingCategoryBlog] = useState<BlogPost | null>(null);
+  const [blogCategoriesToEdit, setBlogCategoriesToEdit] = useState<string[]>([]);
+  const [customBlogCategoryInput, setCustomBlogCategoryInput] = useState('');
+  const [savingBlogCategories, setSavingBlogCategories] = useState(false);
+
+  const STANDARD_BLOG_CATEGORIES = [
+    'Wellness',
+    'Herbal Remedies',
+    'Ayurveda',
+    'Herbal Tea',
+    'Skincare',
+    'Nutrition',
+    'Mindfulness',
+    'Tea Rituals',
+    'Plant Nutrition'
+  ];
 
   const fetchBlogs = async () => {
     setLoading(true);
@@ -149,6 +172,94 @@ export default function AdminBlogsPage() {
     }
   };
 
+  // Open Category Editor Modal for a Blog
+  const handleOpenCategoryEdit = (blog: BlogPost) => {
+    setEditingCategoryBlog(blog);
+    let cats: string[] = [];
+    if (blog.categories && blog.categories.length > 0) {
+      cats = [...blog.categories];
+    } else if (blog.category) {
+      cats = blog.category.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (cats.length === 0) cats = ['Wellness'];
+    setBlogCategoriesToEdit(cats);
+    setCustomBlogCategoryInput('');
+  };
+
+  const toggleCategoryToEdit = (cat: string) => {
+    setBlogCategoriesToEdit((prev) => {
+      if (prev.includes(cat)) {
+        if (prev.length <= 1) return prev; // Keep at least one category
+        return prev.filter(c => c !== cat);
+      } else {
+        return [...prev, cat];
+      }
+    });
+  };
+
+  const handleAddCustomCategory = () => {
+    const trimmed = customBlogCategoryInput.trim();
+    if (!trimmed) return;
+    if (!blogCategoriesToEdit.includes(trimmed)) {
+      setBlogCategoriesToEdit(prev => [...prev, trimmed]);
+    }
+    setCustomBlogCategoryInput('');
+  };
+
+  const handleSaveBlogCategories = async () => {
+    if (!editingCategoryBlog) return;
+    if (blogCategoriesToEdit.length === 0) {
+      alert('Please select at least one category for this blog post.');
+      return;
+    }
+    setSavingBlogCategories(true);
+    const authToken = token || localStorage.getItem('arboveya_token') || '';
+    const joinedCategories = blogCategoriesToEdit.join(', ');
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/blogs/${editingCategoryBlog.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + authToken,
+        },
+        body: JSON.stringify({
+          title: editingCategoryBlog.title,
+          content: editingCategoryBlog.content,
+          imageUrl: editingCategoryBlog.imageUrl,
+          category: joinedCategories,
+          categories: blogCategoriesToEdit,
+        }),
+      });
+
+      if (res.ok) {
+        setBlogs((prev) =>
+          prev.map((b) => (b.id === editingCategoryBlog.id ? { 
+            ...b, 
+            category: joinedCategories,
+            categories: [...blogCategoriesToEdit] 
+          } : b))
+        );
+        if (selectedBlog?.id === editingCategoryBlog.id) {
+          setSelectedBlog((prev) => prev ? { 
+            ...prev, 
+            category: joinedCategories,
+            categories: [...blogCategoriesToEdit] 
+          } : null);
+        }
+        setMsg({ text: `Categories updated for "${editingCategoryBlog.title}"!`, type: 'success' });
+        setEditingCategoryBlog(null);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || 'Failed to update blog categories.');
+      }
+    } catch (err) {
+      alert('Network error communicating with backend.');
+    } finally {
+      setSavingBlogCategories(false);
+    }
+  };
+
   // Handle Delete
   const handleDelete = async (id: string, title: string) => {
     if (!confirm('Are you sure you want to permanently delete "' + title + '"?')) return;
@@ -177,12 +288,19 @@ export default function AdminBlogsPage() {
     }
   };
 
-  const filteredBlogs = blogs.filter((b) =>
-    !search ||
-    b.title.toLowerCase().includes(search.toLowerCase()) ||
-    b.content.toLowerCase().includes(search.toLowerCase()) ||
-    (b.authorName && b.authorName.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredBlogs = blogs.filter((b) => {
+    const matchesSearch = !search ||
+      b.title.toLowerCase().includes(search.toLowerCase()) ||
+      b.content.toLowerCase().includes(search.toLowerCase()) ||
+      (b.authorName && b.authorName.toLowerCase().includes(search.toLowerCase())) ||
+      (b.category && b.category.toLowerCase().includes(search.toLowerCase()));
+
+    const matchesCategory = categoryFilter === 'all' ||
+      b.category?.toLowerCase().includes(categoryFilter.toLowerCase()) ||
+      b.categories?.some(c => c.toLowerCase() === categoryFilter.toLowerCase());
+
+    return matchesSearch && matchesCategory;
+  });
 
   const pendingCount = blogs.filter((b) => !b.isApproved).length;
 
@@ -276,7 +394,7 @@ export default function AdminBlogsPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
@@ -287,6 +405,19 @@ export default function AdminBlogsPage() {
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30"
               />
             </div>
+
+            {/* Category Filter Dropdown */}
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-xl border border-stone-300 text-xs text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 font-medium cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              {STANDARD_BLOG_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+
             <button
               onClick={fetchBlogs}
               className="p-2 rounded-xl border border-stone-300 text-stone-600 hover:bg-stone-50 cursor-pointer"
@@ -347,7 +478,7 @@ export default function AdminBlogsPage() {
                                 {blog.title}
                               </p>
                               <p className="text-xs text-stone-400 line-clamp-1 mt-0.5">
-                                {blog.content}
+                                {stripBlogFormatting(blog.content)}
                               </p>
                             </div>
                           </div>
@@ -399,9 +530,19 @@ export default function AdminBlogsPage() {
 
                         {/* Category */}
                         <td className="py-4 px-6">
-                          <span className="text-xs font-semibold px-2.5 py-1 bg-stone-100 rounded-full text-stone-700">
-                            {blog.category || 'Wellness'}
-                          </span>
+                          <div className="flex flex-wrap gap-1 max-w-[220px]">
+                            {blog.categories && blog.categories.length > 0 ? (
+                              blog.categories.map((cat, idx) => (
+                                <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 bg-[#edf5ee] border border-[#cbe0cf] rounded-full text-[#1c3f24]">
+                                  {cat}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 bg-stone-100 border border-stone-200 rounded-full text-stone-700">
+                                {blog.category || 'Wellness'}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Status */}
@@ -435,12 +576,22 @@ export default function AdminBlogsPage() {
 
                         {/* Actions */}
                         <td className="py-4 px-6 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit Categories */}
+                            <button
+                              onClick={() => handleOpenCategoryEdit(blog)}
+                              title="Edit Categories"
+                              className="px-2.5 py-1.5 rounded-lg border border-[#bcd2bf] bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Tag className="w-3.5 h-3.5 text-[#24492d]" />
+                              <span>Categories</span>
+                            </button>
+
                             {/* Preview modal */}
                             <button
                               onClick={() => setSelectedBlog(blog)}
                               title="Inspect Article"
-                              className="p-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition"
+                              className="p-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition cursor-pointer"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
@@ -450,7 +601,7 @@ export default function AdminBlogsPage() {
                               <button
                                 disabled={actionLoading === blog.id}
                                 onClick={() => handleModerate(blog.id, true)}
-                                className="px-3 py-1.5 rounded-lg bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#243f2e] transition shadow-xs flex items-center gap-1 disabled:opacity-50"
+                                className="px-3 py-1.5 rounded-lg bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#243f2e] transition shadow-xs flex items-center gap-1 disabled:opacity-50 cursor-pointer"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>Approve Blog</span>
@@ -459,7 +610,7 @@ export default function AdminBlogsPage() {
                               <button
                                 disabled={actionLoading === blog.id}
                                 onClick={() => handleModerate(blog.id, false)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold hover:bg-amber-200 transition disabled:opacity-50"
+                                className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold hover:bg-amber-200 transition disabled:opacity-50 cursor-pointer"
                               >
                                 <span>Unpublish</span>
                               </button>
@@ -470,7 +621,7 @@ export default function AdminBlogsPage() {
                               disabled={actionLoading === blog.id}
                               onClick={() => handleDelete(blog.id, blog.title)}
                               title="Delete Article"
-                              className="p-2 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"
+                              className="p-2 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -500,10 +651,18 @@ export default function AdminBlogsPage() {
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
-              <div className="absolute top-4 left-4">
-                <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                  {selectedBlog.category || 'Wellness'}
-                </span>
+              <div className="absolute top-4 left-4 flex flex-wrap gap-1.5 max-w-md">
+                {selectedBlog.categories && selectedBlog.categories.length > 0 ? (
+                  selectedBlog.categories.map((c, i) => (
+                    <span key={i} className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                      {c}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    {selectedBlog.category || 'Wellness'}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setSelectedBlog(null)}
@@ -530,37 +689,55 @@ export default function AdminBlogsPage() {
                   </span>
                 </div>
 
-                {selectedBlog.authorRole === 'Seller' && !selectedBlog.authorIsSellerApproved && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleApproveSeller(selectedBlog.authorId, selectedBlog.authorName)}
-                    className="px-3 py-1 bg-[#2E4D38] text-white text-xs font-bold rounded-lg hover:bg-[#243f2e] transition"
+                    onClick={() => handleOpenCategoryEdit(selectedBlog)}
+                    className="px-3 py-1 bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] border border-[#bcd2bf] text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
                   >
-                    Approve Seller Profile Now
+                    <Tag className="w-3.5 h-3.5 text-[#24492d]" />
+                    <span>Manage Categories</span>
                   </button>
-                )}
+
+                  {selectedBlog.authorRole === 'Seller' && !selectedBlog.authorIsSellerApproved && (
+                    <button
+                      onClick={() => handleApproveSeller(selectedBlog.authorId, selectedBlog.authorName)}
+                      className="px-3 py-1 bg-[#2E4D38] text-white text-xs font-bold rounded-lg hover:bg-[#243f2e] transition cursor-pointer"
+                    >
+                      Approve Seller Profile Now
+                    </button>
+                  )}
+                </div>
               </div>
 
-            <div className="text-stone-700 text-sm leading-relaxed space-y-4 whitespace-pre-line font-serif sm:font-sans">
-              {selectedBlog.content}
+            <div className="text-stone-700 text-sm leading-relaxed">
+              <BlogRenderer content={selectedBlog.content} />
             </div>
 
             {/* Moderation actions inside modal */}
             <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
               <button
                 onClick={() => setSelectedBlog(null)}
-                className="px-4 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200"
+                className="px-4 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200 cursor-pointer"
               >
                 Close
               </button>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleOpenCategoryEdit(selectedBlog)}
+                  className="px-3.5 py-2 rounded-xl bg-[#edf5ee] text-[#1c3f24] border border-[#bcd2bf] text-xs font-bold hover:bg-[#dcebdd] flex items-center gap-1 cursor-pointer"
+                >
+                  <Tag className="w-3.5 h-3.5 text-[#24492d]" />
+                  <span>Edit Categories</span>
+                </button>
+
                 {!selectedBlog.isApproved ? (
                   <button
                     onClick={() => {
                       handleModerate(selectedBlog.id, true);
                       setSelectedBlog(null);
                     }}
-                    className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#243f2e]"
+                    className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#243f2e] cursor-pointer"
                   >
                     Approve Blog
                   </button>
@@ -570,7 +747,7 @@ export default function AdminBlogsPage() {
                       handleModerate(selectedBlog.id, false);
                       setSelectedBlog(null);
                     }}
-                    className="px-5 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700"
+                    className="px-5 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 cursor-pointer"
                   >
                     Unpublish
                   </button>
@@ -580,7 +757,7 @@ export default function AdminBlogsPage() {
                     handleDelete(selectedBlog.id, selectedBlog.title);
                     setSelectedBlog(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100"
+                  className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 cursor-pointer"
                 >
                   Delete
                 </button>
@@ -589,6 +766,127 @@ export default function AdminBlogsPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* MODAL: EDIT BLOG CATEGORIES (MULTIPLE CATEGORIES SELECTION) */}
+      {editingCategoryBlog && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-[#edf5ee] text-[#24492d] flex items-center justify-center">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-stone-900">
+                    Assign Blog Categories
+                  </h3>
+                  <p className="text-xs text-stone-500 line-clamp-1">
+                    {editingCategoryBlog.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCategoryBlog(null)}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Selection Guidance */}
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-stone-700">Select one or more categories:</span>
+              <span className="text-[11px] font-bold text-[#24492d] bg-[#edf5ee] px-2.5 py-0.5 rounded-full border border-[#cbe0cf]">
+                {blogCategoriesToEdit.length} {blogCategoriesToEdit.length === 1 ? 'Category' : 'Categories'} Selected
+              </span>
+            </div>
+
+            {/* Categories Badge Pills */}
+            <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-1">
+              {Array.from(new Set([...STANDARD_BLOG_CATEGORIES, ...blogCategoriesToEdit])).map((cat) => {
+                const isSelected = blogCategoriesToEdit.includes(cat);
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleCategoryToEdit(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                      isSelected
+                        ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
+                        : 'bg-white text-stone-700 border-stone-200 hover:border-[#2E4D38]/40 hover:bg-[#edf5ee]'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Category Input */}
+            <div className="pt-2 border-t border-stone-100 space-y-1.5">
+              <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider">
+                Add Custom Category:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customBlogCategoryInput}
+                  onChange={(e) => setCustomBlogCategoryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomCategory();
+                    }
+                  }}
+                  placeholder="e.g. Traditional Elixirs"
+                  className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-300 text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/20 focus:border-[#2E4D38]"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomCategory}
+                  disabled={!customBlogCategoryInput.trim()}
+                  className="px-3.5 py-1.5 bg-[#edf5ee] hover:bg-[#dcebdd] text-[#1c3f24] border border-[#bcd2bf] rounded-xl text-xs font-bold transition disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setEditingCategoryBlog(null)}
+                className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingBlogCategories || blogCategoriesToEdit.length === 0}
+                onClick={handleSaveBlogCategories}
+                className="px-5 py-2 rounded-xl bg-[#2E4D38] hover:bg-[#253f2e] text-white text-xs font-bold uppercase tracking-wider transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {savingBlogCategories ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Categories</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

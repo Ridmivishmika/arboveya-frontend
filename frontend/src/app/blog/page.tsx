@@ -31,9 +31,24 @@ import {
   Info,
   Upload,
   ImageIcon,
-  Loader2
+  Loader2,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Heading1,
+  Heading2,
+  Heading3,
+  Type,
+  List,
+  ListOrdered,
+  Quote,
+  Minus,
+  Eye,
+  Check
 } from 'lucide-react';
 import { uploadBlogImage, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
+import BlogRenderer, { stripBlogFormatting } from '@/components/blog/BlogRenderer';
 
 const CATEGORIES = ['All', 'Wellness', 'Herbal Tea', 'Skincare', 'Nutrition', 'Mindfulness'];
 
@@ -62,11 +77,122 @@ function BlogContent() {
   // Form Fields
   const [formTitle, setFormTitle] = useState('');
   const [formCategory, setFormCategory] = useState('Wellness');
+  const [formCategories, setFormCategories] = useState<string[]>(['Wellness']);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('/images/blog-moringa.jpg');
   const [formContent, setFormContent] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
+  const [selectedFontSize, setSelectedFontSize] = useState<string>('normal');
+
+  // Text formatting helpers for Blog content
+  const applyFormatting = (prefix: string, suffix: string = '', defaultText: string = 'text') => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = formContent;
+    const selectedText = text.substring(start, end);
+
+    const insertText = selectedText ? `${prefix}${selectedText}${suffix}` : `${prefix}${defaultText}${suffix}`;
+    const updated = text.substring(0, start) + insertText + text.substring(end);
+    setFormContent(updated);
+
+    setTimeout(() => {
+      el.focus();
+      if (selectedText) {
+        el.setSelectionRange(start + prefix.length, end + prefix.length);
+      } else {
+        el.setSelectionRange(start + prefix.length, start + prefix.length + defaultText.length);
+      }
+    }, 0);
+  };
+
+  const applyLinePrefix = (prefix: string, defaultText: string = 'Heading text') => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = formContent;
+
+    const lastNewline = text.lastIndexOf('\n', start - 1);
+    const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
+    const nextNewline = text.indexOf('\n', end);
+    const lineEnd = nextNewline === -1 ? text.length : nextNewline;
+
+    const currentLine = text.substring(lineStart, lineEnd);
+
+    if (!currentLine.trim()) {
+      const replacement = `${prefix}${defaultText}`;
+      const updated = text.substring(0, lineStart) + replacement + text.substring(lineEnd);
+      setFormContent(updated);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(lineStart + prefix.length, lineStart + prefix.length + defaultText.length);
+      }, 0);
+      return;
+    }
+
+    let newLine = currentLine;
+    if (prefix.startsWith('#')) {
+      newLine = currentLine.replace(/^#{1,6}\s+/, '');
+    }
+    const replacement = `${prefix}${newLine}`;
+    const updated = text.substring(0, lineStart) + replacement + text.substring(lineEnd);
+    setFormContent(updated);
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(lineStart, lineStart + replacement.length);
+    }, 0);
+  };
+
+  const applyFontSize = (size: string) => {
+    setSelectedFontSize(size);
+    if (size === 'h1') {
+      applyLinePrefix('# ', 'Large Title');
+    } else if (size === 'h2') {
+      applyLinePrefix('## ', 'Section Heading');
+    } else if (size === 'h3') {
+      applyLinePrefix('### ', 'Subheading');
+    } else if (size === 'small') {
+      applyFormatting('<span class="text-xs text-stone-500">', '</span>', 'small note text');
+    } else if (size === 'normal') {
+      const el = textareaRef.current;
+      if (!el) return;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const text = formContent;
+      const lastNewline = text.lastIndexOf('\n', start - 1);
+      const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
+      const nextNewline = text.indexOf('\n', end);
+      const lineEnd = nextNewline === -1 ? text.length : nextNewline;
+      const currentLine = text.substring(lineStart, lineEnd);
+      const cleaned = currentLine.replace(/^#{1,6}\s+/, '');
+      const updated = text.substring(0, lineStart) + cleaned + text.substring(lineEnd);
+      setFormContent(updated);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        applyFormatting('**', '**', 'bold text');
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        applyFormatting('*', '*', 'italic text');
+      } else if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        applyFormatting('<u>', '</u>', 'underlined text');
+      }
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,6 +276,8 @@ function BlogContent() {
         setEditingBlog(null);
         setFormTitle('');
         setFormCategory('Wellness');
+        setFormCategories(['Wellness']);
+        setCustomCategoryInput('');
         setFormImageUrl('/images/blog-moringa.jpg');
         setFormContent('');
         setShowCreateModal(true);
@@ -162,7 +290,8 @@ function BlogContent() {
   // Filter published blogs by search & category
   const filteredBlogs = blogs.filter((blog) => {
     const matchesCategory = selectedCategory === 'All' || 
-      (blog.category?.toLowerCase() === selectedCategory.toLowerCase());
+      (blog.category?.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+      (blog.categories?.some(c => c.toLowerCase() === selectedCategory.toLowerCase()));
     const matchesSearch = !search || 
       blog.title.toLowerCase().includes(search.toLowerCase()) || 
       blog.content.toLowerCase().includes(search.toLowerCase());
@@ -172,12 +301,37 @@ function BlogContent() {
   // Filter user blogs by search & category
   const filteredMyBlogs = myBlogs.filter((blog) => {
     const matchesCategory = selectedCategory === 'All' || 
-      (blog.category?.toLowerCase() === selectedCategory.toLowerCase());
+      (blog.category?.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+      (blog.categories?.some(c => c.toLowerCase() === selectedCategory.toLowerCase()));
     const matchesSearch = !search || 
       blog.title.toLowerCase().includes(search.toLowerCase()) || 
       blog.content.toLowerCase().includes(search.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const toggleFormCategory = (cat: string) => {
+    setFormCategories((prev) => {
+      if (prev.includes(cat)) {
+        if (prev.length <= 1) return prev;
+        const updated = prev.filter(c => c !== cat);
+        setFormCategory(updated[0] || 'Wellness');
+        return updated;
+      } else {
+        const updated = [...prev, cat];
+        setFormCategory(updated[0] || cat);
+        return updated;
+      }
+    });
+  };
+
+  const handleAddFormCustomCategory = () => {
+    const trimmed = customCategoryInput.trim();
+    if (!trimmed) return;
+    if (!formCategories.includes(trimmed)) {
+      setFormCategories(prev => [...prev, trimmed]);
+    }
+    setCustomCategoryInput('');
+  };
 
   // Open Create Modal (Protected)
   const handleOpenCreate = () => {
@@ -188,8 +342,12 @@ function BlogContent() {
     setEditingBlog(null);
     setFormTitle('');
     setFormCategory('Wellness');
+    setFormCategories(['Wellness']);
+    setCustomCategoryInput('');
     setFormImageUrl('/images/blog-moringa.jpg');
     setFormContent('');
+    setEditorTab('write');
+    setSelectedFontSize('normal');
     setShowCreateModal(true);
   };
 
@@ -197,9 +355,20 @@ function BlogContent() {
   const handleOpenEdit = (blog: BlogPost) => {
     setEditingBlog(blog);
     setFormTitle(blog.title);
-    setFormCategory(blog.category || 'Wellness');
+    let cats: string[] = [];
+    if (blog.categories && blog.categories.length > 0) {
+      cats = [...blog.categories];
+    } else if (blog.category) {
+      cats = blog.category.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (cats.length === 0) cats = ['Wellness'];
+    setFormCategories(cats);
+    setFormCategory(cats[0] || 'Wellness');
+    setCustomCategoryInput('');
     setFormImageUrl(blog.imageUrl || '/images/blog-moringa.jpg');
     setFormContent(blog.content);
+    setEditorTab('write');
+    setSelectedFontSize('normal');
     setShowCreateModal(true);
   };
 
@@ -214,6 +383,7 @@ function BlogContent() {
     setStatusMessage(null);
 
     const authToken = token || localStorage.getItem('arboveya_token') || '';
+    const finalCategoryString = formCategories.join(', ');
 
     try {
       if (editingBlog) {
@@ -227,7 +397,8 @@ function BlogContent() {
           body: JSON.stringify({
             title: formTitle.trim(),
             content: formContent.trim(),
-            category: formCategory,
+            category: finalCategoryString,
+            categories: formCategories,
             imageUrl: formImageUrl.trim(),
           }),
         });
@@ -268,7 +439,8 @@ function BlogContent() {
           body: JSON.stringify({
             title: formTitle.trim(),
             content: formContent.trim(),
-            category: formCategory,
+            category: finalCategoryString,
+            categories: formCategories,
             imageUrl: formImageUrl.trim(),
           }),
         });
@@ -548,7 +720,7 @@ function BlogContent() {
                         {blog.title}
                       </h3>
                       <p className="text-xs text-stone-500 line-clamp-1 mt-1 max-w-xl">
-                        {blog.content}
+                        {stripBlogFormatting(blog.content)}
                       </p>
                     </div>
                   </div>
@@ -678,7 +850,7 @@ function BlogContent() {
 
                         {/* Excerpt */}
                         <p className="text-stone-600 text-xs sm:text-sm leading-relaxed line-clamp-3 mb-6">
-                          {blog.content}
+                          {stripBlogFormatting(blog.content)}
                         </p>
                       </div>
 
@@ -745,7 +917,7 @@ function BlogContent() {
       {/* 5. MODAL: WRITE / EDIT BLOG POST */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-5">
               <div className="flex items-center gap-2">
                 <PenTool className="w-5 h-5 text-[#2E4D38]" />
@@ -793,26 +965,78 @@ function BlogContent() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-                <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">Category *</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                  >
-                    <option value="Wellness">Wellness</option>
-                    <option value="Herbal Tea">Herbal Tea</option>
-                    <option value="Skincare">Skincare</option>
-                    <option value="Nutrition">Nutrition</option>
-                    <option value="Mindfulness">Mindfulness</option>
-                  </select>
+              {/* Multi-category Selector */}
+              <div className="space-y-2 p-3.5 bg-[#fbfdfb] border border-stone-200 rounded-xl">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Categories (Select one or more) *
+                  </label>
+                  <span className="text-[11px] font-bold text-[#2E4D38] bg-[#edf5ee] px-2.5 py-0.5 rounded-full border border-[#bcd2bf]">
+                    {formCategories.length} {formCategories.length === 1 ? 'Category' : 'Categories'} Selected
+                  </span>
                 </div>
 
-                <div className="sm:col-span-2 space-y-2">
-                  <label className="block text-xs font-semibold text-stone-700">
-                    Featured Image / Cover *
-                  </label>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pt-0.5">
+                  {Array.from(new Set([
+                    'Wellness',
+                    'Herbal Remedies',
+                    'Ayurveda',
+                    'Herbal Tea',
+                    'Skincare',
+                    'Nutrition',
+                    'Mindfulness',
+                    'Tea Rituals',
+                    'Plant Nutrition',
+                    ...formCategories
+                  ])).map((cat) => {
+                    const isSelected = formCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => toggleFormCategory(cat)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                          isSelected
+                            ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
+                            : 'bg-white text-stone-700 border-stone-200 hover:border-[#2E4D38]/40 hover:bg-[#edf5ee]'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                        <span>{cat}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddFormCustomCategory();
+                      }
+                    }}
+                    placeholder="Or type custom category and click Add..."
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-200 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddFormCustomCategory}
+                    disabled={!customCategoryInput.trim()}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-stone-700">
+                  Featured Image / Cover *
+                </label>
 
                   {/* Live Top Preview of Selected / Uploaded Image */}
                   {formImageUrl && (
@@ -904,18 +1128,186 @@ function BlogContent() {
                     </div>
                   </div>
                 </div>
-              </div>
 
+              {/* Blog Content with Formatting Toolbar */}
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Blog Content *</label>
-                <textarea
-                  required
-                  rows={7}
-                  value={formContent}
-                  onChange={(e) => setFormContent(e.target.value)}
-                  placeholder="Share your botanical experiences, herbal knowledge, wellness recipes, or health tips..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] leading-relaxed"
-                />
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Blog Content *
+                  </label>
+
+                  {/* Mode switcher tabs: Write / Preview */}
+                  <div className="flex items-center bg-stone-100 p-0.5 rounded-lg border border-stone-200">
+                    <button
+                      type="button"
+                      onClick={() => setEditorTab('write')}
+                      className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                        editorTab === 'write'
+                          ? 'bg-white text-[#2E4D38] shadow-xs'
+                          : 'text-stone-500 hover:text-stone-800'
+                      }`}
+                    >
+                      <PenTool className="w-3.5 h-3.5" />
+                      <span>Write</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorTab('preview')}
+                      className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                        editorTab === 'preview'
+                          ? 'bg-white text-[#2E4D38] shadow-xs'
+                          : 'text-stone-500 hover:text-stone-800'
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Formatting Toolbar (shown when in Write mode) */}
+                <div className="border border-stone-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#2E4D38]/30 focus-within:border-[#2E4D38] transition bg-white shadow-2xs">
+                  <div className="flex items-center flex-wrap gap-1 px-2.5 py-1.5 bg-stone-50/90 border-b border-stone-200 text-stone-700 text-xs">
+                    {/* Font Size Change Dropdown */}
+                    <div className="flex items-center gap-1 mr-1">
+                      <Type className="w-3.5 h-3.5 text-stone-400" />
+                      <select
+                        value={selectedFontSize}
+                        onChange={(e) => applyFontSize(e.target.value)}
+                        className="text-xs bg-white border border-stone-200 rounded-md px-2 py-1 text-stone-700 font-medium focus:outline-none focus:border-[#2E4D38] cursor-pointer"
+                        title="Change Font Size / Heading"
+                      >
+                        <option value="normal">Normal Body (15px)</option>
+                        <option value="h1">Heading 1 - Large Title (28px)</option>
+                        <option value="h2">Heading 2 - Section (22px)</option>
+                        <option value="h3">Heading 3 - Subheading (18px)</option>
+                        <option value="small">Small Note (12px)</option>
+                      </select>
+                    </div>
+
+                    <div className="h-4 w-px bg-stone-300 mx-0.5" />
+
+                    {/* Bold */}
+                    <button
+                      type="button"
+                      onClick={() => applyFormatting('**', '**', 'bold text')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Bold (Ctrl+B)"
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Italic */}
+                    <button
+                      type="button"
+                      onClick={() => applyFormatting('*', '*', 'italic text')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Italic (Ctrl+I)"
+                    >
+                      <Italic className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Underline */}
+                    <button
+                      type="button"
+                      onClick={() => applyFormatting('<u>', '</u>', 'underlined text')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Underline (Ctrl+U)"
+                    >
+                      <Underline className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Strikethrough */}
+                    <button
+                      type="button"
+                      onClick={() => applyFormatting('~~', '~~', 'strikethrough text')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Strikethrough"
+                    >
+                      <Strikethrough className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="h-4 w-px bg-stone-300 mx-0.5" />
+
+                    {/* Bullet List */}
+                    <button
+                      type="button"
+                      onClick={() => applyLinePrefix('- ', 'List item')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Bulleted List"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Numbered List */}
+                    <button
+                      type="button"
+                      onClick={() => applyLinePrefix('1. ', 'First step')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Numbered List"
+                    >
+                      <ListOrdered className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Quote */}
+                    <button
+                      type="button"
+                      onClick={() => applyLinePrefix('> ', 'Herbal wisdom or quote')}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Quote"
+                    >
+                      <Quote className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Divider Line */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = formContent ? `${formContent}\n\n---\n\n` : '---\n\n';
+                        setFormContent(updated);
+                      }}
+                      className="p-1.5 rounded hover:bg-stone-200/80 text-stone-700 transition cursor-pointer"
+                      title="Horizontal Divider"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Editor body: Write or Preview */}
+                  {editorTab === 'write' ? (
+                    <textarea
+                      ref={textareaRef}
+                      required
+                      rows={9}
+                      value={formContent}
+                      onChange={(e) => setFormContent(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Share your botanical experiences, herbal knowledge, wellness recipes, or health tips...&#10;&#10;Use the toolbar above or shortcuts:&#10;• Ctrl+B for Bold&#10;• Ctrl+I for Italic&#10;• Ctrl+U for Underline&#10;• Change Font Size from the dropdown"
+                      className="w-full px-3.5 py-3 text-sm focus:outline-none leading-relaxed font-sans placeholder:text-stone-400 border-0 bg-transparent resize-y"
+                    />
+                  ) : (
+                    <div className="p-4 sm:p-5 min-h-[220px] max-h-[380px] overflow-y-auto bg-stone-50/40">
+                      {formContent.trim() ? (
+                        <BlogRenderer content={formContent} />
+                      ) : (
+                        <p className="text-stone-400 italic text-sm text-center py-10">
+                          Your live formatted preview will appear here as you write...
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Character, word count and shortcut tips */}
+                  <div className="px-3.5 py-2 bg-stone-50/60 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400 flex-wrap gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-[#2E4D38]" />
+                      <span>Highlight text and click Bold, Italic, or pick Font Size</span>
+                    </span>
+                    <span className="font-medium text-stone-500">
+                      {formContent.trim() ? formContent.trim().split(/\s+/).length : 0} words • {formContent.length} chars
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
@@ -953,10 +1345,18 @@ function BlogContent() {
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
-              <div className="absolute top-4 left-4">
-                <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                  {readingBlog.category || 'Wellness'}
-                </span>
+              <div className="absolute top-4 left-4 flex flex-wrap gap-1.5 max-w-md">
+                {readingBlog.categories && readingBlog.categories.length > 0 ? (
+                  readingBlog.categories.map((c, i) => (
+                    <span key={i} className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                      {c}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    {readingBlog.category || 'Wellness'}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setReadingBlog(null)}
@@ -987,8 +1387,8 @@ function BlogContent() {
                 {renderStatusBadge(readingBlog)}
               </div>
 
-              <div className="text-stone-700 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-line font-serif sm:font-sans">
-                {readingBlog.content}
+              <div className="text-stone-700 text-sm sm:text-base leading-relaxed">
+                <BlogRenderer content={readingBlog.content} />
               </div>
 
               <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">

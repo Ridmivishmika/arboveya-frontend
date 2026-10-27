@@ -24,7 +24,7 @@ interface ApproveProductModalProps {
   wellnessNeeds?: WellnessNeed[];
   isOpen: boolean;
   onClose: () => void;
-  onApprove: (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string) => Promise<void>;
+  onApprove: (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string, categoryIds?: string[]) => Promise<void>;
   onReject: (productId: string, feedback?: string) => Promise<void>;
   onCategoryCreated?: (newCategory: Category) => void;
   onWellnessNeedCreated?: (newNeed: WellnessNeed) => void;
@@ -41,6 +41,7 @@ export default function ApproveProductModal({
   onCategoryCreated,
   onWellnessNeedCreated
 }: ApproveProductModalProps) {
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedWellnessNeedId, setSelectedWellnessNeedId] = useState<string>('');
   const [adminFeedback, setAdminFeedback] = useState<string>('Approved for public marketplace display.');
@@ -59,14 +60,18 @@ export default function ApproveProductModal({
 
   useEffect(() => {
     if (product) {
-      // Default to product category if already assigned, or first available category
-      if (product.categoryId) {
-        setSelectedCategoryId(product.categoryId);
+      // Initialize multiple categories from product if available
+      let initialCatIds: string[] = [];
+      if (product.categoryIds && product.categoryIds.length > 0) {
+        initialCatIds = [...product.categoryIds];
+      } else if (product.categoryId) {
+        initialCatIds = [product.categoryId];
       } else if (categories.length > 0) {
-        setSelectedCategoryId(categories[0].id);
-      } else {
-        setSelectedCategoryId('');
+        initialCatIds = [categories[0].id];
       }
+
+      setSelectedCategoryIds(initialCatIds);
+      setSelectedCategoryId(initialCatIds[0] || (categories[0]?.id ?? ''));
 
       // Default to product wellness need if already assigned, or match by name/target
       if (product.wellnessNeedId) {
@@ -94,17 +99,39 @@ export default function ApproveProductModal({
 
   if (!isOpen || !product) return null;
 
+  const toggleCategory = (catId: string) => {
+    setSelectedCategoryIds((prev) => {
+      if (prev.includes(catId)) {
+        if (prev.length <= 1) return prev; // Keep at least one category selected
+        const updated = prev.filter(id => id !== catId);
+        setSelectedCategoryId(updated[0] || '');
+        return updated;
+      } else {
+        const updated = [...prev, catId];
+        if (!selectedCategoryId) setSelectedCategoryId(catId);
+        return updated;
+      }
+    });
+  };
+
   const handleApproveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCategoryId) {
-      setErrorMsg('Please select a category for this product before approving.');
+    const primaryCat = selectedCategoryIds[0] || selectedCategoryId;
+    if (!primaryCat) {
+      setErrorMsg('Please select at least one category for this product before approving.');
       return;
     }
 
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      await onApprove(product.id, selectedCategoryId, selectedWellnessNeedId || undefined, adminFeedback.trim());
+      await onApprove(
+        product.id, 
+        primaryCat, 
+        selectedWellnessNeedId || undefined, 
+        adminFeedback.trim(),
+        selectedCategoryIds.length > 0 ? selectedCategoryIds : [primaryCat]
+      );
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to approve product.');
@@ -138,7 +165,8 @@ export default function ApproveProductModal({
       if (onCategoryCreated) {
         onCategoryCreated(created);
       }
-      setSelectedCategoryId(created.id);
+      setSelectedCategoryIds((prev) => prev.includes(created.id) ? prev : [...prev, created.id]);
+      if (!selectedCategoryId) setSelectedCategoryId(created.id);
       setIsCreatingCat(false);
       setNewCatName('');
     } catch (err: any) {
@@ -388,27 +416,32 @@ export default function ApproveProductModal({
             </div>
           )}
 
-          {/* Category Assignment Section (Mandatory as per request) */}
-          <div className="space-y-2 bg-[#edf5ee] p-4 rounded-xl border border-[#cfe0d1]">
-            <div className="flex items-center justify-between">
+          {/* Category Assignment Section (Multi-category selection) */}
+          <div className="space-y-3 bg-[#edf5ee] p-4 rounded-xl border border-[#cfe0d1]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <label className="text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-[#24492d]" />
-                <span>Assign Category to Product *</span>
+                <span>Assign Categories to Product * (Select one or more)</span>
               </label>
 
-              {!isCreatingCat && (
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingCat(true)}
-                  className="text-[11px] font-bold text-[#24492d] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>New Category</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-[#24492d] bg-white px-2 py-0.5 rounded-full border border-[#bcd2bf]">
+                  {selectedCategoryIds.length} {selectedCategoryIds.length === 1 ? 'Category' : 'Categories'} Selected
+                </span>
+                {!isCreatingCat && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingCat(true)}
+                    className="text-[11px] font-bold text-[#24492d] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New Category</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {isCreatingCat ? (
+            {isCreatingCat && (
               <div className="flex items-center gap-2 pt-1 animate-fadeIn">
                 <input
                   type="text"
@@ -433,24 +466,39 @@ export default function ApproveProductModal({
                   Cancel
                 </button>
               </div>
-            ) : (
-              <select
-                value={selectedCategoryId}
-                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#bcd2bf] bg-white text-xs font-medium text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
-              >
-                <option value="" disabled>-- Select a botanical category --</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
             )}
 
-            <p className="text-[11px] text-[#55775d]">
-              The product will immediately be published under this category in the public shop catalog.
+            <div className="flex flex-wrap gap-2 pt-1 max-h-48 overflow-y-auto">
+              {categories.length === 0 && (
+                <span className="text-xs text-stone-400 italic">No categories available</span>
+              )}
+              {categories.map((c) => {
+                const isSelected = selectedCategoryIds.includes(c.id);
+                const isPrimary = selectedCategoryIds[0] === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategory(c.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                      isSelected
+                        ? 'bg-[#24492d] text-white border-[#24492d]'
+                        : 'bg-white text-stone-700 border-stone-200 hover:border-[#24492d]/40 hover:bg-[#edf5ee]'
+                    }`}
+                  >
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                    <span>{c.name}</span>
+                    {isPrimary && (
+                      <span className="ml-1 text-[9px] bg-white/25 text-white px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                        Primary
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-[#55775d] pt-0.5">
+              💡 The product will be assigned and discoverable across all selected categories. The first selected is the primary storefront category.
             </p>
           </div>
 

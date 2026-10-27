@@ -26,14 +26,17 @@ import {
   X,
   AlertCircle,
   Clock,
-  Tag
+  Tag,
+  Upload,
+  Eye,
+  Camera
 } from 'lucide-react';
 import { Product, ProductReview } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { parseOfferMinQuantity, parseOfferTiers, calculateEffectivePrice } from '@/lib/offerUtils';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { submitPublicReview, API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
+import { submitPublicReview, uploadReviewImages, API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
 
 // Customer reviews loaded directly from database
 
@@ -157,7 +160,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'Recently',
                 comment: cleanComment,
                 verified: true,
-                orderId: orderRef
+                orderId: orderRef,
+                images: Array.isArray(r.images) ? r.images : []
               };
             });
             setReviews(mapped);
@@ -181,7 +185,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
         rating: r.rating || 5,
         date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'Recently',
         comment: r.comment || '',
-        verified: true
+        verified: true,
+        images: Array.isArray(r.images) ? r.images : []
       }));
     }
     return [];
@@ -192,6 +197,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const [isUploadingReviewImages, setIsUploadingReviewImages] = useState(false);
+  const [reviewDragActive, setReviewDragActive] = useState(false);
+  const reviewFileInputRef = useRef<HTMLInputElement>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && !newReviewAuthor) {
@@ -284,6 +294,30 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
     }
   };
 
+  const handleReviewFilesSelected = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (fileArray.length === 0) return;
+
+    try {
+      setIsUploadingReviewImages(true);
+      const uploadedUrls = await uploadReviewImages(fileArray, token || undefined);
+      setReviewImages(prev => [...prev, ...uploadedUrls]);
+    } catch (err: any) {
+      console.error('Failed to upload review images:', err);
+      alert(err.message || 'Failed to upload review photos.');
+    } finally {
+      setIsUploadingReviewImages(false);
+    }
+  };
+
+  const handleReviewDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setReviewDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleReviewFilesSelected(e.dataTransfer.files);
+    }
+  };
+
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -304,7 +338,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
           rating: newReviewRating,
           comment: cleanComment,
           userId: user?.id,
-          userEmail: user?.email
+          userEmail: user?.email,
+          images: reviewImages
         },
         token || undefined
       );
@@ -315,11 +350,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
         rating: newReviewRating,
         comment: cleanComment,
         date: 'Just now',
-        verified: true
+        verified: true,
+        images: reviewImages
       };
 
       setReviews(prev => [newRev, ...prev]);
       setNewReviewComment('');
+      setReviewImages([]);
       setReviewSuccessMsg('Thank you! Your botanical review is now live! Thank you for sharing your experience.');
       setTimeout(() => setReviewSuccessMsg(null), 4000);
     } catch (err: any) {
@@ -1023,9 +1060,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 ) : (
                   <div className="space-y-4 divide-y divide-[#f0f4f0]">
                     {reviews.map((rev, idx) => (
-                      <div key={rev.id || idx} className="pt-4 first:pt-0 space-y-1.5">
+                      <div key={rev.id || idx} className="pt-4 first:pt-0 space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-xs text-[#1c3f24]">{rev.authorName}</span>
                             {rev.verified && (
                               <span className="inline-flex items-center gap-1 text-[10px] text-[#16a34a] font-semibold bg-[#ecf7ed] px-2 py-0.5 rounded-full">
@@ -1046,32 +1083,63 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                             <Star key={i} className="w-3.5 h-3.5 fill-[#24492d] text-[#24492d]" />
                           ))}
                         </div>
-                        <p className="text-xs text-[#4d6652] leading-relaxed">{rev.comment}</p>
+                        <p className="text-xs text-[#4d6652] leading-relaxed whitespace-pre-line">{rev.comment}</p>
+
+                        {/* Customer Attached Review Photos */}
+                        {rev.images && rev.images.length > 0 && (
+                          <div className="pt-1.5 flex items-center gap-2 flex-wrap">
+                            {rev.images.map((img, iIdx) => (
+                              <button
+                                key={iIdx}
+                                type="button"
+                                onClick={() => setLightboxImage(resolveBackendImageUrl(img))}
+                                className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 cursor-zoom-in hover:border-[#24492d] hover:shadow-md transition"
+                                title="Click to enlarge photo"
+                              >
+                                <Image
+                                  src={resolveBackendImageUrl(img)}
+                                  alt={`Review photo ${iIdx + 1}`}
+                                  fill
+                                  sizes="80px"
+                                  className="object-cover group-hover:scale-105 transition-transform duration-200"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                  <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* 
-                Write a Review Section (Commented out per user request - reviews are submitted via Buyer Portal orders)
+                {/* Write a Review Section */}
                 {user ? (
                   <div className="mt-8 pt-6 border-t border-[#e5ebe5]">
-                    <h4 className="font-serif text-sm font-bold text-[#1c3f24] mb-3">
-                      Write a Review
-                    </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-serif text-sm font-bold text-[#1c3f24] flex items-center gap-1.5">
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <span>Write a Customer Review</span>
+                      </h4>
+                      <span className="text-[11px] text-stone-500">
+                        Share your authentic botanical remedy experience
+                      </span>
+                    </div>
 
                     {reviewSuccessMsg && (
-                      <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-2">
+                      <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-fadeIn">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>{reviewSuccessMsg}</span>
                       </div>
                     )}
 
-                    <form onSubmit={handleAddReview} className="space-y-3.5 bg-[#fbfdfb] p-4 rounded-xl border border-[#e2eae2]">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <form onSubmit={handleAddReview} className="space-y-4 bg-[#fbfdfb] p-5 rounded-2xl border border-[#e2eae2] shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="space-y-1">
                           <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider">
-                            Your Rating
+                            Your Rating *
                           </label>
                           <div className="flex items-center gap-1">
                             {[1, 2, 3, 4, 5].map((star) => (
@@ -1090,7 +1158,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                                 />
                               </button>
                             ))}
-                            <span className="text-xs font-bold text-stone-600 ml-1.5">
+                            <span className="text-xs font-bold text-stone-700 ml-1.5">
                               {newReviewRating} / 5 Stars
                             </span>
                           </div>
@@ -1098,7 +1166,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
 
                         <div className="space-y-1 sm:w-1/2">
                           <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider">
-                            Your Name
+                            Your Name *
                           </label>
                           <input
                             type="text"
@@ -1106,32 +1174,130 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                             onChange={(e) => setNewReviewAuthor(e.target.value)}
                             placeholder="Your name or nickname"
                             required
-                            className="w-full text-xs px-3 py-2 rounded-lg border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
+                            className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1">
                         <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider">
-                          Review Feedback
+                          Review Feedback & Experience *
                         </label>
                         <textarea
                           value={newReviewComment}
                           onChange={(e) => setNewReviewComment(e.target.value)}
-                          placeholder="How did this botanical remedy feel or work for you?"
+                          placeholder="How did this botanical remedy feel or work for you? Share details about quality, aroma, flavor, or wellness effects..."
                           rows={3}
                           required
-                          className="w-full text-xs px-3 py-2 rounded-lg border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] resize-none"
+                          className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] resize-none"
                         />
                       </div>
 
-                      <div className="flex justify-end">
+                      {/* Photo Upload: Drag & Drop or Upload from Device (Unlimited Photos) */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-1">
+                          <label className="block text-[11px] font-bold text-stone-600 uppercase tracking-wider">
+                            Add Product Photos (Optional)
+                          </label>
+                          <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            No limit · Upload as many photos as you want
+                          </span>
+                        </div>
+
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setReviewDragActive(true); }}
+                          onDragLeave={(e) => { e.preventDefault(); setReviewDragActive(false); }}
+                          onDrop={handleReviewDrop}
+                          className={`p-4 rounded-xl border-2 border-dashed transition-all text-center flex flex-col items-center justify-center gap-2 ${
+                            reviewDragActive 
+                              ? 'border-[#24492d] bg-emerald-50/80 scale-[1.01]' 
+                              : 'border-stone-300 hover:border-[#24492d]/60 bg-stone-50/50'
+                          }`}
+                        >
+                          <input
+                            ref={reviewFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files) handleReviewFilesSelected(e.target.files);
+                              e.target.value = '';
+                            }}
+                          />
+
+                          <div className="w-10 h-10 rounded-full bg-emerald-100/70 text-[#24492d] flex items-center justify-center">
+                            {isUploadingReviewImages ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Upload className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-semibold text-stone-800">
+                              {isUploadingReviewImages ? 'Uploading photos...' : 'Drag & drop photos here, or'}
+                            </p>
+                            <button
+                              type="button"
+                              disabled={isUploadingReviewImages}
+                              onClick={() => reviewFileInputRef.current?.click()}
+                              className="mt-1 text-xs font-bold text-[#24492d] hover:underline cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>Browse from device</span>
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-stone-400">
+                            Supports PNG, JPG, JPEG, WEBP · Add any number of photos
+                          </p>
+                        </div>
+
+                        {/* Uploaded Photo Thumbnails Preview */}
+                        {reviewImages.length > 0 && (
+                          <div className="pt-2">
+                            <span className="text-[11px] font-bold text-stone-600 block mb-1.5">
+                              Attached Photos ({reviewImages.length}):
+                            </span>
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              {reviewImages.map((imgUrl, imgIdx) => (
+                                <div key={imgIdx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 group shadow-2xs">
+                                  <Image
+                                    src={resolveBackendImageUrl(imgUrl)}
+                                    alt={`Attached review photo ${imgIdx + 1}`}
+                                    fill
+                                    sizes="64px"
+                                    className="object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setReviewImages(prev => prev.filter((_, i) => i !== imgIdx))}
+                                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer"
+                                    title="Remove photo"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end pt-2">
                         <button
                           type="submit"
-                          disabled={submittingReview}
-                          className="px-5 py-2 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase tracking-wider shadow-xs disabled:opacity-50 cursor-pointer transition-colors"
+                          disabled={submittingReview || isUploadingReviewImages}
+                          className="px-6 py-2.5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase tracking-wider shadow-sm disabled:opacity-50 cursor-pointer transition-colors flex items-center gap-2"
                         >
-                          {submittingReview ? 'Submitting...' : 'Submit Review'}
+                          {submittingReview ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Submitting Review...</span>
+                            </>
+                          ) : (
+                            <span>Submit Review Live</span>
+                          )}
                         </button>
                       </div>
                     </form>
@@ -1143,10 +1309,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                         <Lock className="w-4 h-4 text-[#4a6b51] shrink-0" />
                         <div>
                           <p className="text-xs font-semibold text-[#1c3f24]">
-                            Reviews are available only for registered customers
+                            Reviews are available for registered customers
                           </p>
                           <p className="text-[11px] text-[#637d68]">
-                            Please sign in or create an account to share your experience with this remedy.
+                            Please sign in or create an account to share your photos and remedy experience.
                           </p>
                         </div>
                       </div>
@@ -1167,7 +1333,6 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                     </div>
                   </div>
                 )}
-                */}
               </div>
             )}
 
@@ -1402,6 +1567,30 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX FOR REVIEW PHOTOS */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Enlarged remedy review photo"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
           </div>
         </div>
       )}

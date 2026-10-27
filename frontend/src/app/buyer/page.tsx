@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { BlogPost } from '@/types';
-import { API_BASE_URL, uploadBlogImage, resolveBackendImageUrl, startOrderConversation, startProductConversation } from '@/lib/api';
+import { API_BASE_URL, uploadBlogImage, uploadReviewImages, resolveBackendImageUrl, startOrderConversation, startProductConversation } from '@/lib/api';
 import { 
   Package, 
   ShoppingBag,
@@ -49,7 +49,9 @@ import {
   Banknote,
   ShieldCheck,
   RotateCcw,
-  ExternalLink
+  ExternalLink,
+  Camera,
+  Loader2
 } from 'lucide-react';
 
 interface OrderItem {
@@ -71,6 +73,7 @@ interface BuyerReviewRecord {
   rating: number;
   comment: string;
   createdAt: string;
+  images?: string[];
 }
 
 interface Order {
@@ -313,11 +316,31 @@ export default function BuyerDashboardPage() {
   // Form Fields for Blog
   const [formTitle, setFormTitle] = useState('');
   const [formCategory, setFormCategory] = useState('Wellness');
+  const [formCategories, setFormCategories] = useState<string[]>(['Wellness']);
+  const [newBlogCategoryInput, setNewBlogCategoryInput] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('/images/blog-moringa.jpg');
   const [formContent, setFormContent] = useState('');
   const [uploadingBlogImage, setUploadingBlogImage] = useState(false);
   const [blogUploadError, setBlogUploadError] = useState<string | null>(null);
   const blogFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const toggleBlogCategory = (cat: string) => {
+    setFormCategories(prev => {
+      if (prev.includes(cat)) {
+        return prev.length > 1 ? prev.filter(c => c !== cat) : prev;
+      }
+      return [...prev, cat];
+    });
+  };
+
+  const handleAddBlogCategory = () => {
+    const trimmed = newBlogCategoryInput.trim();
+    if (!trimmed) return;
+    if (!formCategories.includes(trimmed)) {
+      setFormCategories(prev => [...prev, trimmed]);
+    }
+    setNewBlogCategoryInput('');
+  };
 
   const handleBlogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -352,6 +375,53 @@ export default function BuyerDashboardPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Review Image Upload State (Unlimited photos, Drag & Drop + Browse device)
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const [isUploadingReviewImages, setIsUploadingReviewImages] = useState(false);
+  const [reviewDragActive, setReviewDragActive] = useState(false);
+  const reviewFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Edit Review Image State
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [isUploadingEditImages, setIsUploadingEditImages] = useState(false);
+  const [editDragActive, setEditDragActive] = useState(false);
+  const editFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Lightbox Zoom Image
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  const handleReviewFilesSelected = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (fileArray.length === 0) return;
+    try {
+      setIsUploadingReviewImages(true);
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+      const urls = await uploadReviewImages(fileArray, authToken);
+      setReviewImages(prev => [...prev, ...urls]);
+    } catch (err: any) {
+      console.error('Failed to upload review images:', err);
+      alert(err.message || 'Failed to upload review photos.');
+    } finally {
+      setIsUploadingReviewImages(false);
+    }
+  };
+
+  const handleEditFilesSelected = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (fileArray.length === 0) return;
+    try {
+      setIsUploadingEditImages(true);
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+      const urls = await uploadReviewImages(fileArray, authToken);
+      setEditImages(prev => [...prev, ...urls]);
+    } catch (err: any) {
+      console.error('Failed to upload review images:', err);
+      alert(err.message || 'Failed to upload review photos.');
+    } finally {
+      setIsUploadingEditImages(false);
+    }
+  };
 
   // Persistent buyer reviews mapped strictly by order: `${orderId}:::${productId}`
   const [orderReviews, setOrderReviews] = useState<Record<string, BuyerReviewRecord>>({});
@@ -457,7 +527,8 @@ export default function BuyerDashboardPage() {
                 productName: r.productName || 'Botanical Product',
                 rating: r.rating || 5,
                 comment: cleanComment,
-                createdAt: r.createdAt || new Date().toISOString()
+                createdAt: r.createdAt || new Date().toISOString(),
+                images: Array.isArray(r.images) ? r.images : []
               };
 
               list.push(rec);
@@ -688,6 +759,7 @@ export default function BuyerDashboardPage() {
     setEditingBlog(null);
     setFormTitle('');
     setFormCategory('Wellness');
+    setFormCategories(['Wellness']);
     setFormImageUrl('/images/blog-moringa.jpg');
     setFormContent('');
     setShowCreateModal(true);
@@ -697,6 +769,10 @@ export default function BuyerDashboardPage() {
     setEditingBlog(blog);
     setFormTitle(blog.title);
     setFormCategory(blog.category || 'Wellness');
+    const blogCats = (blog.categories && blog.categories.length > 0)
+      ? blog.categories
+      : (blog.category ? blog.category.split(',').map(s => s.trim()).filter(Boolean) : ['Wellness']);
+    setFormCategories(blogCats.length > 0 ? blogCats : ['Wellness']);
     setFormImageUrl(blog.imageUrl || '/images/blog-moringa.jpg');
     setFormContent(blog.content);
     setShowCreateModal(true);
@@ -709,10 +785,12 @@ export default function BuyerDashboardPage() {
     const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
 
     try {
+      const cats = formCategories.length > 0 ? formCategories : ['Wellness'];
       const payload = {
         title: formTitle.trim(),
         content: formContent.trim(),
-        category: formCategory,
+        category: cats.join(', '),
+        categories: cats,
         imageUrl: formImageUrl.trim() || '/images/blog-moringa.jpg',
       };
 
@@ -793,6 +871,7 @@ export default function BuyerDashboardPage() {
     setReviewModalProduct({ id: productId, name: productName, orderId, orderRef });
     setReviewRating(5);
     setReviewComment('');
+    setReviewImages([]);
   };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -821,7 +900,8 @@ export default function BuyerDashboardPage() {
           userEmail: user?.email || null,
           orderId: orderId,
           rating: reviewRating,
-          comment: commentWithOrderTag
+          comment: commentWithOrderTag,
+          images: reviewImages
         })
       });
 
@@ -844,7 +924,8 @@ export default function BuyerDashboardPage() {
         productName: reviewModalProduct.name,
         rating: reviewRating,
         comment: reviewComment.trim(),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        images: reviewImages
       };
 
       // Persist local order-to-review link in localStorage
@@ -870,6 +951,7 @@ export default function BuyerDashboardPage() {
 
       setBuyerReviewsList(prev => [newRecord, ...prev.filter(r => !(r.id === newRecord.id || (r.orderId === orderId && r.productId === reviewModalProduct.id)))]);
       setReviewModalProduct(null);
+      setReviewImages([]);
       setStatusMessage({
         text: `Thank you! Your verified customer review for "${reviewModalProduct.name}" (Order #${orderRef}) is now published!`,
         type: 'success'
@@ -892,6 +974,7 @@ export default function BuyerDashboardPage() {
     setEditingReview(record);
     setEditRating(record.rating);
     setEditComment(record.comment);
+    setEditImages(record.images || []);
   };
 
   const handleUpdateReview = async (e: React.FormEvent) => {
@@ -917,7 +1000,8 @@ export default function BuyerDashboardPage() {
           comment: commentWithOrder,
           authorName: authorName,
           productId: editingReview.productId,
-          orderId: editingReview.orderId
+          orderId: editingReview.orderId,
+          images: editImages
         })
       });
 
@@ -934,7 +1018,8 @@ export default function BuyerDashboardPage() {
             userEmail: user?.email || null,
             orderId: editingReview.orderId,
             rating: editRating,
-            comment: commentWithOrder
+            comment: commentWithOrder,
+            images: editImages
           })
         });
       }
@@ -949,7 +1034,8 @@ export default function BuyerDashboardPage() {
         ...editingReview,
         id: resData?.id || editingReview.id,
         rating: editRating,
-        comment: cleanComment
+        comment: cleanComment,
+        images: editImages
       };
 
       const editOrderId = editingReview.orderId;
@@ -1654,30 +1740,105 @@ export default function BuyerDashboardPage() {
                                          </div>
 
                                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                           {itemsList.map((item, itIdx) => (
-                                             <div key={item.id || itIdx} className="flex items-center gap-3 p-3 rounded-xl bg-stone-50 border border-stone-100 hover:border-emerald-200 transition">
-                                               <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-stone-200 flex-shrink-0">
-                                                 <Image
-                                                   src={resolveBackendImageUrl(item.productImageUrl, '/images/gotu-kola-tea.jpg')}
-                                                   alt={item.productName || 'Remedy item'}
-                                                   fill
-                                                   sizes="48px"
-                                                   className="object-cover"
-                                                 />
-                                               </div>
-                                               <div className="min-w-0 flex-1 text-xs space-y-0.5">
-                                                 <div className="font-semibold text-stone-900 truncate" title={item.productName}>
-                                                   {item.productName}
-                                                 </div>
-                                                 <div className="text-stone-500 text-[11px]">
-                                                   Quantity: <strong className="text-stone-800">{item.quantity}</strong> {item.unitPrice ? `· $${item.unitPrice.toFixed(2)} each` : ''}
-                                                 </div>
-                                                 <div className="font-bold text-emerald-800 text-[11px]">
-                                                   Total: ${((item.quantity || 1) * (item.unitPrice || 0)).toFixed(2)}
-                                                 </div>
-                                               </div>
-                                             </div>
-                                           ))}
+                                           {itemsList.map((item, itIdx) => {
+                                              const revKey = `${order.id}:::${item.productId}`;
+                                              const revNorm = `${order.id.toLowerCase()}:::${(item.productId || '').toLowerCase()}`;
+                                              const revRef = order.payHereOrderId ? `${order.payHereOrderId}:::${item.productId}` : '';
+                                              const existingRev = orderReviews[revKey] || orderReviews[revNorm] || (revRef ? orderReviews[revRef] : null);
+
+                                              return (
+                                                <div key={item.id || itIdx} className="flex flex-col justify-between p-3 rounded-xl bg-stone-50 border border-stone-100 hover:border-emerald-200 transition gap-2.5">
+                                                  <div className="flex items-center gap-3">
+                                                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-stone-200 flex-shrink-0">
+                                                      <Image
+                                                        src={resolveBackendImageUrl(item.productImageUrl, '/images/gotu-kola-tea.jpg')}
+                                                        alt={item.productName || 'Remedy item'}
+                                                        fill
+                                                        sizes="48px"
+                                                        className="object-cover"
+                                                      />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 text-xs space-y-0.5">
+                                                      <div className="font-semibold text-stone-900 truncate" title={item.productName}>
+                                                        {item.productName}
+                                                      </div>
+                                                      <div className="text-stone-500 text-[11px]">
+                                                        Quantity: <strong className="text-stone-800">{item.quantity}</strong> {item.unitPrice ? `· $${item.unitPrice.toFixed(2)} each` : ''}
+                                                      </div>
+                                                      <div className="font-bold text-emerald-800 text-[11px]">
+                                                        Total: $${((item.quantity || 1) * (item.unitPrice || 0)).toFixed(2)}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Review Status & Actions for this Item */}
+                                                  {existingRev ? (
+                                                    <div className="pt-2 border-t border-stone-200/60 space-y-1.5">
+                                                      <div className="flex items-center justify-between text-[11px]">
+                                                        <div className="flex items-center gap-1 text-amber-500">
+                                                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                                          <span className="font-bold text-stone-700">{existingRev.rating}/5</span>
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                                          Review Live
+                                                        </span>
+                                                      </div>
+
+                                                      {/* Photo previews if any */}
+                                                      {existingRev.images && existingRev.images.length > 0 && (
+                                                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                          {existingRev.images.map((imgUrl, pIdx) => (
+                                                            <button
+                                                              key={pIdx}
+                                                              type="button"
+                                                              onClick={() => setLightboxImage(resolveBackendImageUrl(imgUrl))}
+                                                              className="relative w-8 h-8 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 hover:border-[#2E4D38] cursor-zoom-in"
+                                                              title="Click to view photo"
+                                                            >
+                                                              <Image
+                                                                src={resolveBackendImageUrl(imgUrl)}
+                                                                alt="Attached review photo"
+                                                                fill
+                                                                sizes="32px"
+                                                                className="object-cover"
+                                                              />
+                                                            </button>
+                                                          ))}
+                                                        </div>
+                                                      )}
+
+                                                      <div className="flex items-center gap-1 pt-1">
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleOpenViewReview(existingRev)}
+                                                          className="flex-1 py-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-[11px] font-bold text-stone-700 transition cursor-pointer text-center"
+                                                        >
+                                                          View Review
+                                                        </button>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleOpenEditReview(existingRev)}
+                                                          className="flex-1 py-1 rounded-lg border border-[#2E4D38]/30 bg-emerald-50 hover:bg-emerald-100 text-[11px] font-bold text-[#2E4D38] transition cursor-pointer text-center"
+                                                        >
+                                                          Edit
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <div className="pt-2 border-t border-stone-200/60">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleOpenReview(item.productId, item.productName, order.id, order.payHereOrderId || order.id, order.orderStatus)}
+                                                        className="w-full py-1.5 rounded-lg border border-[#2E4D38]/30 bg-emerald-50 hover:bg-emerald-100 text-[11px] font-bold text-[#2E4D38] transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                                                      >
+                                                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                        <span>Write Review &amp; Photos</span>
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
                                          </div>
 
                                          <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs flex-wrap gap-2 text-stone-600">
@@ -2554,6 +2715,103 @@ export default function BuyerDashboardPage() {
                 />
               </div>
 
+              {/* Photo Upload: Drag & Drop or Upload from Device (Unlimited Photos) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Add Product Photos (Optional)
+                  </label>
+                  <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    No limit · Upload as many photos as you want
+                  </span>
+                </div>
+
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setReviewDragActive(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setReviewDragActive(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setReviewDragActive(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleReviewFilesSelected(e.dataTransfer.files);
+                    }
+                  }}
+                  className={`p-4 rounded-xl border-2 border-dashed transition-all text-center flex flex-col items-center justify-center gap-2 ${
+                    reviewDragActive 
+                      ? 'border-[#2E4D38] bg-emerald-50/80 scale-[1.01]' 
+                      : 'border-stone-300 hover:border-[#2E4D38]/60 bg-stone-50/50'
+                  }`}
+                >
+                  <input
+                    ref={reviewFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) handleReviewFilesSelected(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  <div className="w-10 h-10 rounded-full bg-emerald-100/70 text-[#2E4D38] flex items-center justify-center">
+                    {isUploadingReviewImages ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-stone-800">
+                      {isUploadingReviewImages ? 'Uploading photos...' : 'Drag & drop remedy photos here, or'}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={isUploadingReviewImages}
+                      onClick={() => reviewFileInputRef.current?.click()}
+                      className="mt-1 text-xs font-bold text-[#2E4D38] hover:underline cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Browse from device</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-stone-400">
+                    Supports PNG, JPG, JPEG, WEBP · Unlimited photos allowed
+                  </p>
+                </div>
+
+                {/* Uploaded Photo Thumbnails */}
+                {reviewImages.length > 0 && (
+                  <div className="pt-2">
+                    <span className="text-[11px] font-bold text-stone-600 block mb-1.5">
+                      Attached Photos ({reviewImages.length}):
+                    </span>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {reviewImages.map((imgUrl, imgIdx) => (
+                        <div key={imgIdx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 group shadow-2xs">
+                          <Image
+                            src={resolveBackendImageUrl(imgUrl)}
+                            alt={`Review photo ${imgIdx + 1}`}
+                            fill
+                            sizes="64px"
+                            className="object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setReviewImages(prev => prev.filter((_, i) => i !== imgIdx))}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer"
+                            title="Remove photo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -2564,10 +2822,17 @@ export default function BuyerDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingReview}
-                  className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer disabled:opacity-50"
+                  disabled={submittingReview || isUploadingReviewImages}
+                  className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center gap-2"
                 >
-                  {submittingReview ? 'Publishing...' : 'Publish Review Live'}
+                  {submittingReview ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Publishing...</span>
+                    </>
+                  ) : (
+                    <span>Publish Review Live</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -2627,6 +2892,37 @@ export default function BuyerDashboardPage() {
                   "{viewingReview.comment}"
                 </p>
               </div>
+
+              {/* Attached Review Photos */}
+              {viewingReview.images && viewingReview.images.length > 0 && (
+                <div>
+                  <span className="text-[11px] uppercase font-bold text-stone-400 block mb-1.5">
+                    Attached Photos ({viewingReview.images.length})
+                  </span>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {viewingReview.images.map((imgUrl, imgIdx) => (
+                      <button
+                        key={imgIdx}
+                        type="button"
+                        onClick={() => setLightboxImage(resolveBackendImageUrl(imgUrl))}
+                        className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 cursor-zoom-in hover:border-[#2E4D38] hover:shadow-md transition"
+                        title="Click to enlarge photo"
+                      >
+                        <Image
+                          src={resolveBackendImageUrl(imgUrl)}
+                          alt={`Review photo ${imgIdx + 1}`}
+                          fill
+                          sizes="80px"
+                          className="object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2 flex items-center justify-between">
                 <span className="text-[11px] text-stone-400">
@@ -2721,6 +3017,103 @@ export default function BuyerDashboardPage() {
                 />
               </div>
 
+              {/* Photo Upload: Drag & Drop or Upload from Device (Unlimited Photos) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Product Photos
+                  </label>
+                  <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    No limit · Upload as many photos as you want
+                  </span>
+                </div>
+
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setEditDragActive(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setEditDragActive(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setEditDragActive(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleEditFilesSelected(e.dataTransfer.files);
+                    }
+                  }}
+                  className={`p-4 rounded-xl border-2 border-dashed transition-all text-center flex flex-col items-center justify-center gap-2 ${
+                    editDragActive 
+                      ? 'border-[#2E4D38] bg-emerald-50/80 scale-[1.01]' 
+                      : 'border-stone-300 hover:border-[#2E4D38]/60 bg-stone-50/50'
+                  }`}
+                >
+                  <input
+                    ref={editFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) handleEditFilesSelected(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  <div className="w-10 h-10 rounded-full bg-emerald-100/70 text-[#2E4D38] flex items-center justify-center">
+                    {isUploadingEditImages ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-stone-800">
+                      {isUploadingEditImages ? 'Uploading photos...' : 'Drag & drop photos here, or'}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={isUploadingEditImages}
+                      onClick={() => editFileInputRef.current?.click()}
+                      className="mt-1 text-xs font-bold text-[#2E4D38] hover:underline cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Browse from device</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-stone-400">
+                    Supports PNG, JPG, JPEG, WEBP · Unlimited photos allowed
+                  </p>
+                </div>
+
+                {/* Attached Photo Thumbnails */}
+                {editImages.length > 0 && (
+                  <div className="pt-2">
+                    <span className="text-[11px] font-bold text-stone-600 block mb-1.5">
+                      Attached Photos ({editImages.length}):
+                    </span>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {editImages.map((imgUrl, imgIdx) => (
+                        <div key={imgIdx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 group shadow-2xs">
+                          <Image
+                            src={resolveBackendImageUrl(imgUrl)}
+                            alt={`Edit review photo ${imgIdx + 1}`}
+                            fill
+                            sizes="64px"
+                            className="object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEditImages(prev => prev.filter((_, i) => i !== imgIdx))}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer"
+                            title="Remove photo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -2731,10 +3124,17 @@ export default function BuyerDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={updatingReview}
-                  className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer disabled:opacity-50"
+                  disabled={updatingReview || isUploadingEditImages}
+                  className="px-5 py-2 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#253f2e] transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center gap-2"
                 >
-                  {updatingReview ? 'Saving...' : 'Save Changes'}
+                  {updatingReview ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -2776,25 +3176,74 @@ export default function BuyerDashboardPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Category *
+              {/* Multi-Category Selector for Blog Post */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Categories *
                   </label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] bg-white"
-                  >
-                    <option value="Wellness">Wellness & Health</option>
-                    <option value="Herbal Remedies">Herbal Remedies</option>
-                    <option value="Ayurveda">Ayurvedic Wisdom</option>
-                    <option value="Tea Rituals">Tea Rituals</option>
-                    <option value="Plant Nutrition">Plant Nutrition</option>
-                  </select>
+                  <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {formCategories.length} category selected
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                  {['Wellness', 'Herbal Remedies', 'Ayurveda', 'Tea Rituals', 'Plant Nutrition', 'Organic Living'].map(cat => {
+                    const isSelected = formCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => toggleBlogCategory(cat)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer border flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-[#2E4D38] text-white border-[#2E4D38] shadow-2xs'
+                            : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3" />}
+                        <span>{cat}</span>
+                      </button>
+                    );
+                  })}
+                  {formCategories.filter(c => !['Wellness', 'Herbal Remedies', 'Ayurveda', 'Tea Rituals', 'Plant Nutrition', 'Organic Living'].includes(c)).map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => toggleBlogCategory(cat)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer border bg-[#2E4D38] text-white border-[#2E4D38] shadow-2xs flex items-center gap-1.5"
+                    >
+                      <Check className="w-3 h-3" />
+                      <span>{cat}</span>
+                      <X className="w-3 h-3 ml-0.5 hover:text-rose-300" onClick={(e) => { e.stopPropagation(); toggleBlogCategory(cat); }} />
+                    </button>
+                  ))}
                 </div>
 
+                {/* Add Custom Category Input */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newBlogCategoryInput}
+                    onChange={(e) => setNewBlogCategoryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddBlogCategory();
+                      }
+                    }}
+                    placeholder="Add custom category..."
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddBlogCategory}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-200 transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
                 </div>
+              </div>
 
                 {/* Featured Cover Image Section */}
                 <div className="space-y-2">
@@ -3267,6 +3716,30 @@ export default function BuyerDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX FOR REVIEW PHOTOS */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Enlarged review photo"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
           </div>
         </div>
       )}
