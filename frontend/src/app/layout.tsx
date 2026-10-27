@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Cormorant_Garamond, Inter } from 'next/font/google';
 import './globals.css';
@@ -21,6 +21,12 @@ const inter = Inter({
   variable: '--font-sans',
   display: 'swap',
 });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: "Arboveya — Nature's Healing, Perfected",

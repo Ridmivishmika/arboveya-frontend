@@ -190,8 +190,129 @@ export default function CartClient() {
           /* Populated Cart */
           <div className="space-y-8">
             
-            {/* Table of Cart Items */}
-            <div className="overflow-x-auto border-b border-[#ccdacc]">
+            {/* Mobile Card List (< md screens) */}
+            <div className="block md:hidden space-y-3.5">
+              {cart.map((item) => {
+                const rawLinePrice = item.selectedVariant?.price ?? Number(item.product.price);
+                const calc = calculateEffectivePrice(
+                  rawLinePrice,
+                  Number(item.product.discountPercentage) || 0,
+                  item.product.offerName,
+                  item.quantity
+                );
+                const linePrice = calc.unitPrice;
+                const lineTotal = calc.totalPrice;
+                const isDiscountApplied = calc.isDiscountApplied;
+                const activeTier = calc.activeTier;
+                const allTiers = calc.allTiers;
+                const vKey = item.selectedVariant?.weight;
+
+                return (
+                  <div
+                    key={`mobile_${item.product.id}_${vKey ?? 'default'}`}
+                    className="p-3.5 rounded-xl border border-[#ccdacc] bg-[#fafcfa] space-y-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-[#edf3ed] flex-shrink-0 border border-[#ccdacc]">
+                        <Image
+                          src={resolveBackendImageUrl(item.product.imageUrl, '/images/gotu-kola-tea.jpg')}
+                          alt={item.product.name}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <Link
+                            href={`/shop/${item.product.id}`}
+                            className="font-bold text-xs sm:text-sm text-[#1c3f24] hover:underline line-clamp-2"
+                          >
+                            {item.product.name}
+                          </Link>
+                          <button
+                            onClick={() => removeFromCart(item.product.id, vKey)}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer shrink-0"
+                            title="Remove item"
+                            aria-label="Remove item"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {item.selectedVariant ? (
+                          <span className="text-[11px] text-[#69826e] block mt-0.5">
+                            {item.selectedVariant.weight}
+                          </span>
+                        ) : item.product.weight ? (
+                          <span className="text-[11px] text-[#69826e] block mt-0.5">
+                            {item.product.weight}
+                          </span>
+                        ) : null}
+
+                        {allTiers.length > 0 && (
+                          isDiscountApplied ? (
+                            <span className="inline-block mt-1 text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              🏷️ {activeTier?.label || item.product.offerName}
+                            </span>
+                          ) : (
+                            <span className="inline-block mt-1 text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                              🏷️ {allTiers[0].label}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Price, Quantity Stepper, and Line Total */}
+                    <div className="flex items-center justify-between pt-2 border-t border-[#e2eae2]">
+                      <div>
+                        <div className="text-xs font-semibold text-[#1c3f24]">
+                          ${linePrice.toFixed(2)}
+                        </div>
+                        {isDiscountApplied && (
+                          <div className="text-[10px] text-stone-400 line-through">
+                            ${rawLinePrice.toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quantity Stepper */}
+                      <div className="inline-flex items-center border border-[#ccdacc] rounded-lg overflow-hidden bg-white shadow-2xs">
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1, vKey)}
+                          className="p-1.5 hover:bg-[#f3f7f3] text-[#3e5642] transition-colors cursor-pointer"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-7 text-center text-xs font-bold text-[#1c3f24]">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1, vKey)}
+                          className="p-1.5 hover:bg-[#f3f7f3] text-[#3e5642] transition-colors cursor-pointer"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-stone-400 uppercase block font-bold">Total</span>
+                        <span className="text-xs sm:text-sm font-bold text-[#1c3f24]">
+                          ${lineTotal.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table of Cart Items (md: screens and above) */}
+            <div className="hidden md:block overflow-x-auto border-b border-[#ccdacc]">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-[#ccdacc] text-[11px] font-bold tracking-wider text-[#1c3f24] uppercase">

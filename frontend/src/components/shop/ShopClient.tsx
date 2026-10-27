@@ -17,7 +17,8 @@ import {
   X,
   Eye,
   Search,
-  Tag
+  Tag,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Product, Category, WellnessNeed } from '@/types';
 import { useCart } from '@/context/CartContext';
@@ -76,6 +77,15 @@ export default function ShopClient({
   const [sortBy, setSortBy] = useState<string>('featured');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [addedToCartId, setAddedToCartId] = useState<string | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+
+  const activeFilterCount = useMemo(() => {
+    return (selectedCategory !== 'All Products' ? 1 : 0) +
+      (selectedWellnessNeed !== 'All Wellness Needs' ? 1 : 0) +
+      (maxPrice < catalogMaxPrice ? 1 : 0) +
+      (selectedRatings.length > 0 ? 1 : 0) +
+      (searchQuery.trim().length > 0 ? 1 : 0);
+  }, [selectedCategory, selectedWellnessNeed, maxPrice, catalogMaxPrice, selectedRatings, searchQuery]);
 
   const itemsPerPage = 12;
 
@@ -320,232 +330,331 @@ export default function ShopClient({
 
   const isFiltered = selectedCategory !== 'All Products' || selectedWellnessNeed !== 'All Wellness Needs' || maxPrice < catalogMaxPrice || selectedRatings.length > 0 || searchQuery.trim().length > 0;
 
+  const renderFilterContent = () => (
+    <div className="space-y-7">
+      {/* Search within shop in Sidebar */}
+      <div className="space-y-2 pb-4 border-b border-[#e5ece5]">
+        <div className="flex items-center justify-between">
+          <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5 text-[#24492d]" />
+            <span>SEARCH STORE</span>
+          </h3>
+          {searchQuery.trim() && (
+            <button
+              onClick={handleClearSearch}
+              className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Filter botanicals..."
+            className="w-full pl-8 pr-7 py-2 rounded-xl text-xs border border-[#ccdacc] bg-[#fbfdfb] text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
+          />
+          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          {searchQuery && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-stone-400 hover:text-stone-600 rounded"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filter by Category */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
+          <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
+            CATEGORIES
+          </h3>
+          {selectedCategory !== 'All Products' && (
+            <button
+              onClick={() => handleCategorySelect('All Products')}
+              className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
+          {categoryListWithCounts.map(({ name, count }) => {
+            const isSelected = selectedCategory.toLowerCase() === name.toLowerCase();
+            return (
+              <button
+                key={name}
+                onClick={() => {
+                  handleCategorySelect(name);
+                  setMobileFiltersOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                    : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+                }`}
+              >
+                <span className="truncate">{name}</span>
+                <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-[#859c89]'}`}>
+                  ({count})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Filter by Wellness Need */}
+      {wellnessNeedsWithCounts.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
+            <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
+              WELLNESS NEED
+            </h3>
+            {selectedWellnessNeed !== 'All Wellness Needs' && (
+              <button
+                onClick={() => handleWellnessNeedSelect('All Wellness Needs')}
+                className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
+            <button
+              onClick={() => {
+                handleWellnessNeedSelect('All Wellness Needs');
+                setMobileFiltersOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
+                selectedWellnessNeed === 'All Wellness Needs'
+                  ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                  : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+              }`}
+            >
+              <span>All Wellness Needs</span>
+              <span className={`text-[10px] ${selectedWellnessNeed === 'All Wellness Needs' ? 'text-white/80' : 'text-[#859c89]'}`}>
+                ({products.length})
+              </span>
+            </button>
+            {wellnessNeedsWithCounts.map(({ name, count }) => {
+              const isSelected = selectedWellnessNeed.toLowerCase() === name.toLowerCase();
+              return (
+                <button
+                  key={name}
+                  onClick={() => {
+                    handleWellnessNeedSelect(name);
+                    setMobileFiltersOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                      : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+                  }`}
+                >
+                  <span className="truncate">{name}</span>
+                  <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-[#859c89]'}`}>
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Filter by Price */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
+          <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
+            FILTER BY PRICE
+          </h3>
+          {maxPrice < catalogMaxPrice && (
+            <button
+              onClick={() => {
+                setMaxPrice(catalogMaxPrice);
+                setCurrentPage(1);
+              }}
+              className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-[#4a634f]">
+            <span>$0</span>
+            <span className="font-bold text-[#1c3f24]">${maxPrice}{maxPrice >= catalogMaxPrice ? '+' : ''}</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max={catalogMaxPrice}
+            step={catalogMaxPrice > 200 ? 10 : 5}
+            value={maxPrice}
+            onChange={(e) => {
+              setMaxPrice(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="w-full accent-[#24492d] cursor-pointer"
+          />
+          <div className="flex items-center justify-between text-[11px] text-[#718875]">
+            <span>$0</span>
+            <span>${catalogMaxPrice}+</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Rating */}
+      <div className="space-y-4">
+        <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase pb-2 border-b border-[#e5ece5]">
+          RATING
+        </h3>
+        <div className="space-y-2.5">
+          {[5, 4, 3, 2].map((stars) => {
+            const isChecked = selectedRatings.includes(stars);
+            return (
+              <label
+                key={stars}
+                className="flex items-center justify-between text-xs text-[#4a634f] cursor-pointer hover:text-[#1c3f24] group"
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => handleRatingToggle(stars)}
+                    className="rounded border-[#ccdacc] text-[#24492d] focus:ring-[#24492d] cursor-pointer"
+                  />
+                  <div className="flex items-center text-[#24492d]">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-3.5 h-3.5 ${
+                          i < stars
+                            ? 'fill-[#24492d] text-[#24492d]'
+                            : 'text-[#d6dfd7]'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <span className="text-[10px] text-[#859c89]">
+                  ({ratingCounts[stars] || 0})
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full bg-[#fbfdfb] min-h-screen">
       
       {/* Main Layout Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
         <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
           
-          {/* ================= LEFT SIDEBAR ================= */}
-          <aside className="w-full md:w-64 flex-shrink-0 space-y-7 bg-white p-5 rounded-2xl border border-[#e8efe8] shadow-2xs">
-            
-            {/* Search within shop in Sidebar */}
-            <div className="space-y-2 pb-4 border-b border-[#e5ece5]">
-              <div className="flex items-center justify-between">
-                <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase flex items-center gap-1.5">
-                  <Search className="w-3.5 h-3.5 text-[#24492d]" />
-                  <span>SEARCH STORE</span>
-                </h3>
-                {searchQuery.trim() && (
-                  <button
-                    onClick={handleClearSearch}
-                    className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Filter botanicals..."
-                  className="w-full pl-8 pr-7 py-2 rounded-xl text-xs border border-[#ccdacc] bg-[#fbfdfb] text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
-                />
-                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                {searchQuery && (
-                  <button
-                    onClick={handleClearSearch}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-stone-400 hover:text-stone-600 rounded"
-                    title="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Filter by Category */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
-                <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
-                  CATEGORIES
-                </h3>
-                {selectedCategory !== 'All Products' && (
-                  <button
-                    onClick={() => handleCategorySelect('All Products')}
-                    className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-              <div className="space-y-1">
-                {categoryListWithCounts.map(({ name, count }) => {
-                  const isSelected = selectedCategory.toLowerCase() === name.toLowerCase();
-                  return (
-                    <button
-                      key={name}
-                      onClick={() => handleCategorySelect(name)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                          : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-                      }`}
-                    >
-                      <span className="truncate">{name}</span>
-                      <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-[#859c89]'}`}>
-                        ({count})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Filter by Wellness Need (ONLY shown if wellness need exists in backend AND has products assigned) */}
-            {wellnessNeedsWithCounts.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
-                  <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
-                    WELLNESS NEED
-                  </h3>
-                  {selectedWellnessNeed !== 'All Wellness Needs' && (
-                    <button
-                      onClick={() => handleWellnessNeedSelect('All Wellness Needs')}
-                      className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => handleWellnessNeedSelect('All Wellness Needs')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-                      selectedWellnessNeed === 'All Wellness Needs'
-                        ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                        : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-                    }`}
-                  >
-                    <span>All Wellness Needs</span>
-                    <span className={`text-[10px] ${selectedWellnessNeed === 'All Wellness Needs' ? 'text-white/80' : 'text-[#859c89]'}`}>
-                      ({products.length})
-                    </span>
-                  </button>
-                  {wellnessNeedsWithCounts.map(({ name, count }) => {
-                    const isSelected = selectedWellnessNeed.toLowerCase() === name.toLowerCase();
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => handleWellnessNeedSelect(name)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                            : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-                        }`}
-                      >
-                        <span className="truncate">{name}</span>
-                        <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-[#859c89]'}`}>
-                          ({count})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Filter by Price */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
-                <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
-                  FILTER BY PRICE
-                </h3>
-                {maxPrice < catalogMaxPrice && (
-                  <button
-                    onClick={() => {
-                      setMaxPrice(catalogMaxPrice);
-                      setCurrentPage(1);
-                    }}
-                    className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-[#4a634f]">
-                  <span>$0</span>
-                  <span className="font-bold text-[#1c3f24]">${maxPrice}{maxPrice >= catalogMaxPrice ? '+' : ''}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={catalogMaxPrice}
-                  step={catalogMaxPrice > 200 ? 10 : 5}
-                  value={maxPrice}
-                  onChange={(e) => {
-                    setMaxPrice(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="w-full accent-[#24492d] cursor-pointer"
-                />
-                <div className="flex items-center justify-between text-[11px] text-[#718875]">
-                  <span>$0</span>
-                  <span>${catalogMaxPrice}+</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Rating */}
-            <div className="space-y-4">
-              <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase pb-2 border-b border-[#e5ece5]">
-                RATING
-              </h3>
-              <div className="space-y-2.5">
-                {[5, 4, 3, 2].map((stars) => {
-                  const isChecked = selectedRatings.includes(stars);
-                  return (
-                    <label
-                      key={stars}
-                      className="flex items-center justify-between text-xs text-[#4a634f] cursor-pointer hover:text-[#1c3f24] group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleRatingToggle(stars)}
-                          className="rounded border-[#ccdacc] text-[#24492d] focus:ring-[#24492d] cursor-pointer"
-                        />
-                        <div className="flex items-center text-[#24492d]">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-3.5 h-3.5 ${
-                                i < stars
-                                  ? 'fill-[#24492d] text-[#24492d]'
-                                  : 'text-[#d6dfd7]'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-[#859c89]">
-                        ({ratingCounts[stars] || 0})
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
+          {/* ================= DESKTOP LEFT SIDEBAR (hidden on mobile) ================= */}
+          <aside className="hidden md:block w-64 flex-shrink-0 bg-white p-5 rounded-2xl border border-[#e8efe8] shadow-2xs sticky top-28">
+            {renderFilterContent()}
           </aside>
 
+          {/* ================= MOBILE SLIDE-OVER DRAWER (< md) ================= */}
+          {mobileFiltersOpen && (
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end md:hidden animate-fadeIn">
+              <div className="w-full max-w-xs bg-white h-full overflow-y-auto p-5 shadow-2xl flex flex-col justify-between">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#e5ece5]">
+                    <h3 className="font-serif text-lg font-bold text-[#1c3f24] flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-[#24492d]" />
+                      <span>Filter Catalog</span>
+                    </h3>
+                    <button
+                      onClick={() => setMobileFiltersOpen(false)}
+                      className="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                      aria-label="Close filters"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  {renderFilterContent()}
+                </div>
+                <div className="pt-6 border-t border-[#e5ece5] mt-6">
+                  <button
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="w-full py-3 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase rounded-xl tracking-wider shadow-sm transition"
+                  >
+                    View {filteredProducts.length} Results
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ================= RIGHT CATALOG AREA ================= */}
-          <main className="flex-1 w-full space-y-6">
+          <main className="flex-1 w-full space-y-5">
+            
+            {/* Mobile Category Quick Bar (< md) */}
+            <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+              {categoryListWithCounts.map(({ name, count }) => {
+                const isSelected = selectedCategory.toLowerCase() === name.toLowerCase();
+                return (
+                  <button
+                    key={`mobile_cat_${name}`}
+                    onClick={() => handleCategorySelect(name)}
+                    className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#24492d] text-white shadow-xs'
+                        : 'bg-white border border-[#d2dfd4] text-[#34533a] hover:bg-[#edf5ee]'
+                    }`}
+                  >
+                    <span>{name}</span>
+                    <span className="ml-1 opacity-75 text-[10px]">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Mobile Filter & Refine Bar (< md) */}
+            <div className="md:hidden flex items-center justify-between gap-3 p-3 bg-white rounded-xl border border-[#e2eae2] shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#24492d] text-white text-xs font-bold uppercase tracking-wider shadow-xs cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-white text-[#24492d] text-[10px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {isFiltered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClearSearch();
+                    handleCategorySelect('All Products');
+                    handleWellnessNeedSelect('All Wellness Needs');
+                    setMaxPrice(catalogMaxPrice);
+                    setSelectedRatings([]);
+                  }}
+                  className="text-xs text-[#24492d] font-semibold hover:underline cursor-pointer"
+                >
+                  Reset All
+                </button>
+              )}
+            </div>
             
             {/* Active Filter Banner when search keyword is active */}
             {searchQuery.trim() && (

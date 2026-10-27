@@ -49,11 +49,11 @@ export default function ValueBanner() {
   return (
     <section className="bg-[#2b4c33] text-white py-6 border-y border-[#24402a]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-4 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-4 items-center">
           {valueItems.map((item, idx) => (
             <div
               key={idx}
-              className="flex items-center space-x-3.5 px-2 md:border-r last:border-r-0 border-[#3d6547]"
+              className="flex items-center space-x-3.5 px-2 lg:border-r last:border-r-0 border-[#3d6547]"
             >
               <div className="flex-shrink-0 p-2 rounded-lg bg-[#3a5f42]/60">
                 {item.icon}

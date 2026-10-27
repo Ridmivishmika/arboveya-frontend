@@ -27,7 +27,7 @@ export default function HeroSection({
             <span>100% Pure & Ethical Botanical Formulations</span>
           </div>
 
-          <h1 className="font-serif text-4xl sm:text-5xl lg:text-[54px] font-normal text-[#17381f] leading-[1.12] tracking-tight mb-4">
+          <h1 className="font-serif text-3xl sm:text-5xl lg:text-[54px] font-normal text-[#17381f] leading-[1.12] tracking-tight mb-4">
             Nature&apos;s<br />
             Healing, Perfected
           </h1>
@@ -36,7 +36,7 @@ export default function HeroSection({
             {description}
           </p>
 
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 flex-wrap sm:flex-nowrap">
             <Link
               href="/shop"
               className="inline-flex items-center justify-center px-7 py-3 bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-semibold tracking-[0.14em] rounded-[3px] shadow-sm uppercase transition-all duration-200 active:scale-98"

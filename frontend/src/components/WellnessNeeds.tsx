@@ -143,7 +143,7 @@ export default function WellnessNeeds({ wellnessNeeds = [], products = [] }: Wel
               <Link
                 key={item.id}
                 href={`/shop?wellnessNeed=${encodeURIComponent(displayName)}`}
-                className="group flex flex-col items-center text-center p-3.5 rounded-xl bg-white border border-[#e5ece5] hover:border-[#2a4d31] hover:shadow-md transition-all duration-300 hover:-translate-y-1 w-[140px] sm:w-[155px]"
+                className="group flex flex-col items-center text-center p-3.5 rounded-xl bg-white border border-[#e5ece5] hover:border-[#2a4d31] hover:shadow-md transition-all duration-300 hover:-translate-y-1 w-[calc(50%-7px)] sm:w-[155px]"
               >
                 <div className="mb-3 p-2.5 rounded-full bg-[#f4f7f4] group-hover:bg-[#ebf2ec] transition-colors">
                   <WellnessIcon name={item.icon} />

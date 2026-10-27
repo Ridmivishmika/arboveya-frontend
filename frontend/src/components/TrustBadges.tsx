@@ -46,11 +46,11 @@ export default function TrustBadges() {
   return (
     <section className="bg-[#f7f9f6] py-6 border-t border-[#e2eae2]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 items-center">
           {trustItems.map((item, idx) => (
             <div
               key={idx}
-              className="flex items-center space-x-3 justify-center md:justify-start"
+              className="flex items-center space-x-3 justify-start sm:justify-center md:justify-start"
             >
               <div className="p-2 rounded-full bg-[#ecf2ed] flex-shrink-0">
                 {item.icon}

@@ -828,7 +828,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
         <div ref={reviewsRef} className="mt-16 sm:mt-24 border-t border-[#e5ebe5] pt-8">
           
           {/* Tabs Navigation */}
-          <div className="flex items-center justify-center gap-4 sm:gap-10 border-b border-[#e5ebe5] pb-3 text-xs sm:text-sm font-bold tracking-[0.12em] uppercase flex-wrap">
+          <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-10 border-b border-[#e5ebe5] pb-3 text-xs sm:text-sm font-bold tracking-[0.12em] uppercase overflow-x-auto whitespace-nowrap scrollbar-none px-2 sm:px-0">
             {(['description', 'specifications', 'ingredients', 'howToUse', 'reviews'] as const).map((tabKey) => {
               const isActive = activeTab === tabKey;
               const labels = {
@@ -843,7 +843,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 <button
                   key={tabKey}
                   onClick={() => setActiveTab(tabKey)}
-                  className={`pb-3 transition-colors relative cursor-pointer ${
+                  className={`pb-3 transition-colors relative cursor-pointer shrink-0 ${
                     isActive
                       ? 'text-[#1c3f24] font-bold'
                       : 'text-[#859c89] hover:text-[#1c3f24]'

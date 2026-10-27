@@ -908,8 +908,8 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
 
           {/* Brand Logo & Name */}
-          <Link href="/" className="flex items-center gap-3 group flex-shrink-0 mr-6 sm:mr-8 lg:mr-10 xl:mr-12">
-            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#2a4d31]/20 shadow-sm group-hover:scale-105 transition-transform">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 group flex-shrink-0 mr-2 sm:mr-6 lg:mr-10 xl:mr-12">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-[#2a4d31]/20 shadow-sm group-hover:scale-105 transition-transform">
               <Image
                 src="/images/logo-badge.png"
                 alt="Arboveya Logo Emblem"
@@ -919,7 +919,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 priority
               />
             </div>
-            <span className="font-serif text-xl sm:text-2xl font-bold tracking-[0.2em] text-[#1c3f24] group-hover:text-[#2d5c37] transition-colors">
+            <span className="font-serif text-lg sm:text-2xl font-bold tracking-[0.14em] sm:tracking-[0.2em] text-[#1c3f24] group-hover:text-[#2d5c37] transition-colors">
               ARBOVEYA
             </span>
           </Link>
@@ -1106,10 +1106,11 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             ) : (
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-[#1c3f24] hover:bg-[#f0f4f0] transition"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-1.5 rounded-lg text-xs font-semibold text-[#1c3f24] hover:bg-[#f0f4f0] transition"
+                title="Sign In"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Sign In</span>
+                <span className="hidden sm:inline">Sign In</span>
               </Link>
             )}
 
