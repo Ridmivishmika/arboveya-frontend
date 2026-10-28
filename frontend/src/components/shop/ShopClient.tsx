@@ -18,7 +18,9 @@ import {
   Eye,
   Search,
   Tag,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { Product, Category, WellnessNeed } from '@/types';
 import { useCart } from '@/context/CartContext';
@@ -67,7 +69,12 @@ export default function ShopClient({
     return Math.ceil(highestPrice / 10) * 10 || 100;
   }, [products]);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategoryParam);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    if (initialCategoryParam && initialCategoryParam !== 'All Products') {
+      return [initialCategoryParam];
+    }
+    return [];
+  });
   const [selectedWellnessNeed, setSelectedWellnessNeed] = useState<string>(initialWellnessNeedParam);
   const [maxPrice, setMaxPrice] = useState<number>(() => {
     // Will be reset after catalogMaxPrice is computed; start at a high value
@@ -78,14 +85,31 @@ export default function ShopClient({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [addedToCartId, setAddedToCartId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+  const [mobileCatDropdownOpen, setMobileCatDropdownOpen] = useState<boolean>(false);
+  const mobileCatDropdownRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Close mobile category dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (mobileCatDropdownRef.current && !mobileCatDropdownRef.current.contains(e.target as Node)) {
+        setMobileCatDropdownOpen(false);
+      }
+    };
+    if (mobileCatDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [mobileCatDropdownOpen]);
 
   const activeFilterCount = useMemo(() => {
-    return (selectedCategory !== 'All Products' ? 1 : 0) +
+    return (selectedCategories.length > 0 ? 1 : 0) +
       (selectedWellnessNeed !== 'All Wellness Needs' ? 1 : 0) +
       (maxPrice < catalogMaxPrice ? 1 : 0) +
       (selectedRatings.length > 0 ? 1 : 0) +
       (searchQuery.trim().length > 0 ? 1 : 0);
-  }, [selectedCategory, selectedWellnessNeed, maxPrice, catalogMaxPrice, selectedRatings, searchQuery]);
+  }, [selectedCategories, selectedWellnessNeed, maxPrice, catalogMaxPrice, selectedRatings, searchQuery]);
 
   const itemsPerPage = 12;
 
@@ -98,7 +122,11 @@ export default function ShopClient({
   useEffect(() => {
     const categoryParam = searchParams.get('category') || searchParams.get('categoryId');
     if (categoryParam) {
-      setSelectedCategory(categoryParam);
+      if (categoryParam === 'All Products') {
+        setSelectedCategories([]);
+      } else {
+        setSelectedCategories([categoryParam]);
+      }
     }
     const wellnessNeedParam = searchParams.get('wellnessNeed') || searchParams.get('need');
     if (wellnessNeedParam) {
@@ -190,10 +218,40 @@ export default function ShopClient({
     return result;
   }, [wellnessNeeds, products]);
 
-  // Handle Category selection
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategory(categoryName);
+  // Handle Category selection / toggle (supports multi-select)
+  const toggleCategory = (categoryName: string) => {
     setCurrentPage(1);
+    if (categoryName === 'All Products') {
+      setSelectedCategories([]);
+      const params = new URLSearchParams(window.location.search);
+      params.delete('category');
+      params.delete('categoryId');
+      const qs = params.toString();
+      router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+      return;
+    }
+
+    setSelectedCategories((prev) => {
+      const exists = prev.some((c) => c.toLowerCase() === categoryName.toLowerCase());
+      const next = exists
+        ? prev.filter((c) => c.toLowerCase() !== categoryName.toLowerCase())
+        : [...prev, categoryName];
+
+      const params = new URLSearchParams(window.location.search);
+      if (next.length === 1) {
+        params.set('category', next[0]);
+      } else {
+        params.delete('category');
+        params.delete('categoryId');
+      }
+      const qs = params.toString();
+      router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+      return next;
+    });
+  };
+
+  const handleCategorySelect = (categoryName: string) => {
+    toggleCategory(categoryName);
   };
 
   // Handle Wellness Need selection
@@ -254,11 +312,12 @@ export default function ShopClient({
         }
       }
 
-      // 1. Category filter
-      if (selectedCategory !== 'All Products') {
-        const matchesCategory =
-          (product.categoryId && product.categoryId === selectedCategory) ||
-          (product.categoryName && product.categoryName.toLowerCase() === selectedCategory.toLowerCase());
+      // 1. Category filter (supports multiple categories)
+      if (selectedCategories.length > 0) {
+        const matchesCategory = selectedCategories.some((cat) =>
+          (product.categoryId && product.categoryId.toLowerCase() === cat.toLowerCase()) ||
+          (product.categoryName && product.categoryName.toLowerCase() === cat.toLowerCase())
+        );
         if (!matchesCategory) return false;
       }
 
@@ -288,7 +347,7 @@ export default function ShopClient({
 
       return true;
     });
-  }, [products, selectedCategory, selectedWellnessNeed, maxPrice, selectedRatings, searchQuery]);
+  }, [products, selectedCategories, selectedWellnessNeed, maxPrice, selectedRatings, searchQuery]);
 
   // Sort products
   const sortedProducts = useMemo(() => {
@@ -328,7 +387,7 @@ export default function ShopClient({
     return counts;
   }, [products]);
 
-  const isFiltered = selectedCategory !== 'All Products' || selectedWellnessNeed !== 'All Wellness Needs' || maxPrice < catalogMaxPrice || selectedRatings.length > 0 || searchQuery.trim().length > 0;
+  const isFiltered = selectedCategories.length > 0 || selectedWellnessNeed !== 'All Wellness Needs' || maxPrice < catalogMaxPrice || selectedRatings.length > 0 || searchQuery.trim().length > 0;
 
   const renderFilterContent = () => (
     <div className="space-y-7">
@@ -369,15 +428,15 @@ export default function ShopClient({
         </div>
       </div>
 
-      {/* Filter by Category */}
+      {/* Filter by Category (Multi-select) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-[#e5ece5]">
           <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
             CATEGORIES
           </h3>
-          {selectedCategory !== 'All Products' && (
+          {selectedCategories.length > 0 && (
             <button
-              onClick={() => handleCategorySelect('All Products')}
+              onClick={() => toggleCategory('All Products')}
               className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
             >
               Reset
@@ -385,22 +444,47 @@ export default function ShopClient({
           )}
         </div>
         <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
-          {categoryListWithCounts.map(({ name, count }) => {
-            const isSelected = selectedCategory.toLowerCase() === name.toLowerCase();
+          <button
+            onClick={() => toggleCategory('All Products')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
+              selectedCategories.length === 0
+                ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+            }`}
+          >
+            <div className="flex items-center gap-2 truncate">
+              <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                selectedCategories.length === 0 ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
+              }`}>
+                {selectedCategories.length === 0 && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+              </div>
+              <span className="truncate">All Products</span>
+            </div>
+            <span className={`text-[10px] ${selectedCategories.length === 0 ? 'text-white/80' : 'text-[#859c89]'}`}>
+              ({products.length})
+            </span>
+          </button>
+
+          {categoryListWithCounts.filter(c => c.name !== 'All Products').map(({ name, count }) => {
+            const isSelected = selectedCategories.some(c => c.toLowerCase() === name.toLowerCase());
             return (
               <button
                 key={name}
-                onClick={() => {
-                  handleCategorySelect(name);
-                  setMobileFiltersOpen(false);
-                }}
+                onClick={() => toggleCategory(name)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
                   isSelected
                     ? 'bg-[#24492d] text-white font-bold shadow-xs'
                     : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
                 }`}
               >
-                <span className="truncate">{name}</span>
+                <div className="flex items-center gap-2 truncate">
+                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                    isSelected ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
+                  }`}>
+                    {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                  </div>
+                  <span className="truncate">{name}</span>
+                </div>
                 <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-[#859c89]'}`}>
                   ({count})
                 </span>
@@ -602,25 +686,97 @@ export default function ShopClient({
           {/* ================= RIGHT CATALOG AREA ================= */}
           <main className="flex-1 w-full space-y-5">
             
-            {/* Mobile Category Quick Bar (< md) */}
-            <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-              {categoryListWithCounts.map(({ name, count }) => {
-                const isSelected = selectedCategory.toLowerCase() === name.toLowerCase();
-                return (
+            {/* Mobile Category Dropdown with Multi-Select Options (< md) */}
+            <div className="md:hidden relative" ref={mobileCatDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setMobileCatDropdownOpen(prev => !prev)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[#ccdacc] bg-white text-xs font-semibold text-[#1c3f24] shadow-2xs hover:bg-[#fafcfa] transition cursor-pointer"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Filter className="w-3.5 h-3.5 text-[#24492d] flex-shrink-0" />
+                  <span className="truncate">
+                    {selectedCategories.length === 0 
+                      ? 'All Categories' 
+                      : selectedCategories.length === 1
+                      ? `Category: ${selectedCategories[0]}`
+                      : `${selectedCategories.length} Categories Selected`}
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform flex-shrink-0 ${mobileCatDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {mobileCatDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white rounded-xl border border-[#ccdacc] shadow-xl p-3 max-h-72 overflow-y-auto space-y-1 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-2 mb-1 border-b border-stone-100 text-[11px]">
+                    <span className="font-bold text-[#1c3f24]">Filter by Categories</span>
+                    {selectedCategories.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory('All Products')}
+                        className="text-[#24492d] hover:underline font-semibold cursor-pointer"
+                      >
+                        Reset All
+                      </button>
+                    )}
+                  </div>
+
                   <button
-                    key={`mobile_cat_${name}`}
-                    onClick={() => handleCategorySelect(name)}
-                    className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#24492d] text-white shadow-xs'
-                        : 'bg-white border border-[#d2dfd4] text-[#34533a] hover:bg-[#edf5ee]'
+                    type="button"
+                    onClick={() => {
+                      toggleCategory('All Products');
+                      setMobileCatDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${
+                      selectedCategories.length === 0
+                        ? 'bg-[#edf5ee] text-[#1c3f24] font-bold'
+                        : 'text-stone-700 hover:bg-stone-50'
                     }`}
                   >
-                    <span>{name}</span>
-                    <span className="ml-1 opacity-75 text-[10px]">({count})</span>
+                    <div className="flex items-center gap-2 truncate">
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                        selectedCategories.length === 0 ? 'bg-[#24492d] border-[#24492d] text-white' : 'border-stone-300 bg-white'
+                      }`}>
+                        {selectedCategories.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <span className="truncate">All Products</span>
+                    </div>
+                    <span className="text-[10px] text-stone-400">({products.length})</span>
                   </button>
-                );
-              })}
+
+                  {categories.map((cat) => {
+                    const isSelected = selectedCategories.some(c => c.toLowerCase() === cat.name.toLowerCase());
+                    const count = products.filter(
+                      (p) =>
+                        (p.categoryId && p.categoryId === cat.id) ||
+                        (p.categoryName && p.categoryName.toLowerCase() === cat.name.toLowerCase())
+                    ).length;
+
+                    return (
+                      <button
+                        key={`m_cat_${cat.id}`}
+                        type="button"
+                        onClick={() => toggleCategory(cat.name)}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#edf5ee] text-[#1c3f24] font-bold'
+                            : 'text-stone-700 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? 'bg-[#24492d] border-[#24492d] text-white' : 'border-stone-300 bg-white'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span className="truncate">{cat.name}</span>
+                        </div>
+                        <span className="text-[10px] text-stone-400">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Mobile Filter & Refine Bar (< md) */}
@@ -644,7 +800,7 @@ export default function ShopClient({
                   type="button"
                   onClick={() => {
                     handleClearSearch();
-                    handleCategorySelect('All Products');
+                    toggleCategory('All Products');
                     handleWellnessNeedSelect('All Wellness Needs');
                     setMaxPrice(catalogMaxPrice);
                     setSelectedRatings([]);
@@ -678,23 +834,28 @@ export default function ShopClient({
               </div>
             )}
 
-            {/* Active Filter Banner when category is selected */}
-            {selectedCategory !== 'All Products' && (
-              <div className="flex items-center justify-between bg-[#edf6ef] border border-[#d2e4d5] px-4 py-2.5 rounded-xl text-xs text-[#1c3f24] animate-fadeIn">
-                <div className="flex items-center gap-2">
-                  <span className="text-[#557359]">Filtered by Category:</span>
-                  <span className="font-bold text-[#1c3f24] px-2.5 py-0.5 rounded-md bg-white border border-[#c4dbc8] shadow-2xs">
-                    {selectedCategory}
-                  </span>
+            {/* Active Filter Banner when categories are selected */}
+            {selectedCategories.length > 0 && (
+              <div className="flex items-center justify-between bg-[#edf6ef] border border-[#d2e4d5] px-4 py-2.5 rounded-xl text-xs text-[#1c3f24] animate-fadeIn flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[#557359] text-[11px]">Categories:</span>
+                  {selectedCategories.map((c) => (
+                    <span key={c} className="inline-flex items-center gap-1 font-bold text-[#1c3f24] px-2 py-0.5 rounded-md bg-white border border-[#c4dbc8] shadow-2xs text-[11px]">
+                      <span className="max-w-[120px] truncate">{c}</span>
+                      <button onClick={() => toggleCategory(c)} className="hover:text-rose-600 cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
                   <span className="text-[11px] text-[#557359]">
                     ({filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found)
                   </span>
                 </div>
                 <button
-                  onClick={() => handleCategorySelect('All Products')}
+                  onClick={() => toggleCategory('All Products')}
                   className="font-bold text-[#24492d] hover:text-[#132c19] hover:underline text-xs flex items-center gap-1 cursor-pointer bg-white/70 hover:bg-white px-2.5 py-1 rounded-md transition-all shadow-2xs"
                 >
-                  <span>Clear Category Filter</span>
+                  <span>Clear Categories</span>
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -734,8 +895,8 @@ export default function ShopClient({
                 {searchQuery.trim() && (
                   <span className="text-[#516b55]"> for &ldquo;<strong className="text-[#1c3f24]">{searchQuery}</strong>&rdquo;</span>
                 )}
-                {selectedCategory !== 'All Products' && (
-                  <span className="text-[#516b55]"> in <strong className="text-[#1c3f24]">{selectedCategory}</strong></span>
+                {selectedCategories.length > 0 && (
+                  <span className="text-[#516b55]"> in <strong className="text-[#1c3f24]">{selectedCategories.join(', ')}</strong></span>
                 )}
                 {selectedWellnessNeed !== 'All Wellness Needs' && (
                   <span className="text-[#516b55]"> for <strong className="text-[#1c3f24]">{selectedWellnessNeed}</strong></span>
@@ -768,16 +929,16 @@ export default function ShopClient({
                     ? `No products found matching "${searchQuery}"`
                     : selectedWellnessNeed !== 'All Wellness Needs'
                     ? `No products found for "${selectedWellnessNeed}"`
-                    : selectedCategory !== 'All Products'
-                    ? `No products found in "${selectedCategory}"`
+                    : selectedCategories.length > 0
+                    ? `No products found in "${selectedCategories.join(', ')}"`
                     : 'No products match your criteria'}
                 </h3>
                 <button
                   onClick={() => {
                     handleClearSearch();
-                    handleCategorySelect('All Products');
+                    toggleCategory('All Products');
                     handleWellnessNeedSelect('All Wellness Needs');
-                    setMaxPrice(100);
+                    setMaxPrice(catalogMaxPrice);
                     setSelectedRatings([]);
                   }}
                   className="px-5 py-2.5 bg-[#24492d] text-white text-xs font-bold uppercase rounded-lg hover:bg-[#1a3821] transition-colors cursor-pointer shadow-xs"
@@ -874,16 +1035,16 @@ export default function ShopClient({
                       </div>
 
                       {/* Product Info Link */}
-                      <Link href={`/shop/${product.id}`} className="block group-hover:opacity-95">
+                      <Link href={`/shop/${product.id}`} className="block group-hover:opacity-95 min-w-0 overflow-hidden">
                         {/* Category & Wellness Need */}
-                        <div className="flex items-center gap-1 text-[10px] text-[#718875] font-medium tracking-wide uppercase truncate mb-0.5">
-                          <span>{product.categoryName || 'Botanical'}</span>
+                        <div className="flex items-center gap-1 text-[10px] text-[#718875] font-medium tracking-wide uppercase truncate mb-0.5 min-w-0">
+                          <span className="truncate">{product.categoryName || 'Botanical'}</span>
                           <span>•</span>
-                          <span className="text-[#24492d] font-semibold">{getProductWellnessNeed(product)}</span>
+                          <span className="text-[#24492d] font-semibold truncate">{getProductWellnessNeed(product)}</span>
                         </div>
 
-                        {/* Title */}
-                        <h3 className="font-serif text-sm sm:text-[15px] font-bold text-[#1c3f24] group-hover:text-[#2c5c36] transition-colors line-clamp-1">
+                        {/* Title - wrapped neatly without boundary overflow */}
+                        <h3 className="font-serif text-sm sm:text-[15px] font-bold text-[#1c3f24] group-hover:text-[#2c5c36] transition-colors line-clamp-2 break-words leading-snug" title={product.name}>
                           {product.name}
                         </h3>
 

@@ -88,7 +88,7 @@ export default function BestSellers({ products }: BestSellersProps) {
                 {/* Card Body: Left image + Right details */}
                 <Link
                   href={`/shop/${product.id}`}
-                  className="flex items-center gap-2 flex-1 my-1 group-hover:opacity-95 transition-opacity"
+                  className="flex items-center gap-2 flex-1 my-1 group-hover:opacity-95 transition-opacity min-w-0"
                 >
                   {/* Left: Product Image */}
                   <div className="relative w-16 h-20 flex-shrink-0 flex items-center justify-center">
@@ -102,8 +102,8 @@ export default function BestSellers({ products }: BestSellersProps) {
                   </div>
 
                   {/* Right: Product Details */}
-                  <div className="flex-1 flex flex-col justify-center space-y-1">
-                    <h3 className="font-sans font-bold text-[11px] text-[#1c3f24] tracking-wide leading-tight uppercase group-hover:text-[#2c5c36] transition-colors">
+                  <div className="flex-1 min-w-0 flex flex-col justify-center space-y-1 overflow-hidden">
+                    <h3 className="font-sans font-bold text-[11px] text-[#1c3f24] tracking-wide leading-tight uppercase group-hover:text-[#2c5c36] transition-colors line-clamp-2 break-words" title={product.name}>
                       {product.name}
                     </h3>
 
