@@ -29,7 +29,7 @@ export default function Footer({
   const effectiveFacebook = facebookLink || process.env.NEXT_PUBLIC_FACEBOOK_LINK || "https://facebook.com";
   const effectiveWhatsApp = whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || process.env.NEXT_PUBLIC_CONTACT_PHONE || "";
   const effectivePhone = phone || process.env.NEXT_PUBLIC_CONTACT_PHONE || "";
-  const effectiveEmail = email || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "care@arboveya.com";
+  const effectiveEmail = email || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "arboveya@gmail.com";
   const effectiveAddress = address || process.env.NEXT_PUBLIC_CONTACT_ADDRESS || "Sri Lanka";
 
   // WhatsApp wa.me link requires country code (94 for Sri Lanka without leading zero)
@@ -37,8 +37,8 @@ export default function Footer({
   const waLinkDigits = cleanDigits.startsWith('0')
     ? `94${cleanDigits.substring(1)}`
     : cleanDigits.startsWith('94')
-    ? cleanDigits
-    : `94${cleanDigits}`;
+      ? cleanDigits
+      : `94${cleanDigits}`;
 
   return (
     <footer className="bg-[#142d1a] text-white pt-14 pb-8 border-t border-[#204229]">
