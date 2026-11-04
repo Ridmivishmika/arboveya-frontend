@@ -167,8 +167,7 @@ export default function CategoryAdminPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search category name or description..."
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] placeholder-[#7e9483] focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
+              className="w-full pl-10 pr-4 py-2 text-xs rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
             />
           </form>
 

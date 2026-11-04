@@ -515,7 +515,6 @@ export default function AdminProductsPage() {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search products, ingredients..."
                     className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                   />
                 </div>

@@ -447,7 +447,7 @@ export default function ApproveProductModal({
                   type="text"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="Enter new category name..."
+                  
                   className="flex-1 px-3 py-2 text-xs rounded-lg border border-[#24492d] bg-white text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20"
                 />
                 <button
@@ -528,7 +528,7 @@ export default function ApproveProductModal({
                   type="text"
                   value={newNeedName}
                   onChange={(e) => setNewNeedName(e.target.value)}
-                  placeholder="Enter new wellness need..."
+                  
                   className="flex-1 px-3 py-2 text-xs rounded-lg border border-[#24492d] bg-white text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20"
                 />
                 <button
@@ -576,7 +576,7 @@ export default function ApproveProductModal({
               type="text"
               value={adminFeedback}
               onChange={(e) => setAdminFeedback(e.target.value)}
-              placeholder="e.g. Approved for public marketplace display."
+              
               className="w-full px-3.5 py-2 text-xs rounded-lg border border-stone-300 bg-[#fbfdfb] text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20"
             />
           </div>

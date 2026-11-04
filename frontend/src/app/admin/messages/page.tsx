@@ -371,11 +371,10 @@ export default function AdminMessagesPage() {
                   <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search buyer, order, or product..."
                     value={convSearch}
                     onChange={(e) => setConvSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') loadConversations(); }}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
                   />
                 </div>
 
@@ -568,7 +567,6 @@ export default function AdminMessagesPage() {
                     <div className="flex items-end gap-2">
                       <textarea
                         rows={2}
-                        placeholder={`Reply to ${selectedConversation.buyerName}...`}
                         value={adminReplyText}
                         onChange={(e) => setAdminReplyText(e.target.value)}
                         onKeyDown={(e) => {
@@ -578,7 +576,7 @@ export default function AdminMessagesPage() {
                           }
                         }}
                         maxLength={4000}
-                        className="flex-1 p-2.5 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
+                        className="flex-1 p-2.5 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
                       />
 
                       <button
@@ -746,10 +744,9 @@ export default function AdminMessagesPage() {
                 <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search contact inquiries..."
                   value={inquirySearch}
                   onChange={(e) => setInquirySearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] text-xs text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
                 />
               </form>
 

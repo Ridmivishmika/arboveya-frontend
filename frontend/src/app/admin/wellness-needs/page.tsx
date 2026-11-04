@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   Plus, Search, Edit3, Trash2, RefreshCw, LayoutGrid, List, 
   Sparkles, CheckCircle2, ArrowLeft, ShieldPlus, HeartHandshake, Layers
 } from 'lucide-react';
 import { WellnessNeed, CreateWellnessNeedInput, UpdateWellnessNeedInput } from '@/types';
-import { getWellnessNeeds, createWellnessNeed, updateWellnessNeed, deleteWellnessNeed, getAdminToken } from '@/lib/api';
+import { getWellnessNeeds, createWellnessNeed, updateWellnessNeed, deleteWellnessNeed, getAdminToken, resolveBackendImageUrl } from '@/lib/api';
 import WellnessNeedModal from '@/components/admin/WellnessNeedModal';
 import DeleteConfirmModal from '@/components/admin/DeleteConfirmModal';
 import AdminHeader from '@/components/admin/AdminHeader';
@@ -168,8 +169,7 @@ export default function WellnessNeedsAdminPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search wellness need or therapeutic goal..."
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] placeholder-[#7e9483] focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
+              className="w-full pl-10 pr-4 py-2 text-xs rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] focus:outline-none focus:border-[#24492d] focus:ring-1 focus:ring-[#24492d]"
             />
           </form>
 
@@ -235,8 +235,8 @@ export default function WellnessNeedsAdminPage() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-[#edf5ee] border-b border-[#dde8df] text-[#1c3f24] font-semibold uppercase tracking-wider">
+                    <th className="py-3.5 px-5">Image</th>
                     <th className="py-3.5 px-5">Target Name & Therapeutic Scope</th>
-                    <th className="py-3.5 px-5">Icon Indicator</th>
                     <th className="py-3.5 px-5 text-center">Linked Products</th>
                     <th className="py-3.5 px-5 text-right">Actions</th>
                   </tr>
@@ -248,6 +248,23 @@ export default function WellnessNeedsAdminPage() {
                     return (
                       <tr key={need.id} className="hover:bg-[#f9fbf9] transition-colors group">
                         
+                        {/* Image column */}
+                        <td className="py-3.5 px-5">
+                          <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-[#cce0ce] bg-[#f0f5f1] flex items-center justify-center shadow-xs">
+                            {need.imageUrl ? (
+                              <Image
+                                src={resolveBackendImageUrl(need.imageUrl)}
+                                alt={displayName}
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                              />
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-[#75947b]" />
+                            )}
+                          </div>
+                        </td>
+
                         {/* Name & Subtitle */}
                         <td className="py-4 px-5">
                           <div className="font-bold text-[#1c3f24] text-sm group-hover:text-[#24492d] transition-colors">
@@ -256,14 +273,6 @@ export default function WellnessNeedsAdminPage() {
                           <div className="text-[11px] text-[#557159] mt-0.5 line-clamp-1">
                             {displayDesc}
                           </div>
-                        </td>
-
-                        {/* Icon slug */}
-                        <td className="py-4 px-5">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#edf5ee] text-[#1c3f24] border border-[#bcd2bf]">
-                            <Sparkles className="w-3 h-3 text-[#24492d]" />
-                            <span>{need.icon || 'shield-plus'}</span>
-                          </span>
                         </td>
 
                         {/* Product Count */}
@@ -313,8 +322,18 @@ export default function WellnessNeedsAdminPage() {
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#edf5ee] border border-[#bcd2bf] flex items-center justify-center text-[#24492d]">
-                        <Sparkles className="w-5 h-5" />
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-[#bcd2bf] bg-[#edf5ee] flex items-center justify-center text-[#24492d] flex-shrink-0">
+                        {need.imageUrl ? (
+                          <Image
+                            src={resolveBackendImageUrl(need.imageUrl)}
+                            alt={displayName}
+                            fill
+                            sizes="48px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <Sparkles className="w-5 h-5 text-[#24492d]" />
+                        )}
                       </div>
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#edf5ee] text-[#1c3f24]">
                         {need.productCount || 0} Products
@@ -329,10 +348,7 @@ export default function WellnessNeedsAdminPage() {
                     </p>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-[#edf2ed] flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-[#66856c] uppercase tracking-wider">
-                      Icon: {need.icon || 'shield-plus'}
-                    </span>
+                  <div className="pt-4 mt-4 border-t border-[#edf2ed] flex items-center justify-end">
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => handleOpenEdit(need)}

@@ -401,7 +401,6 @@ export default function AdminBlogsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search title, content, author..."
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30"
               />
             </div>
@@ -842,7 +841,6 @@ export default function AdminBlogsPage() {
                       handleAddCustomCategory();
                     }
                   }}
-                  placeholder="e.g. Traditional Elixirs"
                   className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-300 text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/20 focus:border-[#2E4D38]"
                 />
                 <button

@@ -604,6 +604,10 @@ export async function uploadCategoryImage(file: File, token?: string): Promise<s
 
 // ----------------- Wellness Need APIs ----------------- //
 
+export async function uploadWellnessNeedImage(file: File): Promise<string> {
+  return uploadProductImage(file);
+}
+
 export async function getWellnessNeeds(search?: string): Promise<WellnessNeed[]> {
   try {
     const url = search

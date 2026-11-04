@@ -31,7 +31,6 @@ export default function CategoryModal({
   mode
 }: CategoryModalProps) {
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -42,11 +41,9 @@ export default function CategoryModal({
   useEffect(() => {
     if (initialData && mode === 'edit') {
       setName(initialData.name || '');
-      setDescription(initialData.description || '');
       setImageUrl(initialData.imageUrl || '');
     } else {
       setName('');
-      setDescription('');
       setImageUrl('');
     }
     setError(null);
@@ -108,7 +105,7 @@ export default function CategoryModal({
       setError(null);
       await onSubmit({
         name: name.trim(),
-        description: description.trim() || undefined,
+        description: initialData?.description || undefined,
         imageUrl: imageUrl.trim() || undefined
       });
       onClose();
@@ -298,7 +295,7 @@ export default function CategoryModal({
                     type="text"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://... or /images/..."
+                    
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -321,25 +318,10 @@ export default function CategoryModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Ceylon Herbal Teas"
+              
               maxLength={100}
               required
               className="w-full px-3.5 py-2.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <label htmlFor="category-desc" className="block text-xs font-semibold text-[#1c3f24]">
-              Description <span className="text-gray-400 font-normal">(Optional)</span>
-            </label>
-            <textarea
-              id="category-desc"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the therapeutic benefits, ingredients, and product types within this category..."
-              className="w-full px-3.5 py-2.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
             />
           </div>
 

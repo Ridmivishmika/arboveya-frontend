@@ -318,7 +318,7 @@ export default function BuyerDashboardPage() {
   const [formCategory, setFormCategory] = useState('Wellness');
   const [formCategories, setFormCategories] = useState<string[]>(['Wellness']);
   const [newBlogCategoryInput, setNewBlogCategoryInput] = useState('');
-  const [formImageUrl, setFormImageUrl] = useState('/images/blog-moringa.jpg');
+  const [formImageUrl, setFormImageUrl] = useState('');
   const [formContent, setFormContent] = useState('');
   const [uploadingBlogImage, setUploadingBlogImage] = useState(false);
   const [blogUploadError, setBlogUploadError] = useState<string | null>(null);
@@ -760,7 +760,7 @@ export default function BuyerDashboardPage() {
     setFormTitle('');
     setFormCategory('Wellness');
     setFormCategories(['Wellness']);
-    setFormImageUrl('/images/blog-moringa.jpg');
+    setFormImageUrl('');
     setFormContent('');
     setShowCreateModal(true);
   };
@@ -773,7 +773,7 @@ export default function BuyerDashboardPage() {
       ? blog.categories
       : (blog.category ? blog.category.split(',').map(s => s.trim()).filter(Boolean) : ['Wellness']);
     setFormCategories(blogCats.length > 0 ? blogCats : ['Wellness']);
-    setFormImageUrl(blog.imageUrl || '/images/blog-moringa.jpg');
+    setFormImageUrl(blog.imageUrl || '');
     setFormContent(blog.content);
     setShowCreateModal(true);
   };
@@ -791,7 +791,7 @@ export default function BuyerDashboardPage() {
         content: formContent.trim(),
         category: cats.join(', '),
         categories: cats,
-        imageUrl: formImageUrl.trim() || '/images/blog-moringa.jpg',
+        imageUrl: formImageUrl.trim(),
       };
 
       if (editingBlog) {
@@ -1394,8 +1394,7 @@ export default function BuyerDashboardPage() {
                         type="text"
                         value={orderSearchTerm}
                         onChange={(e) => setOrderSearchTerm(e.target.value)}
-                        placeholder="Search orders, tracking..."
-                        className="w-full pl-8 pr-7 py-1 rounded-lg bg-white border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                        className="w-full pl-8 pr-7 py-1 rounded-lg bg-white border border-stone-200 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
                       />
                       {orderSearchTerm && (
                         <button
@@ -2259,7 +2258,6 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingFullName}
                             onChange={(e) => setShippingFullName(e.target.value)}
-                            placeholder="Elena Rostova"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -2273,7 +2271,6 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingEmail}
                             onChange={(e) => setShippingEmail(e.target.value)}
-                            placeholder="elena@example.com"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -2289,7 +2286,6 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingPhone}
                             onChange={(e) => setShippingPhone(e.target.value)}
-                            placeholder="e.g. +1 555 123 4567 or 077 123 4567"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -2303,7 +2299,6 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingCountry}
                             onChange={(e) => setShippingCountry(e.target.value)}
-                            placeholder="e.g. United States, Sri Lanka"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -2319,7 +2314,6 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingCity}
                             onChange={(e) => setShippingCity(e.target.value)}
-                            placeholder="e.g. Austin, London, Colombo"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -2333,7 +2327,6 @@ export default function BuyerDashboardPage() {
                             required
                             value={shippingZip}
                             onChange={(e) => setShippingZip(e.target.value)}
-                            placeholder="e.g. 78701 or 00100"
                             className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                           />
                         </div>
@@ -2348,7 +2341,6 @@ export default function BuyerDashboardPage() {
                           required
                           value={shippingAddress}
                           onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="e.g. 1st Lane, 2nd Lane, Suite / Apt, Zip Code"
                           className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                         />
                       </div>
@@ -2385,7 +2377,6 @@ export default function BuyerDashboardPage() {
                           type="text"
                           value={couponInput}
                           onChange={(e) => setCouponInput(e.target.value)}
-                          placeholder="Promo code (e.g. HERBAL10)"
                           className="flex-1 px-3 py-1.5 rounded-xl border border-stone-300 text-xs uppercase font-medium focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
                         />
                         <button
@@ -2534,7 +2525,6 @@ export default function BuyerDashboardPage() {
                         required
                         value={profileFirstName}
                         onChange={(e) => setProfileFirstName(e.target.value)}
-                        placeholder="e.g. Eleanor"
                         className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                       />
                       <User className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -2549,7 +2539,6 @@ export default function BuyerDashboardPage() {
                       type="text"
                       value={profileLastName}
                       onChange={(e) => setProfileLastName(e.target.value)}
-                      placeholder="e.g. Vance"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                     />
                   </div>
@@ -2577,7 +2566,6 @@ export default function BuyerDashboardPage() {
                         type="tel"
                         value={profilePhone}
                         onChange={(e) => setProfilePhone(e.target.value)}
-                        placeholder="e.g. +1 (555) 019-2834"
                         className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                       />
                       <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -2595,7 +2583,6 @@ export default function BuyerDashboardPage() {
                         rows={2}
                         value={profileAddress}
                         onChange={(e) => setProfileAddress(e.target.value)}
-                        placeholder="e.g. 78 Gardenia Boulevard, Suite 300, New York, NY 10001"
                         className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] resize-none"
                       />
                       <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -2611,7 +2598,6 @@ export default function BuyerDashboardPage() {
                         type="text"
                         value={profileCountry}
                         onChange={(e) => setProfileCountry(e.target.value)}
-                        placeholder="e.g. United States"
                         className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                       />
                       <Globe className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -2710,7 +2696,6 @@ export default function BuyerDashboardPage() {
                   rows={4}
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="Share details about the quality, aroma, flavor, or wellness effects of this botanical remedy..."
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                 />
               </div>
@@ -3171,7 +3156,6 @@ export default function BuyerDashboardPage() {
                   required
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. My Experience with Organic Brahmi Gotu Kola for Mental Clarity"
                   className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                 />
               </div>
@@ -3231,7 +3215,6 @@ export default function BuyerDashboardPage() {
                         handleAddBlogCategory();
                       }
                     }}
-                    placeholder="Add custom category..."
                     className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                   <button
@@ -3305,7 +3288,6 @@ export default function BuyerDashboardPage() {
                       type="text"
                       value={formImageUrl}
                       onChange={(e) => setFormImageUrl(e.target.value)}
-                      placeholder="Or paste image URL (https://...)"
                       className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                     />
                   </div>
@@ -3351,7 +3333,6 @@ export default function BuyerDashboardPage() {
                     rows={8}
                     value={formContent}
                     onChange={(e) => setFormContent(e.target.value)}
-                    placeholder="Share your botanical recipes, health benefits, personal transformation journey, or herbal brewing techniques..."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                 </div>
@@ -3683,8 +3664,7 @@ export default function BuyerDashboardPage() {
                   rows={3}
                   value={refundDetailsInput}
                   onChange={(e) => setRefundDetailsInput(e.target.value)}
-                  placeholder="Provide any additional details regarding your order or return condition..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-[#2E4D38] focus:ring-1 focus:ring-[#2E4D38]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs text-stone-900 focus:outline-none focus:border-[#2E4D38] focus:ring-1 focus:ring-[#2E4D38]"
                 />
               </div>
 

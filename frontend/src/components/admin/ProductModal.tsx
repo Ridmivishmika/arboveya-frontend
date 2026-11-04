@@ -673,7 +673,7 @@ export default function ProductModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Pure Organic Moringa Oleifera Capsules"
+              
               className="w-full px-3.5 py-2.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"
             />
           </div>
@@ -916,7 +916,7 @@ export default function ProductModal({
                   required
                   value={countryOfOrigin}
                   onChange={(e) => setCountryOfOrigin(e.target.value)}
-                  placeholder="e.g. Sri Lanka, India, Madagascar"
+                  
                   className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                 />
               </div>
@@ -948,7 +948,7 @@ export default function ProductModal({
                   type="text"
                   value={expirationDate}
                   onChange={(e) => setExpirationDate(e.target.value)}
-                  placeholder="e.g. 24 Months from packaging, Best before Dec 2026, or MM/YYYY"
+                  
                   className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                 />
                 <p className="text-[10px] text-[#5d7762]">
@@ -1023,7 +1023,7 @@ export default function ProductModal({
                         setCustomUnitInput(val);
                         setSavedCustomUnit(val);
                       }}
-                      placeholder="Type custom unit (e.g. Liter, Bottles, Capsules)..."
+                      
                       className="w-full sm:w-56 px-3 py-2 rounded-lg border border-[#24492d] bg-[#f7fbf8] text-[#1c3f24] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#24492d]/30 shadow-2xs animate-fadeIn"
                       autoFocus
                     />
@@ -1075,17 +1075,6 @@ export default function ProductModal({
                         };
                         setVariants(updated);
                       }}
-                      placeholder={
-                        unitType === 'weight'
-                          ? 'e.g. 50g, 100g, 1kg'
-                          : unitType === 'pieces'
-                          ? 'e.g. 30 pcs, 60 capsules'
-                          : unitType === 'leaves'
-                          ? 'e.g. 25 Leaves, 1 Bunch'
-                          : customUnitInput.trim()
-                          ? `e.g. 1 ${customUnitInput.trim()}, 2 ${customUnitInput.trim()}`
-                          : 'e.g. 1 Liter, 2 Liters'
-                      }
                       className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                     />
                   </div>
@@ -1106,7 +1095,7 @@ export default function ProductModal({
                           updated[idx] = { ...updated[idx], price: parseFloat(e.target.value) || 0 };
                           setVariants(updated);
                         }}
-                        placeholder="24.99"
+                        
                         className="w-full pl-6 pr-2 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                       />
                     </div>
@@ -1125,7 +1114,7 @@ export default function ProductModal({
                         updated[idx] = { ...updated[idx], stockQuantity: parseInt(e.target.value) || 0 };
                         setVariants(updated);
                       }}
-                      placeholder="50"
+                      
                       className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
                     />
                   </div>
@@ -1531,8 +1520,8 @@ export default function ProductModal({
                             disabled={!wholeProductActive}
                             value={wholeProductOfferName}
                             onChange={(e) => setWholeProductOfferName(e.target.value)}
-                            placeholder="e.g. Special Herbal Offer, Seasonal Discount, Clearance 15% Off..."
-                            className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs text-amber-950 placeholder-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 disabled:bg-stone-100 disabled:text-stone-400 disabled:border-stone-200"
+                            
+                            className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500/30 disabled:bg-stone-100 disabled:text-stone-400 disabled:border-stone-200"
                           />
                           <p className="text-[10px] text-amber-800">
                             Offer name displayed to buyers with the product.
@@ -1554,7 +1543,7 @@ export default function ProductModal({
                                 const val = e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value, 10) || 0));
                                 setWholeProductPercentage(val);
                               }}
-                              placeholder="10"
+                              
                               className="w-full px-3 py-2 pr-8 rounded-lg border border-amber-300 bg-white text-xs text-amber-950 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/30 disabled:bg-stone-100 disabled:text-stone-400 disabled:border-stone-200"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-800 pointer-events-none">
@@ -1696,7 +1685,7 @@ export default function ProductModal({
                                 };
                                 setShippingOptions(updated);
                               }}
-                              placeholder="e.g. 2-4 business days, 1-3 weeks"
+                              
                               className="w-full px-2.5 py-1.5 rounded-lg border border-[#24492d]/50 bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 animate-fadeIn"
                               autoFocus={!opt.estimatedDeliveryTime}
                             />
@@ -1724,7 +1713,7 @@ export default function ProductModal({
                           updated[optIdx] = { ...updated[optIdx], cost: parseFloat(e.target.value) || 0 };
                           setShippingOptions(updated);
                         }}
-                        placeholder="4.99"
+                        
                         className={`w-full pl-6 pr-2 py-1.5 rounded-lg border border-[#ccdacc] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] ${
                           opt.name === 'Free Shipping' ? 'bg-stone-100 text-stone-500 cursor-not-allowed' : 'bg-[#fafcfa]'
                         }`}
@@ -1786,7 +1775,7 @@ export default function ProductModal({
                       required
                       value={handlingTime}
                       onChange={(e) => setHandlingTime(e.target.value)}
-                      placeholder="e.g. 6 business days, Same day dispatch..."
+                      
                       className="w-full px-3 py-2 rounded-lg border border-[#24492d]/50 bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20"
                       autoFocus
                     />
@@ -1804,7 +1793,7 @@ export default function ProductModal({
                   rows={2}
                   value={returnPolicy}
                   onChange={(e) => setReturnPolicy(e.target.value)}
-                  placeholder="Describe return window, eligible conditions, and who pays return postage..."
+                  
                   className="w-full px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d] resize-none"
                 />
               </div>
@@ -1822,7 +1811,7 @@ export default function ProductModal({
               rows={2}
               value={specifications}
               onChange={(e) => setSpecifications(e.target.value)}
-              placeholder="e.g. Form: Vegetable Capsules | Extraction Ratio: 10:1 | Packaging: Amber Glass Bottle | Certified Organic USDA"
+              
               className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
             />
           </div>
@@ -1855,7 +1844,7 @@ export default function ProductModal({
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe therapeutic virtues, purity guarantees, and traditional heritage..."
+              
               className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
             />
           </div>
@@ -1873,7 +1862,7 @@ export default function ProductModal({
               rows={3}
               value={keyBenefits}
               onChange={(e) => setKeyBenefits(e.target.value)}
-              placeholder="100% Certified Organic Botanicals&#10;Supports Natural Vitality and Energy&#10;Zero Artificial Preservatives or Additives&#10;Lab Tested for Purity & Potency"
+              
               className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"
             />
           </div>
@@ -1889,7 +1878,7 @@ export default function ProductModal({
               rows={2}
               value={ingredients}
               onChange={(e) => setIngredients(e.target.value)}
-              placeholder="e.g. Pure Organic Moringa Leaf Powder 500mg, Vegetable Cellulose (capsule)."
+              
               className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
             />
           </div>
@@ -1906,7 +1895,7 @@ export default function ProductModal({
                 rows={2}
                 value={howToUse}
                 onChange={(e) => setHowToUse(e.target.value)}
-                placeholder="e.g. Take 2 capsules daily with a glass of warm water or as recommended by an Ayurvedic physician."
+                
                 className="w-full px-3.5 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all resize-none"
               />
             </div>
@@ -1944,7 +1933,7 @@ export default function ProductModal({
                 type="text"
                 value={whenToUse}
                 onChange={(e) => setWhenToUse(e.target.value)}
-                placeholder="e.g. Before Meal, After Meal, 30 mins before breakfast, or custom timing..."
+                
                 className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
               />
             </div>

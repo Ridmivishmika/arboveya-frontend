@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -112,8 +112,7 @@ export default function AdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@arboveya.com"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0c1910] border border-[#2a4d32] text-white placeholder-stone-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0c1910] border border-[#2a4d32] text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
               />
             </div>
 
@@ -126,8 +125,7 @@ export default function AdminLoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0c1910] border border-[#2a4d32] text-white placeholder-stone-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0c1910] border border-[#2a4d32] text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
               />
             </div>
 

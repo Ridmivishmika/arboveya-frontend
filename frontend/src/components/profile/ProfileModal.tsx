@@ -169,7 +169,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="e.g. Eleanor"
+                  
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] transition"
                 />
                 <User className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -184,7 +184,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="e.g. Vance"
+                
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] transition"
               />
             </div>
@@ -221,7 +221,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                   type="tel"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. +1 (555) 234-5678"
+                  
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] transition"
                 />
                 <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -237,7 +237,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                   type="text"
                   value={nationality}
                   onChange={(e) => setNationality(e.target.value)}
-                  placeholder="e.g. United States / Sri Lanka"
+                  
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] transition"
                 />
                 <Globe className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -255,7 +255,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                 rows={2}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder={isSeller ? "e.g. 104 Botanical Ridge, Green Valley" : "e.g. 78 Gardenia Boulevard, Suite 300, New York, NY 10001"}
+                
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] transition resize-none"
               />
               <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
@@ -279,7 +279,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                     type="text"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
-                    placeholder="e.g. Commercial Bank / JPMorgan Chase"
+                    
                     className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                 </div>
@@ -290,7 +290,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                     type="text"
                     value={bankAccountName}
                     onChange={(e) => setBankAccountName(e.target.value)}
-                    placeholder="e.g. Herbal Botanicals Ltd"
+                    
                     className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                 </div>
@@ -303,7 +303,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                     type="text"
                     value={bankAccountNumber}
                     onChange={(e) => setBankAccountNumber(e.target.value)}
-                    placeholder="e.g. 100293847581"
+                    
                     className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                 </div>
@@ -314,7 +314,7 @@ export default function ProfileModal({ isOpen, onClose, onSuccess }: ProfileModa
                     type="text"
                     value={bankBranch}
                     onChange={(e) => setBankBranch(e.target.value)}
-                    placeholder="e.g. Main Branch / SWIFT: CCEYLKLX"
+                    
                     className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                 </div>

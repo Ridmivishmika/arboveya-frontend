@@ -304,10 +304,9 @@ function AccountMessagesContent() {
                   <Search className="w-4 h-4 text-[#75957d] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search seller, product, or order..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#d2dfd3] bg-white text-xs text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]"
                   />
                 </div>
                 <button
@@ -595,9 +594,6 @@ function AccountMessagesContent() {
                   <div className="flex items-end gap-2">
                     <textarea
                       rows={2}
-                      placeholder={isSeller 
-                        ? `Write your reply to ${selectedConversation.buyerName || 'the customer'}...` 
-                        : `Write your message to ${selectedConversation.sellerName || 'the seller'}...`}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => {
@@ -607,7 +603,7 @@ function AccountMessagesContent() {
                         }
                       }}
                       maxLength={4000}
-                      className="flex-1 p-2.5 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
+                      className="flex-1 p-2.5 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"
                     />
 
                     <button

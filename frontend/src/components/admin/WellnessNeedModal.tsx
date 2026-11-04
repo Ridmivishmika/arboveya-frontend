@@ -1,8 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Sparkles, AlertCircle, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import { 
+  X, 
+  Sparkles, 
+  AlertCircle, 
+  Image as ImageIcon, 
+  Check, 
+  Upload, 
+  Trash2, 
+  Loader2, 
+  Link as LinkIcon 
+} from 'lucide-react';
 import { WellnessNeed, CreateWellnessNeedInput, UpdateWellnessNeedInput } from '@/types';
+import { uploadWellnessNeedImage, resolveBackendImageUrl } from '@/lib/api';
 
 interface WellnessNeedModalProps {
   isOpen: boolean;
@@ -11,20 +23,6 @@ interface WellnessNeedModalProps {
   initialData?: WellnessNeed | null;
   mode: 'create' | 'edit';
 }
-
-const PRESET_ICONS = [
-  { id: 'shield-plus', label: 'Immunity (Shield)' },
-  { id: 'lungs', label: 'Respiratory (Lungs)' },
-  { id: 'brain', label: 'Relaxation (Brain)' },
-  { id: 'kidney', label: 'Kidney (Kidney)' },
-  { id: 'droplet', label: 'Blood Sugar (Droplet)' },
-  { id: 'stomach', label: 'Digestion (Stomach)' },
-  { id: 'liver', label: 'Detox (Liver)' },
-  { id: 'activity', label: 'Metabolism (Activity)' },
-  { id: 'flower', label: "Women's (Flower)" },
-  { id: 'sparkles', label: "Vitality (Sparkles)" },
-  { id: 'bone', label: 'Joint & Bone (Bone)' },
-];
 
 export default function WellnessNeedModal({
   isOpen,
@@ -35,25 +33,64 @@ export default function WellnessNeedModal({
 }: WellnessNeedModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('shield-plus');
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialData && mode === 'edit') {
       setName(initialData.name || initialData.title || '');
       setDescription(initialData.description || initialData.subtitle || '');
-      setIcon(initialData.icon || 'shield-plus');
       setImageUrl(initialData.imageUrl || '');
+      setShowUrlInput(Boolean(initialData.imageUrl));
     } else {
       setName('');
       setDescription('');
-      setIcon('shield-plus');
       setImageUrl('');
+      setShowUrlInput(false);
     }
     setError(null);
   }, [initialData, mode, isOpen]);
+
+  const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (.png, .jpg, .webp, .svg, .avif).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image file size exceeds the 10MB limit.');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setError(null);
+      const uploadedUrl = await uploadWellnessNeedImage(file);
+      setImageUrl(uploadedUrl);
+    } catch (err: any) {
+      console.error('Failed to upload wellness need image:', err);
+      setError(err.message || 'Failed to upload image to server. Please try again.');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -74,7 +111,7 @@ export default function WellnessNeedModal({
       await onSubmit({
         name: name.trim(),
         description: description.trim() || undefined,
-        icon: icon.trim() || undefined,
+        icon: initialData?.icon || undefined,
         imageUrl: imageUrl.trim() || undefined
       });
       onClose();
@@ -138,7 +175,6 @@ export default function WellnessNeedModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Immune Support, Stress & Relaxation"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"
             />
           </div>
@@ -152,54 +188,127 @@ export default function WellnessNeedModal({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Boost Immunity, Stay Strong, Vital Organ Care"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"
             />
           </div>
 
-          {/* Icon Selector */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-[#1c3f24]">
-              Therapeutic Icon Identifier
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {PRESET_ICONS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => setIcon(preset.id)}
-                  className={`p-2 rounded-xl text-left border text-xs font-medium transition-all flex items-center justify-between ${
-                    icon === preset.id
-                      ? 'border-[#24492d] bg-[#edf5ee] text-[#1c3f24] shadow-2xs font-bold'
-                      : 'border-[#dde6de] bg-white text-stone-600 hover:bg-stone-50'
-                  }`}
-                >
-                  <span className="truncate">{preset.label}</span>
-                  {icon === preset.id && <Check className="w-3.5 h-3.5 text-[#24492d] flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder="Or custom icon slug (e.g. shield-plus, brain, lungs)"
-              className="w-full px-3 py-1.5 rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-            />
-          </div>
+          {/* Image (Upload from device or Add URL) */}
+          <div className="space-y-3 p-4 rounded-xl bg-[#f7faf7] border border-[#d8e8dc]">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#24492d]" />
+                  Image
+                </label>
+                <p className="text-[11px] text-[#55735c] mt-0.5">
+                  Upload an image from your device or provide an image link.
+                </p>
+              </div>
 
-          {/* Image URL (Optional) */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-[#1c3f24]">
-              Banner / Thumbnail URL (Optional)
-            </label>
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://... or /images/..."
-              className="w-full px-3.5 py-2 rounded-xl border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
-            />
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleDeviceUpload}
+                className="hidden"
+              />
+            </div>
+
+            {/* Active Image Preview or Upload Zone */}
+            {imageUrl.trim() ? (
+              <div className="p-3.5 bg-white rounded-xl border border-[#ccdacc] flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#24492d]/30 bg-[#edf4ee] shadow-xs flex items-center justify-center flex-shrink-0">
+                    <Image
+                      src={resolveBackendImageUrl(imageUrl.trim())}
+                      alt="Wellness Need Preview"
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                      onError={() => {}}
+                    />
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <Check className="w-3 h-3" /> Image Selected
+                    </span>
+                    <p className="text-[10px] text-[#637d68] mt-1 truncate" title={imageUrl}>
+                      {imageUrl.startsWith('data:') ? 'Local preview' : imageUrl}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    disabled={uploadingImage}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-lg bg-[#edf5ee] hover:bg-[#deede0] text-[#24492d] text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Change</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    title="Remove image"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => !uploadingImage && fileInputRef.current?.click()}
+                className="p-5 border-2 border-dashed border-[#b8dabf] rounded-xl bg-white text-center cursor-pointer hover:bg-[#f2f8f3] hover:border-[#24492d] transition-all group"
+              >
+                {uploadingImage ? (
+                  <div className="py-2 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-7 h-7 text-[#24492d] animate-spin" />
+                    <p className="text-xs font-semibold text-[#1c3f24]">Uploading from device...</p>
+                    <p className="text-[10px] text-stone-500">Please wait while the image is being processed</p>
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-[#edf5ee] text-[#24492d] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-[#1c3f24]">Click to upload photo from your device</p>
+                    <p className="text-[11px] text-[#698870] mt-0.5">PNG, JPG, WebP, AVIF, SVG up to 10MB</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Direct URL Input Toggle / Field */}
+            <div className="pt-1 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[#6b8270] font-medium">Or enter image URL:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowUrlInput(prev => !prev)}
+                  className="text-[10px] text-[#24492d] hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  <LinkIcon className="w-2.5 h-2.5" />
+                  {showUrlInput ? 'Hide URL input' : 'Enter image URL'}
+                </button>
+              </div>
+
+              {showUrlInput && (
+                <div className="pt-1 animate-fadeIn">
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Actions */}
