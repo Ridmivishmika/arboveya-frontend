@@ -224,7 +224,7 @@ export default function WellnessNeedModal({
                       src={resolveBackendImageUrl(imageUrl.trim())}
                       alt="Wellness Need Preview"
                       fill
-                      sizes="64px"
+                      unoptimized
                       className="object-cover"
                       onError={() => {}}
                     />

@@ -96,7 +96,7 @@ export default function BestSellers({ products }: BestSellersProps) {
                       src={resolveProductImage(product.imageUrl)}
                       alt={product.name}
                       fill
-                      sizes="64px"
+                      unoptimized
                       className="object-contain group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>

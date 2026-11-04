@@ -418,7 +418,7 @@ export default function AdminProductsPage() {
                                     src={resolveBackendImageUrl(prod.imageUrl)}
                                     alt={prod.name}
                                     fill
-                                    sizes="56px"
+                                    unoptimized
                                     className="object-cover"
                                   />
                                 ) : (
@@ -648,7 +648,7 @@ export default function AdminProductsPage() {
                                       src={resolveBackendImageUrl(prod.imageUrl)}
                                       alt={prod.name}
                                       fill
-                                      sizes="48px"
+                                      unoptimized
                                       className="object-cover"
                                     />
                                   ) : (
@@ -793,7 +793,7 @@ export default function AdminProductsPage() {
                             src={resolveBackendImageUrl(prod.imageUrl)}
                             alt={prod.name}
                             fill
-                            sizes="(max-width: 768px) 100vw, 300px"
+                            unoptimized
                             className="object-cover hover:scale-105 transition-transform duration-300"
                           />
                         ) : (

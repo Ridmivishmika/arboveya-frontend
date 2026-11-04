@@ -51,7 +51,7 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
                         src={resolveBackendImageUrl(category.imageUrl)}
                         alt={category.name}
                         fill
-                        sizes="(max-width: 640px) 64px, 80px"
+                        unoptimized
                         onError={() => handleImgError(category.id)}
                         className="object-cover group-hover:scale-110 transition-transform duration-300"
                       />

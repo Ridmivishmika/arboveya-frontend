@@ -256,7 +256,7 @@ export default function WellnessNeedsAdminPage() {
                                 src={resolveBackendImageUrl(need.imageUrl)}
                                 alt={displayName}
                                 fill
-                                sizes="40px"
+                                unoptimized
                                 className="object-cover"
                               />
                             ) : (
@@ -328,7 +328,7 @@ export default function WellnessNeedsAdminPage() {
                             src={resolveBackendImageUrl(need.imageUrl)}
                             alt={displayName}
                             fill
-                            sizes="48px"
+                            unoptimized
                             className="object-cover"
                           />
                         ) : (

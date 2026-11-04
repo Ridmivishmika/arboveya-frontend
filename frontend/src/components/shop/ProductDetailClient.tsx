@@ -430,7 +430,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                       src={img}
                       alt={`Thumbnail ${idx + 1}`}
                       fill
-                      sizes="80px"
+                      unoptimized
                       className="object-cover"
                     />
                   </button>
@@ -445,7 +445,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 alt={product.name}
                 fill
                 priority
-                sizes="(max-width: 1024px) 100vw, 600px"
+                unoptimized
                 className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
               />
 
@@ -1100,7 +1100,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                                   src={resolveBackendImageUrl(img)}
                                   alt={`Review photo ${iIdx + 1}`}
                                   fill
-                                  sizes="80px"
+                                  unoptimized
                                   className="object-cover group-hover:scale-105 transition-transform duration-200"
                                 />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">

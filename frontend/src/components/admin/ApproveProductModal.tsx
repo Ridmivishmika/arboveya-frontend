@@ -263,7 +263,7 @@ export default function ApproveProductModal({
                   src={resolveBackendImageUrl(product.imageUrl)}
                   alt={product.name}
                   fill
-                  sizes="80px"
+                  unoptimized
                   className="object-cover"
                 />
               ) : (

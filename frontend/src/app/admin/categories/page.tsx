@@ -252,7 +252,7 @@ export default function CategoryAdminPage() {
                               src={resolveBackendImageUrl(cat.imageUrl)}
                               alt={cat.name}
                               fill
-                              sizes="40px"
+                              unoptimized
                               className="object-cover"
                             />
                           ) : (
@@ -319,7 +319,7 @@ export default function CategoryAdminPage() {
                           src={resolveBackendImageUrl(cat.imageUrl)}
                           alt={cat.name}
                           fill
-                          sizes="48px"
+                          unoptimized
                           className="object-cover"
                         />
                       ) : (

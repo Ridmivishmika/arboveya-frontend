@@ -15,12 +15,15 @@ interface CategoryModalProps {
 }
 
 const PRESET_IMAGES = [
-  { label: 'Detox Tea', url: '/images/herbal-detox-tea.jpg' },
-  { label: 'Moringa', url: '/images/moringa-capsules.jpg' },
-  { label: 'Turmeric', url: '/images/turmeric-curcumin.jpg' },
-  { label: 'Hair Oil', url: '/images/herbal-hair-oil.jpg' },
-  { label: 'Ashwagandha', url: '/images/ashwagandha-capsules.jpg' },
-  { label: 'Immunity Kit', url: '/images/wellness-immunity-kit.jpg' }
+  { label: 'Aquarium & Fish Care', url: '/images/categories/aquarium-fish-care.jpg' },
+  { label: 'Betel & Chewing', url: '/images/categories/betel-chewing-products.jpg' },
+  { label: 'Composting / Fertilizer', url: '/images/categories/composting-fertilizer.jpg' },
+  { label: 'Cooking & Spices', url: '/images/categories/cooking-spices.jpg' },
+  { label: 'Gardening / Agriculture', url: '/images/categories/gardening-agriculture.jpg' },
+  { label: 'Leaves & Herbs', url: '/images/categories/leaves-herbs.jpg' },
+  { label: 'Natural / Eco-Friendly', url: '/images/categories/natural-eco-products.jpg' },
+  { label: 'Tea & Beverages', url: '/images/categories/tea-beverages.jpg' },
+  { label: 'Traditional Medicine / Ayurveda', url: '/images/categories/traditional-medicine-ayurveda.jpg' }
 ];
 
 export default function CategoryModal({
@@ -118,7 +121,7 @@ export default function CategoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
-      <div 
+      <div
         className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[#dbe6dc] overflow-hidden my-8"
         onClick={(e) => e.stopPropagation()}
       >
@@ -133,8 +136,8 @@ export default function CategoryModal({
                 {mode === 'create' ? 'Create New Category' : 'Edit Category'}
               </h2>
               <p className="text-xs text-[#c2d6c6]">
-                {mode === 'create' 
-                  ? 'Add a new wellness product classification with circular badge icon' 
+                {mode === 'create'
+                  ? 'Add a new wellness product classification with circular badge icon'
                   : `Updating "${initialData?.name}"`}
               </p>
             </div>
@@ -159,7 +162,7 @@ export default function CategoryModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          
+
           {/* Device Image Upload & Circular Preview */}
           <div className="space-y-3 p-4 rounded-xl bg-[#f7faf7] border border-[#d8e8dc]">
             <div className="flex items-center justify-between">
@@ -193,9 +196,9 @@ export default function CategoryModal({
                       src={resolveBackendImageUrl(imageUrl.trim())}
                       alt="Category Round Preview"
                       fill
-                      sizes="64px"
+                      unoptimized
                       className="object-cover"
-                      onError={() => {}}
+                      onError={() => { }}
                     />
                   </div>
 
@@ -275,11 +278,10 @@ export default function CategoryModal({
                       key={preset.url}
                       type="button"
                       onClick={() => setImageUrl(preset.url)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1 cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#24492d] text-white shadow-2xs'
-                          : 'bg-white text-[#39563d] border border-[#ccdacc] hover:bg-[#edf5ee]'
-                      }`}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1 cursor-pointer ${isSelected
+                        ? 'bg-[#24492d] text-white shadow-2xs'
+                        : 'bg-white text-[#39563d] border border-[#ccdacc] hover:bg-[#edf5ee]'
+                        }`}
                     >
                       {isSelected && <Check className="w-3 h-3" />}
                       <span>{preset.label}</span>
@@ -295,7 +297,7 @@ export default function CategoryModal({
                     type="text"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    
+
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#ccdacc] bg-white text-[#1c3f24] focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -318,7 +320,7 @@ export default function CategoryModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              
+
               maxLength={100}
               required
               className="w-full px-3.5 py-2.5 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-sm focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all"

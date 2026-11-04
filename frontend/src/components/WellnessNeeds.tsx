@@ -153,7 +153,7 @@ export default function WellnessNeeds({ wellnessNeeds = [], products = [] }: Wel
                       src={resolveBackendImageUrl(item.imageUrl)}
                       alt={displayName}
                       fill
-                      sizes="(max-width: 640px) 64px, 80px"
+                      unoptimized
                       onError={() => handleImgError(item.id)}
                       className="object-cover group-hover:scale-110 transition-transform duration-300"
                     />

@@ -896,7 +896,7 @@ export default function ProductModal({
                           src={resolveBackendImageUrl(photoUrl)}
                           alt={`Product photo ${idx + 1}`}
                           fill
-                          sizes="140px"
+                          unoptimized
                           className="object-cover"
                         />
                         {isMain && (
@@ -1996,7 +1996,7 @@ export default function ProductModal({
                   src={resolveBackendImageUrl(photos[0])}
                   alt={name || 'Preview'}
                   fill
-                  sizes="48px"
+                  unoptimized
                   className="object-cover"
                 />
               ) : (
