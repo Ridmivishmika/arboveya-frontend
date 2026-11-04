@@ -24,7 +24,7 @@ interface ApproveProductModalProps {
   wellnessNeeds?: WellnessNeed[];
   isOpen: boolean;
   onClose: () => void;
-  onApprove: (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string, categoryIds?: string[]) => Promise<void>;
+  onApprove: (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string, categoryIds?: string[], wellnessNeedIds?: string[]) => Promise<void>;
   onReject: (productId: string, feedback?: string) => Promise<void>;
   onCategoryCreated?: (newCategory: Category) => void;
   onWellnessNeedCreated?: (newNeed: WellnessNeed) => void;
@@ -43,6 +43,7 @@ export default function ApproveProductModal({
 }: ApproveProductModalProps) {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedWellnessNeedIds, setSelectedWellnessNeedIds] = useState<string[]>([]);
   const [selectedWellnessNeedId, setSelectedWellnessNeedId] = useState<string>('');
   const [adminFeedback, setAdminFeedback] = useState<string>('Approved for public marketplace display.');
   const [submitting, setSubmitting] = useState(false);
@@ -73,20 +74,21 @@ export default function ApproveProductModal({
       setSelectedCategoryIds(initialCatIds);
       setSelectedCategoryId(initialCatIds[0] || (categories[0]?.id ?? ''));
 
-      // Default to product wellness need if already assigned, or match by name/target
-      if (product.wellnessNeedId) {
-        setSelectedWellnessNeedId(product.wellnessNeedId);
+      // Default to product wellness needs if already assigned, or match by name/target
+      let initialNeedIds: string[] = [];
+      if (product.wellnessNeedIds && product.wellnessNeedIds.length > 0) {
+        initialNeedIds = [...product.wellnessNeedIds];
+      } else if (product.wellnessNeedId) {
+        initialNeedIds = [product.wellnessNeedId];
       } else if (product.wellnessNeed) {
         const matched = wellnessNeeds.find(
           w => (w.name && w.name.toLowerCase() === product.wellnessNeed?.toLowerCase()) ||
                (w.title && w.title.toLowerCase() === product.wellnessNeed?.toLowerCase())
         );
-        setSelectedWellnessNeedId(matched?.id || '');
-      } else if (wellnessNeeds.length > 0) {
-        setSelectedWellnessNeedId(wellnessNeeds[0].id);
-      } else {
-        setSelectedWellnessNeedId('');
+        if (matched) initialNeedIds = [matched.id];
       }
+      setSelectedWellnessNeedIds(initialNeedIds);
+      setSelectedWellnessNeedId(initialNeedIds[0] || '');
 
       setAdminFeedback('Approved for public marketplace display.');
       setErrorMsg(null);
@@ -114,6 +116,20 @@ export default function ApproveProductModal({
     });
   };
 
+  const toggleWellnessNeed = (needId: string) => {
+    setSelectedWellnessNeedIds((prev) => {
+      if (prev.includes(needId)) {
+        const updated = prev.filter(id => id !== needId);
+        setSelectedWellnessNeedId(updated[0] || '');
+        return updated;
+      } else {
+        const updated = [...prev, needId];
+        if (!selectedWellnessNeedId) setSelectedWellnessNeedId(needId);
+        return updated;
+      }
+    });
+  };
+
   const handleApproveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const primaryCat = selectedCategoryIds[0] || selectedCategoryId;
@@ -128,9 +144,10 @@ export default function ApproveProductModal({
       await onApprove(
         product.id, 
         primaryCat, 
-        selectedWellnessNeedId || undefined, 
+        selectedWellnessNeedIds[0] || selectedWellnessNeedId || undefined, 
         adminFeedback.trim(),
-        selectedCategoryIds.length > 0 ? selectedCategoryIds : [primaryCat]
+        selectedCategoryIds.length > 0 ? selectedCategoryIds : [primaryCat],
+        selectedWellnessNeedIds
       );
       onClose();
     } catch (err: any) {
@@ -188,7 +205,8 @@ export default function ApproveProductModal({
       if (onWellnessNeedCreated) {
         onWellnessNeedCreated(created);
       }
-      setSelectedWellnessNeedId(created.id);
+      setSelectedWellnessNeedIds((prev) => prev.includes(created.id) ? prev : [...prev, created.id]);
+      if (!selectedWellnessNeedId) setSelectedWellnessNeedId(created.id);
       setIsCreatingNeed(false);
       setNewNeedName('');
     } catch (err: any) {
@@ -503,23 +521,28 @@ export default function ApproveProductModal({
           </div>
 
           {/* Wellness Need Assignment Section */}
-          <div className="space-y-2 bg-[#f4f7f4] p-4 rounded-xl border border-[#cfe0d1]">
-            <div className="flex items-center justify-between">
+          <div className="space-y-3 bg-[#f4f7f4] p-4 rounded-xl border border-[#cfe0d1]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <label className="text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#24492d]" />
-                <span>Assign Wellness Need Target</span>
+                <span>Assign Wellness Need Targets (Select one or more)</span>
               </label>
 
-              {!isCreatingNeed && (
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingNeed(true)}
-                  className="text-[11px] font-bold text-[#24492d] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>New Wellness Need</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-[#24492d] bg-white px-2 py-0.5 rounded-full border border-[#bcd2bf]">
+                  {selectedWellnessNeedIds.length} {selectedWellnessNeedIds.length === 1 ? 'Goal' : 'Goals'} Selected
+                </span>
+                {!isCreatingNeed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingNeed(true)}
+                    className="text-[11px] font-bold text-[#24492d] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New Wellness Need</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {isCreatingNeed ? (
@@ -528,7 +551,6 @@ export default function ApproveProductModal({
                   type="text"
                   value={newNeedName}
                   onChange={(e) => setNewNeedName(e.target.value)}
-                  
                   className="flex-1 px-3 py-2 text-xs rounded-lg border border-[#24492d] bg-white text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20"
                 />
                 <button
@@ -548,22 +570,39 @@ export default function ApproveProductModal({
                 </button>
               </div>
             ) : (
-              <select
-                value={selectedWellnessNeedId}
-                onChange={(e) => setSelectedWellnessNeedId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#bcd2bf] bg-white text-xs font-medium text-[#1c3f24] focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d]"
-              >
-                <option value="">-- None / General Wellness --</option>
-                {wellnessNeeds.map((need) => (
-                  <option key={need.id} value={need.id}>
-                    {need.name || need.title}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-wrap gap-2 pt-1 max-h-48 overflow-y-auto">
+                {wellnessNeeds.length === 0 && (
+                  <span className="text-xs text-stone-400 italic">No wellness needs available</span>
+                )}
+                {wellnessNeeds.map((need) => {
+                  const isSelected = selectedWellnessNeedIds.includes(need.id);
+                  const isPrimary = selectedWellnessNeedIds[0] === need.id;
+                  return (
+                    <button
+                      key={need.id}
+                      type="button"
+                      onClick={() => toggleWellnessNeed(need.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                        isSelected
+                          ? 'bg-[#24492d] text-white border-[#24492d]'
+                          : 'bg-white text-stone-700 border-stone-200 hover:border-[#24492d]/40 hover:bg-[#edf5ee]'
+                      }`}
+                    >
+                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                      <span>{need.name || need.title}</span>
+                      {isPrimary && (
+                        <span className="ml-1 text-[9px] bg-white/25 text-white px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                          Primary
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             )}
 
-            <p className="text-[11px] text-[#55775d]">
-              Customers will be able to discover this product when filtering by this therapeutic wellness need.
+            <p className="text-[11px] text-[#55775d] pt-0.5">
+              💡 Customers will be able to discover this product when filtering by any of these therapeutic wellness needs.
             </p>
           </div>
 

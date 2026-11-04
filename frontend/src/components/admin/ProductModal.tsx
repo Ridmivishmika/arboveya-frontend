@@ -70,6 +70,7 @@ export default function ProductModal({
   const [categoryId, setCategoryId] = useState('');
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [wellnessNeedId, setWellnessNeedId] = useState('');
+  const [wellnessNeedIds, setWellnessNeedIds] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [keyBenefits, setKeyBenefits] = useState('');
   const [ingredients, setIngredients] = useState('');
@@ -162,7 +163,13 @@ export default function ProductModal({
           : categories[0]?.id ? [categories[0].id] : [];
       setCategoryIds(loadedCatIds);
       setCategoryId(loadedCatIds[0] || initialData.categoryId || (categories[0]?.id ?? ''));
-      setWellnessNeedId(initialData.wellnessNeedId || '');
+      const loadedWellnessIds = (initialData.wellnessNeedIds && initialData.wellnessNeedIds.length > 0)
+        ? initialData.wellnessNeedIds
+        : initialData.wellnessNeedId
+          ? [initialData.wellnessNeedId]
+          : [];
+      setWellnessNeedIds(loadedWellnessIds);
+      setWellnessNeedId(loadedWellnessIds[0] || initialData.wellnessNeedId || '');
       setDescription(initialData.description || '');
       setKeyBenefits(initialData.keyBenefits || '');
       setIngredients(initialData.ingredients || '');
@@ -307,6 +314,7 @@ export default function ProductModal({
     } else {
       setName('');
       setCategoryId(categories[0]?.id || '');
+      setWellnessNeedIds([]);
       setWellnessNeedId('');
       setDescription('');
       setKeyBenefits('');
@@ -564,7 +572,9 @@ export default function ProductModal({
         categoryId: isSeller ? (initialData?.categoryId || undefined) : primaryCatId,
         categoryIds: isSeller ? (initialData?.categoryIds || undefined) : (categoryIds.length > 0 ? categoryIds : (primaryCatId ? [primaryCatId] : undefined)),
         additionalCategoryIds: isSeller ? undefined : categoryIds.slice(1),
-        wellnessNeedId: isSeller ? (initialData?.wellnessNeedId || undefined) : (wellnessNeedId || undefined),
+        wellnessNeedId: isSeller ? (initialData?.wellnessNeedId || undefined) : (wellnessNeedIds[0] || wellnessNeedId || undefined),
+        wellnessNeedIds: isSeller ? (initialData?.wellnessNeedIds || undefined) : (wellnessNeedIds.length > 0 ? wellnessNeedIds : ((wellnessNeedIds[0] || wellnessNeedId) ? [wellnessNeedIds[0] || wellnessNeedId] : undefined)),
+        additionalWellnessNeedIds: isSeller ? undefined : (wellnessNeedIds.length > 1 ? wellnessNeedIds.slice(1) : undefined),
         price: Number(lowest.price),
         stockQuantity: totalStock,
         weight: lowest.weight.trim(),
@@ -610,6 +620,7 @@ export default function ProductModal({
 
   const selectedCategoryObj = categories.find(c => c.id === categoryId);
   const selectedWellnessNeedObj = wellnessNeeds.find(w => w.id === wellnessNeedId);
+  const selectedWellnessNeeds = wellnessNeeds.filter(w => wellnessNeedIds.includes(w.id));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
@@ -750,24 +761,62 @@ export default function ProductModal({
                 </p>
               </div>
 
-              {/* Wellness Need */}
-              <div className="space-y-1.5">
-                <label htmlFor="prod-wellness" className="block text-xs font-semibold text-[#1c3f24]">
-                  Wellness Need (Health Goal)
-                </label>
-                <select
-                  id="prod-wellness"
-                  value={wellnessNeedId}
-                  onChange={(e) => setWellnessNeedId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[#ccdacc] bg-[#fafcfa] text-[#1c3f24] text-xs focus:outline-none focus:ring-2 focus:ring-[#24492d]/20 focus:border-[#24492d] transition-all cursor-pointer"
-                >
-                  <option value="">-- None / Select Target Goal --</option>
-                  {wellnessNeeds.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name || w.title}
-                    </option>
-                  ))}
-                </select>
+              {/* Multi-Wellness Need Selection */}
+              <div className="space-y-1.5 p-3.5 bg-[#fafcfa] border border-[#ccdacc] rounded-xl">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                  <label className="block text-xs font-bold text-[#1c3f24] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#24492d]" />
+                    Wellness Needs / Health Goals (Select one or more)
+                  </label>
+                  <span className="text-[11px] font-semibold text-[#3b6b44] bg-[#edf5ee] px-2 py-0.5 rounded-full border border-[#c4dcce]">
+                    {wellnessNeedIds.length} {wellnessNeedIds.length === 1 ? 'Goal' : 'Goals'} Selected
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1 max-h-48 overflow-y-auto">
+                  {wellnessNeeds.length === 0 && (
+                    <span className="text-xs text-stone-400 italic">No wellness needs available</span>
+                  )}
+                  {wellnessNeeds.map((w) => {
+                    const isSelected = wellnessNeedIds.includes(w.id);
+                    const isPrimary = wellnessNeedIds[0] === w.id;
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => {
+                          setWellnessNeedIds((prev) => {
+                            if (prev.includes(w.id)) {
+                              const next = prev.filter((id) => id !== w.id);
+                              setWellnessNeedId(next[0] || '');
+                              return next;
+                            } else {
+                              const next = [...prev, w.id];
+                              if (!wellnessNeedId) setWellnessNeedId(w.id);
+                              return next;
+                            }
+                          });
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                          isSelected
+                            ? 'bg-[#24492d] text-white border-[#24492d]'
+                            : 'bg-white text-stone-700 border-stone-200 hover:border-[#24492d]/40 hover:bg-[#edf5ee]'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                        <span>{w.name || w.title}</span>
+                        {isPrimary && (
+                          <span className="ml-1 text-[9px] bg-white/20 text-white px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                            Primary
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-stone-500 pt-1">
+                  💡 Select all health goals targeted by this remedy. Click any badge to toggle.
+                </p>
               </div>
             </div>
           )}
@@ -1964,7 +2013,9 @@ export default function ProductModal({
                     : (selectedCategoryObj?.name || 'Category')}
                   {isSeller
                     ? (initialData?.wellnessNeedName ? ` • ${initialData.wellnessNeedName}` : '')
-                    : (selectedWellnessNeedObj ? ` • ${selectedWellnessNeedObj.name || selectedWellnessNeedObj.title}` : '')}
+                    : (selectedWellnessNeeds.length > 0 
+                        ? ` • ${selectedWellnessNeeds.map(w => w.name || w.title).join(', ')}` 
+                        : (selectedWellnessNeedObj ? ` • ${selectedWellnessNeedObj.name || selectedWellnessNeedObj.title}` : ''))}
                 </span>
                 {isBestSeller && (
                   <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#24492d] text-white">

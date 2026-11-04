@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { WellnessNeed, Product } from '@/types';
+import { resolveBackendImageUrl } from '@/lib/api';
 
 // Custom SVG Icons for the 11 Wellness Needs
 function WellnessIcon({ name = 'leaf' }: { name?: string }) {
@@ -103,21 +105,17 @@ interface WellnessNeedsProps {
 }
 
 export default function WellnessNeeds({ wellnessNeeds = [], products = [] }: WellnessNeedsProps) {
-  // Only display wellness needs that exist in the database AND have products assigned
-  const activeNeeds = wellnessNeeds.filter((item) => {
-    const itemName = item.name || item.title || '';
-    const hasCount = (item.productCount ?? 0) > 0;
-    const hasAssignedProduct = products.some(
-      (p) =>
-        (p.wellnessNeedId && p.wellnessNeedId === item.id) ||
-        (p.wellnessNeedName && p.wellnessNeedName.toLowerCase() === itemName.toLowerCase()) ||
-        (p.wellnessNeed && p.wellnessNeed.toLowerCase() === itemName.toLowerCase())
-    );
-    return hasCount || hasAssignedProduct;
-  });
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
-  // If no wellness needs in DB have products assigned, do not render the section
-  if (activeNeeds.length === 0) {
+  const handleImgError = (needId: string) => {
+    setImgErrors(prev => ({ ...prev, [needId]: true }));
+  };
+
+  // Display all wellness needs configured in the database, matching the category display pattern
+  const displayNeeds = wellnessNeeds.length > 0 ? wellnessNeeds : [];
+
+  // If no wellness needs in DB, do not render the section
+  if (displayNeeds.length === 0) {
     return null;
   }
 
@@ -135,18 +133,35 @@ export default function WellnessNeeds({ wellnessNeeds = [], products = [] }: Wel
         </div>
 
         {/* Dynamic Wellness Need Cards Grid */}
-        <div className="flex flex-wrap justify-center gap-3.5">
-          {activeNeeds.map((item) => {
+        <div className="flex flex-wrap justify-center gap-3.5 sm:gap-5">
+          {displayNeeds.map((item) => {
             const displayName = item.name || item.title || '';
             const description = item.description || item.subtitle || '';
+            const hasError = imgErrors[item.id];
+            const hasUploaded = Boolean(item.imageUrl && !hasError && (item.imageUrl.startsWith('/') || item.imageUrl.startsWith('http')));
+
             return (
               <Link
                 key={item.id}
                 href={`/shop?wellnessNeed=${encodeURIComponent(displayName)}`}
-                className="group flex flex-col items-center text-center p-3.5 rounded-xl bg-white border border-[#e5ece5] hover:border-[#2a4d31] hover:shadow-md transition-all duration-300 hover:-translate-y-1 w-[calc(50%-7px)] sm:w-[155px]"
+                className="group flex flex-col items-center text-center p-3.5 rounded-xl bg-white border border-[#e5ece5] hover:border-[#2a4d31] hover:shadow-md transition-all duration-300 hover:-translate-y-1 w-[calc(50%-7px)] sm:w-[165px]"
               >
-                <div className="mb-3 p-2.5 rounded-full bg-[#f4f7f4] group-hover:bg-[#ebf2ec] transition-colors">
-                  <WellnessIcon name={item.icon} />
+                {/* Circular Image / Icon Avatar */}
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-3 rounded-full bg-[#edf4ee] border-2 border-[#ccdccd] group-hover:border-[#24492d] group-hover:scale-105 transition-all duration-300 shadow-2xs overflow-hidden flex items-center justify-center flex-shrink-0">
+                  {hasUploaded ? (
+                    <Image
+                      src={resolveBackendImageUrl(item.imageUrl)}
+                      alt={displayName}
+                      fill
+                      sizes="(max-width: 640px) 64px, 80px"
+                      onError={() => handleImgError(item.id)}
+                      className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="p-2.5 flex items-center justify-center">
+                      <WellnessIcon name={item.icon} />
+                    </div>
+                  )}
                 </div>
 
                 <h3 className="text-xs sm:text-[13px] font-bold text-[#1a3826] group-hover:text-[#254b2d] leading-snug mb-1">

@@ -148,13 +148,23 @@ export default function AdminProductsPage() {
     showToast(`Product "${productToDelete.name}" deleted.`);
   };
 
-  const handleConfirmApprove = async (productId: string, categoryId: string, wellnessNeedId?: string, feedback?: string, categoryIds?: string[]) => {
+  const handleConfirmApprove = async (
+    productId: string, 
+    categoryId: string, 
+    wellnessNeedId?: string, 
+    feedback?: string, 
+    categoryIds?: string[],
+    wellnessNeedIds?: string[]
+  ) => {
     const finalCategoryIds = categoryIds && categoryIds.length > 0 ? categoryIds : [categoryId];
+    const finalWellnessNeedIds = wellnessNeedIds && wellnessNeedIds.length > 0 ? wellnessNeedIds : (wellnessNeedId ? [wellnessNeedId] : []);
     const approved = await approveProduct(productId, { 
       categoryId: finalCategoryIds[0] || categoryId,
       categoryIds: finalCategoryIds,
       additionalCategoryIds: finalCategoryIds.length > 1 ? finalCategoryIds.slice(1) : undefined,
-      wellnessNeedId,
+      wellnessNeedId: finalWellnessNeedIds[0] || wellnessNeedId,
+      wellnessNeedIds: finalWellnessNeedIds,
+      additionalWellnessNeedIds: finalWellnessNeedIds.length > 1 ? finalWellnessNeedIds.slice(1) : undefined,
       approvalStatus: 'Approved', 
       adminFeedback: feedback 
     });

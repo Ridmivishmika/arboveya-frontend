@@ -39,6 +39,9 @@ export interface Product {
   categoryNames?: string[];
   wellnessNeedId?: string;
   wellnessNeedName?: string;
+  wellnessNeedIds?: string[];
+  wellnessNeedNames?: string[];
+  additionalWellnessNeedIds?: string[];
   wellnessNeed?: string;
   keyBenefits?: string;
   ingredients?: string;
@@ -78,6 +81,9 @@ export interface ApproveProductInput {
   categoryIds?: string[];
   additionalCategoryIds?: string[];
   wellnessNeedId?: string;
+  wellnessNeedName?: string;
+  wellnessNeedIds?: string[];
+  additionalWellnessNeedIds?: string[];
   approvalStatus?: string;
   adminFeedback?: string;
 }
@@ -96,6 +102,9 @@ export interface CreateProductInput {
   categoryIds?: string[];
   additionalCategoryIds?: string[];
   wellnessNeedId?: string;
+  wellnessNeedName?: string;
+  wellnessNeedIds?: string[];
+  additionalWellnessNeedIds?: string[];
   price: number;
   stockQuantity: number;
   description?: string;
@@ -131,6 +140,9 @@ export interface UpdateProductInput {
   categoryIds?: string[];
   additionalCategoryIds?: string[];
   wellnessNeedId?: string;
+  wellnessNeedName?: string;
+  wellnessNeedIds?: string[];
+  additionalWellnessNeedIds?: string[];
   price?: number;
   stockQuantity?: number;
   description?: string;
