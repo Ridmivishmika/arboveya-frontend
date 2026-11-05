@@ -93,7 +93,7 @@ function RegisterForm() {
         email,
         password,
         role: 'Customer',
-        address: streetAddress || compiledAddress,
+        address: streetAddress || addressLine1.trim(),
         city: city.trim(),
         zipCode: zipCode.trim(),
         nationality,

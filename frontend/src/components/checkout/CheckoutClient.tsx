@@ -366,11 +366,25 @@ export default function CheckoutClient() {
         country.trim()
       ].filter(Boolean).join(', ');
 
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('arboveya_shipping_pref', JSON.stringify({
+            streetAddress: address.trim(),
+            address: address.trim(),
+            city: city.trim(),
+            zipCode: zipCode.trim(),
+            country: country.trim()
+          }));
+        } catch (_) {}
+      }
+
       const payload = {
         customerName: fullName.trim(),
         customerEmail: email.trim(),
         customerPhone: phone.trim(),
         country: country.trim(),
+        city: city.trim(),
+        zipCode: zipCode.trim(),
         shippingAddress: fullShippingAddress,
         shippingMethod: selectedShippingMethod?.name || 'Standard Shipping',
         shippingCost: selectedShippingMethod?.cost ?? 0,
