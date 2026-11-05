@@ -292,50 +292,62 @@ const DEFAULT_SHIPPING_METHODS: ShippingOption[] = [
 
   const discountedSubtotal = subtotal - discountAmount;
 
-  // Dynamically compute available shipping methods from items in the cart
+  // Dynamically compute available shipping methods from items in the cart (ensuring all 3 standard delivery methods are available just like the product page)
   const availableShippingMethods = React.useMemo<ShippingOption[]>(() => {
-    if (activeCart.length === 0) {
-      return DEFAULT_SHIPPING_METHODS;
-    }
-
     const map = new Map<string, ShippingOption>();
+
+    // 1. Always seed all 3 default shipping methods displayed on product pages
+    DEFAULT_SHIPPING_METHODS.forEach(opt => {
+      map.set(opt.name, { ...opt });
+    });
+
+    // 2. Overlay product-level configurations if defined
     activeCart.forEach(item => {
-      let opts: ShippingOption[] = [];
+      if (item.product.shippingCost && Number(item.product.shippingCost) > 0) {
+        const existing = map.get('Standard Shipping');
+        map.set('Standard Shipping', {
+          name: 'Standard Shipping',
+          estimatedDeliveryTime: item.product.estimatedDeliveryTime || existing?.estimatedDeliveryTime || '3-5 business days',
+          cost: Math.max(existing?.cost || 0, Number(item.product.shippingCost))
+        });
+      }
+
       if (item.product.shippingOptions) {
         try {
           const parsed = typeof item.product.shippingOptions === 'string'
             ? JSON.parse(item.product.shippingOptions)
             : item.product.shippingOptions;
           if (Array.isArray(parsed) && parsed.length > 0) {
-            opts = parsed.map((o: any) => ({
-              name: o.name || 'Standard Shipping',
-              estimatedDeliveryTime: o.estimatedDeliveryTime || '3-5 business days',
-              cost: o.name === 'Free Shipping' ? 0 : Number(o.cost) || 0
-            }));
+            parsed.forEach((o: any) => {
+              const name = o.name || 'Standard Shipping';
+              const cost = name === 'Free Shipping' ? 0 : (Number(o.cost) || 0);
+              const existing = map.get(name);
+              map.set(name, {
+                name,
+                estimatedDeliveryTime: o.estimatedDeliveryTime || existing?.estimatedDeliveryTime || '3-5 business days',
+                cost: existing ? Math.max(existing.cost, cost) : cost
+              });
+            });
           }
         } catch {}
       }
-      if (opts.length === 0) {
-        const name = item.product.shippingMethod || (item.product.isFreeShipping ? 'Free Shipping' : 'Standard Shipping');
-        const cost = item.product.isFreeShipping ? 0 : (Number(item.product.shippingCost) || 0);
-        opts.push({
-          name,
-          estimatedDeliveryTime: item.product.estimatedDeliveryTime || (cost === 0 ? '5-7 business days' : '3-5 business days'),
-          cost
-        });
-      }
 
-      opts.forEach(o => {
-        if (!map.has(o.name)) {
-          map.set(o.name, o);
-        } else {
-          const existing = map.get(o.name)!;
-          if (o.cost > existing.cost) {
-            map.set(o.name, o);
-          }
+      // If user chose a specific shipping option when adding to cart, include it
+      if (item.selectedShippingOption) {
+        const sel = item.selectedShippingOption;
+        if (!map.has(sel.name)) {
+          map.set(sel.name, { ...sel });
         }
-      });
+      }
     });
+
+    // Ensure Free Shipping always exists and has cost 0
+    if (map.has('Free Shipping')) {
+      const f = map.get('Free Shipping')!;
+      f.cost = 0;
+    } else {
+      map.set('Free Shipping', { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 });
+    }
 
     const list = Array.from(map.values());
     list.sort((a, b) => {
