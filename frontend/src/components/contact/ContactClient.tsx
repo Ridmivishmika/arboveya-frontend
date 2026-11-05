@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mail, Phone, MapPin, MessageCircle, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, MapPin, MessageCircle, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { submitContactMessage } from '@/lib/api';
 import { SiteSettings } from '@/types';
@@ -89,7 +89,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'arboveya@gmail.com';
   const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || '';
   const contactWhatsApp = initialSettings?.whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || contactPhone;
-  const contactAddress = process.env.NEXT_PUBLIC_CONTACT_ADDRESS || '';
+  const contactAddress = process.env.NEXT_PUBLIC_CONTACT_ADDRESS || 'Sri Lanka';
 
   return (
     <div className="bg-white min-h-screen text-[#1c3f24] selection:bg-[#24492d] selection:text-white">
@@ -222,24 +222,6 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                   className="text-xs sm:text-sm text-stone-600 hover:text-[#24492d] transition-colors"
                 >
                   {contactEmail}
-                </a>
-              </div>
-            </div>
-
-            {/* CALL US */}
-            <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-full bg-[#f0f5f1] border border-[#d6e5d8] text-[#24492d] flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Phone className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900 mb-1">
-                  CALL US
-                </h3>
-                <a
-                  href={`tel:${contactPhone}`}
-                  className="text-xs sm:text-sm text-stone-600 hover:text-[#24492d] transition-colors"
-                >
-                  {contactPhone}
                 </a>
               </div>
             </div>

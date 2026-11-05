@@ -707,16 +707,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
 
               {/* Product Quantity directly near Select Weight / Option */}
               <div className="flex items-center justify-between pt-2.5 border-t border-[#e2eae2]">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider">
-                    Quantity:
-                  </span>
-                  <span className="text-[11px] text-[#557159] font-medium">
-                    ({selectedVariant
-                      ? `${selectedVariant.stockQuantity} available`
-                      : product.stockQuantity > 0 ? `${product.stockQuantity} available` : 'In Stock'})
-                  </span>
-                </div>
+                <span className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider">
+                  Select Quantity:
+                </span>
 
                 <div className="inline-flex items-center border border-[#ccdacc] rounded-lg overflow-hidden bg-white shadow-2xs">
                   <button
@@ -764,10 +757,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
             {/* In Stock Badge */}
             <div className="flex items-center gap-2 text-xs font-semibold text-[#16a34a]">
               <span className="w-2 h-2 rounded-full bg-[#16a34a] animate-pulse" />
-              <span>In Stock ({selectedVariant
-                ? `${selectedVariant.stockQuantity} units available`
-                : product.stockQuantity > 0 ? `${product.stockQuantity} units available` : 'Ready to Ship'})
-              </span>
+              <span>In Stock</span>
             </div>
 
             {/* Buyer Delivery & Shipping Method Selector */}
@@ -865,37 +855,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
               </div>
             ) : (
               <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-3">
-                  {/* Quantity Pill */}
-                  <div className="flex items-center border border-[#ccdacc] rounded-lg overflow-hidden bg-white">
-                    <button
-                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                      className="p-2.5 sm:p-3 hover:bg-[#f3f7f3] text-[#3e5642] transition-colors cursor-pointer"
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-10 text-center text-xs font-bold text-[#1c3f24]">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => setQuantity(q => q + 1)}
-                      className="p-2.5 sm:p-3 hover:bg-[#f3f7f3] text-[#3e5642] transition-colors cursor-pointer"
-                      aria-label="Increase quantity"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* ADD TO CART Button (Dark Forest Green) */}
-                  <button
-                    onClick={handleAddToCart}
-                    className="flex-1 py-3 px-6 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-[0.12em] uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>ADD TO CART</span>
-                  </button>
-                </div>
+                {/* ADD TO CART Button (Dark Forest Green) */}
+                <button
+                  onClick={handleAddToCart}
+                  className="w-full py-3 px-6 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-[0.12em] uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>ADD TO CART</span>
+                </button>
 
                 {/* BUY IT NOW Button (Outline Button) */}
                 <button
