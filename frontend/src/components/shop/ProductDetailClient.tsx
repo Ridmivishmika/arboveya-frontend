@@ -727,7 +727,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
               )}
 
               {/* Product Quantity directly near Select Weight / Option */}
-              <div className="flex items-center justify-between pt-2.5 border-t border-[#e2eae2]">
+              <div className="flex items-center gap-3 pt-2.5 border-t border-[#e2eae2]">
                 <span className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider">
                   Select Quantity:
                 </span>
