@@ -71,8 +71,7 @@ export default function AdminHeader({
           if (Array.isArray(list)) {
             const count = list.filter((o: any) => {
               const s = (o.orderStatus || '').toLowerCase();
-              const p = (o.paymentStatus || '').toLowerCase();
-              return s === 'processing' || (s === 'pending' && p === 'paid');
+              return s === 'processing';
             }).length;
             setFetchedProcessingCount(count);
           }

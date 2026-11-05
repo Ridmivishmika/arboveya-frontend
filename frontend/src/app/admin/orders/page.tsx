@@ -48,11 +48,7 @@ export default function AdminOrdersPage() {
   // Aggregate KPI Calculations
   const stats = useMemo(() => {
     const totalOrders = orders.length;
-    const awaitingShipment = orders.filter((o) => {
-      const s = (o.orderStatus || '').toLowerCase();
-      const p = (o.paymentStatus || '').toLowerCase();
-      return (s === 'processing' || s === 'pending') && p !== 'failed';
-    }).length;
+    const processingOrders = orders.filter((o) => (o.orderStatus || '').toLowerCase() === 'processing').length;
     const delivered = orders.filter((o) => (o.orderStatus || '').toLowerCase() === 'delivered').length;
     const totalRevenue = orders.reduce((sum, o) => {
       const p = (o.paymentStatus || '').toLowerCase();
@@ -62,7 +58,7 @@ export default function AdminOrdersPage() {
       return sum;
     }, 0);
 
-    return { totalOrders, awaitingShipment, delivered, totalRevenue };
+    return { totalOrders, processingOrders, awaitingShipment: processingOrders, delivered, totalRevenue };
   }, [orders]);
 
   return (
@@ -70,7 +66,7 @@ export default function AdminOrdersPage() {
       {/* 1. Admin Header Navigation */}
       <AdminHeader 
         activeTab="orders" 
-        processingOrdersCount={stats.awaitingShipment}
+        processingOrdersCount={stats.processingOrders}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
