@@ -1464,7 +1464,7 @@ export default function BuyerDashboardPage() {
                             <th className="py-3.5 px-4 font-semibold">Items</th>
                             <th className="py-3.5 px-4 font-semibold">Shipment & Delivery</th>
                             <th className="py-3.5 px-4 font-semibold">Total</th>
-                            <th className="py-3.5 px-4 font-semibold">Fulfillment</th>
+                            <th className="py-3.5 px-4 font-semibold">Order Status</th>
                             <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                           </tr>
                         </thead>
@@ -3089,7 +3089,7 @@ export default function BuyerDashboardPage() {
                 <span className="text-emerald-700 font-bold uppercase">{selectedOrderReceipt.paymentStatus || 'Paid'}</span>
               </div>
               <div>
-                <span className="text-stone-400 block text-[10px] uppercase font-bold">Fulfillment Status</span>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold">Order Status</span>
                 <span className="text-stone-800 font-semibold">{selectedOrderReceipt.orderStatus || 'Processing'}</span>
               </div>
             </div>

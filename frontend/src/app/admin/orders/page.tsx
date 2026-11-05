@@ -76,13 +76,13 @@ export default function AdminOrdersPage() {
             <div className="flex items-center gap-2 text-xs text-[#526a57] mb-1 font-medium">
               <Link href="/admin" className="hover:text-[#1c3f24] transition-colors">Admin Dashboard</Link>
               <span>/</span>
-              <span className="text-[#1c3f24] font-bold">Customer Orders &amp; Fulfillment</span>
+              <span className="text-[#1c3f24] font-bold">Customer Orders</span>
             </div>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1c3f24] tracking-tight">
               Order Management Console
             </h1>
             <p className="text-xs sm:text-sm text-[#526a57] mt-1">
-              Store order fulfillment, tracking numbers, packing slips, customer logistics, and refunds.
+              Store orders, tracking numbers, packing slips, customer logistics, and refunds.
             </p>
           </div>
 
@@ -127,7 +127,7 @@ export default function AdminOrdersPage() {
             <div>
               <p className="text-[11px] font-bold tracking-wider text-[#63806a] uppercase">Delivered Orders</p>
               <h3 className="text-xl sm:text-2xl font-bold text-emerald-700 mt-0.5">{stats.delivered}</h3>
-              <p className="text-[10px] text-[#708c76] mt-0.5">Fulfilled successfully</p>
+              <p className="text-[10px] text-[#708c76] mt-0.5">Delivered successfully</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0">
               <CheckCircle2 className="w-5 h-5" />
@@ -170,7 +170,7 @@ export default function AdminOrdersPage() {
             <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
               <RefreshCw className="w-6 h-6 animate-spin text-[#24492d]" />
               <p className="text-xs font-semibold text-[#1c3f24]">Loading customer orders...</p>
-              <p className="text-[11px] text-stone-500">Retrieving real-time transactions and fulfillment statuses.</p>
+              <p className="text-[11px] text-stone-500">Retrieving real-time transactions and order statuses.</p>
             </div>
           ) : (
             <ManageOrders
