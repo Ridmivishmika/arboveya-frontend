@@ -111,12 +111,6 @@ export default function AdminHeader({
       count: wellnessNeedsCount
     },
     {
-      id: 'sellers',
-      label: 'Sellers',
-      href: '/admin/sellers',
-      icon: Users
-    },
-    {
       id: 'blogs',
       label: 'Blogs',
       href: '/admin/blogs',

@@ -142,6 +142,16 @@ export default function SellerDashboardPage() {
   const [bankErrorMsg, setBankErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!authLoading) {
+      if (user?.role === 'Admin') {
+        router.replace('/admin/orders');
+      } else {
+        router.replace('/admin/login');
+      }
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
     if (user) {
       setSellerFirstNameInput(user.firstName || '');
       setSellerLastNameInput(user.lastName || '');
@@ -371,6 +381,16 @@ export default function SellerDashboardPage() {
   useEffect(() => {
     loadClassifications();
   }, []);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (user?.role === 'Admin') {
+        router.replace('/admin/orders');
+      } else {
+        router.replace('/admin/login');
+      }
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (user) {

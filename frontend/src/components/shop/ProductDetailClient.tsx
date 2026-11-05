@@ -90,42 +90,63 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
     }
   }, [product.variants]);
 
-  // Available Shipping Options parsed from Product (Free Shipping prioritized first)
+  // Standard shipping methods so buyer can always choose between all methods
+  const DEFAULT_SHIPPING_OPTIONS = useMemo<import('@/types').ShippingOption[]>(() => [
+    { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 },
+    { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
+    { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 }
+  ], []);
+
+  // Available Shipping Options parsed from Product with Free Shipping prioritized first and options to select all
   const availableShippingOptions = useMemo<import('@/types').ShippingOption[]>(() => {
-    let options: import('@/types').ShippingOption[] = [];
+    const map = new Map<string, import('@/types').ShippingOption>();
+
+    DEFAULT_SHIPPING_OPTIONS.forEach(opt => {
+      map.set(opt.name, { ...opt });
+    });
+
+    if (product.shippingCost && Number(product.shippingCost) > 0) {
+      map.set('Standard Shipping', {
+        name: 'Standard Shipping',
+        estimatedDeliveryTime: product.estimatedDeliveryTime || '3-5 business days',
+        cost: Number(product.shippingCost)
+      });
+    }
+
     if (product.shippingOptions) {
       try {
         const parsed = typeof product.shippingOptions === 'string'
           ? JSON.parse(product.shippingOptions)
           : product.shippingOptions;
         if (Array.isArray(parsed) && parsed.length > 0) {
-          options = parsed.map((o: any) => ({
-            name: o.name || 'Standard Shipping',
-            estimatedDeliveryTime: o.estimatedDeliveryTime || '3-5 business days',
-            cost: o.name === 'Free Shipping' ? 0 : (Number(o.cost) || 0)
-          }));
+          parsed.forEach((o: any) => {
+            const name = o.name || 'Standard Shipping';
+            map.set(name, {
+              name,
+              estimatedDeliveryTime: o.estimatedDeliveryTime || '3-5 business days',
+              cost: name === 'Free Shipping' ? 0 : (Number(o.cost) || 0)
+            });
+          });
         }
       } catch {}
     }
-    if (options.length === 0) {
-      const name = product.shippingMethod || (product.isFreeShipping ? 'Free Shipping' : 'Standard Shipping');
-      const cost = product.isFreeShipping ? 0 : Number(product.shippingCost) || 0;
-      options.push({
-        name,
-        estimatedDeliveryTime: product.estimatedDeliveryTime || (cost === 0 ? '5-7 business days' : '3-5 business days'),
-        cost
-      });
+
+    if (map.has('Free Shipping')) {
+      const f = map.get('Free Shipping')!;
+      f.cost = 0;
+    } else {
+      map.set('Free Shipping', { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 });
     }
 
-    // Sort to place Free Shipping (cost === 0 or name contains free) first
-    return options.sort((a, b) => {
+    const list = Array.from(map.values());
+    return list.sort((a, b) => {
       const aIsFree = a.cost === 0 || /free/i.test(a.name);
       const bIsFree = b.cost === 0 || /free/i.test(b.name);
       if (aIsFree && !bIsFree) return -1;
       if (!aIsFree && bIsFree) return 1;
       return a.cost - b.cost;
     });
-  }, [product]);
+  }, [product, DEFAULT_SHIPPING_OPTIONS]);
 
   const resolveDefaultShipping = (options: import('@/types').ShippingOption[]) => {
     if (!options || options.length === 0) {
@@ -813,44 +834,33 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
               </div>
             </div>
 
-            {/* Quantity Selector + Action Buttons (Disabled for Sellers and Admins, Active for Buyers & Guests) */}
-            {user && (user.role === 'Seller' || user.role === 'Admin') ? (
+            {/* Action Buttons (Disabled for Admins, Active for Buyers & Guests) */}
+            {user && user.role === 'Admin' ? (
               <div className="rounded-xl border border-[#d6dfd7] bg-[#f8faf8] p-4.5 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-[#24492d] font-bold text-xs uppercase tracking-wider">
                   <span className="p-1 rounded-md bg-[#edf5ee] text-[#24492d]">
-                    {user.role === 'Admin' ? <ShieldCheck className="w-4 h-4" /> : <Store className="w-4 h-4" />}
+                    <ShieldCheck className="w-4 h-4" />
                   </span>
-                  <span>{user.role === 'Admin' ? 'Admin Preview Mode' : 'Seller Preview Mode'}</span>
+                  <span>Admin Preview Mode</span>
                 </div>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  {user.role === 'Admin' 
-                    ? "You are viewing this botanical product's specifications and details as an Arboveya Administrator."
-                    : "You are viewing this botanical product's specifications and ingredients as an Arboveya Merchant."}
+                  You are viewing this botanical product's specifications and details as an Arboveya Administrator.
                   <strong className="text-[#1c3f24] font-semibold block mt-1">
-                    Purchasing products is disabled for {user.role === 'Admin' ? 'administrator' : 'seller'} accounts.
+                    Purchasing products is reserved for customer accounts.
                   </strong>
                 </p>
                 <div className="pt-1 flex flex-wrap items-center gap-2.5">
                   <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-100 text-stone-500 text-xs font-semibold cursor-not-allowed border border-stone-200">
                     <Lock className="w-3.5 h-3.5 text-stone-400" />
-                    <span>Purchase Disabled for {user.role === 'Admin' ? 'Administrators' : 'Sellers'}</span>
+                    <span>Purchase Disabled for Administrators</span>
                   </div>
                   <Link
-                    href={user.role === 'Admin' ? '/admin/products' : '/seller'}
+                    href="/admin/products"
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold transition shadow-2xs"
                   >
-                    {user.role === 'Admin' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
-                    <span>{user.role === 'Admin' ? 'Go to Admin Portal' : 'Go to Seller Studio'}</span>
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Manage in Admin Portal</span>
                   </Link>
-                  <button
-                    type="button"
-                    onClick={handleOpenContactSeller}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#cfded0] bg-white hover:bg-[#edf5ee] text-[#1c3f24] text-xs font-bold transition shadow-2xs cursor-pointer"
-                    id="contact-seller-preview-button"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-[#24492d]" />
-                    <span>Contact Seller (Inquire)</span>
-                  </button>
                 </div>
               </div>
             ) : (

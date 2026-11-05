@@ -87,7 +87,7 @@ export default function AdminOrdersPage() {
               Order Management Console
             </h1>
             <p className="text-xs sm:text-sm text-[#526a57] mt-1">
-              Admin &amp; seller order fulfillment, tracking numbers, packing slips, customer logistics, and refunds.
+              Store order fulfillment, tracking numbers, packing slips, customer logistics, and refunds.
             </p>
           </div>
 
@@ -101,17 +101,6 @@ export default function AdminOrdersPage() {
               <RefreshCw className={`w-3.5 h-3.5 ${loadingOrders ? 'animate-spin text-[#24492d]' : ''}`} />
               <span>Refresh Orders</span>
             </button>
-
-            <Link
-              href="/seller?tab=orders"
-              target="_blank"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#24492d] hover:bg-[#1b3b24] text-white text-xs font-bold transition shadow-sm cursor-pointer"
-              title="Open Merchant Seller View"
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Seller Studio Orders</span>
-              <ExternalLink className="w-3 h-3 text-emerald-200" />
-            </Link>
           </div>
         </div>
 
