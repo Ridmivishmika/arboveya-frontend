@@ -233,20 +233,19 @@ export default function CheckoutClient() {
 
         try {
           const pendingId = sessionStorage.getItem(`arboveya_pending_order_${orderId}`);
-          if (pendingId) {
-            const actualPaymentId = params.get('payment_id') || undefined;
-            fetch(`${API_BASE_URL}/orders/${pendingId}/confirm-payment`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
-              },
-              body: JSON.stringify({
-                payHereOrderId: orderId,
-                paymentId: actualPaymentId
-              })
-            }).catch(e => console.warn('Backend payment confirmation notice:', e));
-          }
+          const actualPaymentId = params.get('payment_id') || undefined;
+          const targetId = pendingId || orderId;
+          fetch(`${API_BASE_URL}/orders/${targetId}/confirm-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(localStorage.getItem('arboveya_token') ? { Authorization: 'Bearer ' + localStorage.getItem('arboveya_token') } : {})
+            },
+            body: JSON.stringify({
+              payHereOrderId: orderId,
+              paymentId: actualPaymentId
+            })
+          }).catch(e => console.warn('Backend payment confirmation notice:', e));
         } catch {}
       }
     }
