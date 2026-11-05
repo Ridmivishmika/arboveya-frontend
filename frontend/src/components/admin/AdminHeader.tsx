@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import ProfileModal from '@/components/profile/ProfileModal';
+import { API_BASE_URL } from '@/lib/api';
 
 interface AdminHeaderProps {
   activeTab: 'products' | 'categories' | 'wellness-needs' | 'sellers' | 'blogs' | 'messages' | 'orders';
@@ -31,8 +32,7 @@ interface AdminHeaderProps {
   categoryCount?: number;
   wellnessNeedsCount?: number;
   unreadMessagesCount?: number;
-  orderCount?: number;
-  pendingOrdersCount?: number;
+  processingOrdersCount?: number;
 }
 
 export default function AdminHeader({
@@ -42,8 +42,7 @@ export default function AdminHeader({
   categoryCount,
   wellnessNeedsCount,
   unreadMessagesCount = 0,
-  orderCount,
-  pendingOrdersCount = 0
+  processingOrdersCount
 }: AdminHeaderProps) {
   const router = useRouter();
   const { user, logout, loading } = useAuth();
@@ -51,6 +50,43 @@ export default function AdminHeader({
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Live fetch total processing orders count if not passed as prop
+  const [fetchedProcessingCount, setFetchedProcessingCount] = useState<number | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (processingOrdersCount !== undefined) return;
+    if (!user || user.role !== 'Admin') return;
+
+    let mounted = true;
+    const fetchProcessingOrders = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : null;
+        const res = await fetch(`${API_BASE_URL}/orders`, {
+          headers: token ? { Authorization: 'Bearer ' + token } : {},
+          cache: 'no-store'
+        });
+        if (res.ok && mounted) {
+          const list = await res.json();
+          if (Array.isArray(list)) {
+            const count = list.filter((o: any) => {
+              const s = (o.orderStatus || '').toLowerCase();
+              const p = (o.paymentStatus || '').toLowerCase();
+              return s === 'processing' || (s === 'pending' && p === 'paid');
+            }).length;
+            setFetchedProcessingCount(count);
+          }
+        }
+      } catch {}
+    };
+
+    fetchProcessingOrders();
+    return () => { mounted = false; };
+  }, [processingOrdersCount, user]);
+
+  const displayProcessingCount = processingOrdersCount !== undefined
+    ? processingOrdersCount
+    : fetchedProcessingCount;
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -93,8 +129,7 @@ export default function AdminHeader({
       label: 'Orders',
       href: '/admin/orders',
       icon: ShoppingBag,
-      count: orderCount,
-      alertCount: pendingOrdersCount
+      count: displayProcessingCount
     },
     {
       id: 'categories',
@@ -186,7 +221,11 @@ export default function AdminHeader({
                 <span>{item.label}</span>
                 {item.count !== undefined && (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-[#edf5ee] text-[#1c3f24]'
+                    item.id === 'orders' && (item.count || 0) > 0
+                      ? isActive
+                        ? 'bg-amber-400 text-stone-900 font-bold shadow-xs'
+                        : 'bg-amber-500 text-white font-bold shadow-xs'
+                      : isActive ? 'bg-white/20 text-white' : 'bg-[#edf5ee] text-[#1c3f24]'
                   }`}>
                     {item.count}
                   </span>
@@ -345,7 +384,11 @@ export default function AdminHeader({
                     <div className="flex items-center gap-1.5">
                       {item.count !== undefined && (
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-white text-stone-600 border border-stone-200'
+                          item.id === 'orders' && (item.count || 0) > 0
+                            ? isActive
+                              ? 'bg-amber-400 text-stone-900 font-bold'
+                              : 'bg-amber-500 text-white font-bold'
+                            : isActive ? 'bg-white/20 text-white' : 'bg-white text-stone-600 border border-stone-200'
                         }`}>
                           {item.count}
                         </span>
