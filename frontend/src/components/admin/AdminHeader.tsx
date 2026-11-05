@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Package, 
   FolderTree, 
+  ShoppingBag,
   Users, 
   BookOpen, 
   ExternalLink, 
@@ -24,12 +25,14 @@ import { useAuth } from '@/context/AuthContext';
 import ProfileModal from '@/components/profile/ProfileModal';
 
 interface AdminHeaderProps {
-  activeTab: 'products' | 'categories' | 'wellness-needs' | 'sellers' | 'blogs' | 'messages';
+  activeTab: 'products' | 'categories' | 'wellness-needs' | 'sellers' | 'blogs' | 'messages' | 'orders';
   pendingProductsCount?: number;
   productCount?: number;
   categoryCount?: number;
   wellnessNeedsCount?: number;
   unreadMessagesCount?: number;
+  orderCount?: number;
+  pendingOrdersCount?: number;
 }
 
 export default function AdminHeader({
@@ -38,7 +41,9 @@ export default function AdminHeader({
   productCount,
   categoryCount,
   wellnessNeedsCount,
-  unreadMessagesCount = 0
+  unreadMessagesCount = 0,
+  orderCount,
+  pendingOrdersCount = 0
 }: AdminHeaderProps) {
   const router = useRouter();
   const { user, logout, loading } = useAuth();
@@ -82,6 +87,14 @@ export default function AdminHeader({
       icon: Package,
       count: productCount,
       alertCount: pendingProductsCount
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+      href: '/admin/orders',
+      icon: ShoppingBag,
+      count: orderCount,
+      alertCount: pendingOrdersCount
     },
     {
       id: 'categories',

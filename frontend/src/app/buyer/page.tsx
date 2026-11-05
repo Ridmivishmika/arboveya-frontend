@@ -159,7 +159,7 @@ function isOrderRefundEligible(order?: { orderStatus?: string; estimatedDelivery
 export default function BuyerDashboardPage() {
   const router = useRouter();
   const { user, logout, token, refreshUser, updateProfile, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'orders' | 'articles' | 'cart' | 'profile'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'articles' | 'profile'>('orders');
 
   // Cart Context
   const { 
@@ -274,13 +274,19 @@ export default function BuyerDashboardPage() {
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
+      // In buyer portal only show paid orders (Paid, Refunded)
+      const payStatus = (order.paymentStatus || '').toLowerCase();
+      if (!payStatus.includes('paid') && !payStatus.includes('refund')) {
+        return false;
+      }
+
       // Status filter
       if (orderStatusFilter !== 'ALL') {
         const status = (order.orderStatus || 'processing').toLowerCase();
         if (orderStatusFilter === 'Delivered' && !status.includes('deliver')) return false;
         if (orderStatusFilter === 'Shipped' && !status.includes('ship')) return false;
         if (orderStatusFilter === 'Processing' && (status.includes('deliver') || status.includes('ship') || status.includes('cancel'))) return false;
-        if (orderStatusFilter === 'Refunded' && !status.includes('cancel') && (order.paymentStatus || '').toLowerCase() !== 'refunded' && (order.refundStatus || '').toLowerCase() !== 'requested') return false;
+        if (orderStatusFilter === 'Refunded' && !status.includes('cancel') && payStatus !== 'refunded' && (order.refundStatus || '').toLowerCase() !== 'requested') return false;
       }
 
       // Search term filter
@@ -660,11 +666,18 @@ export default function BuyerDashboardPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        const normalized = Array.isArray(data) ? data.map((o: any) => ({
-          ...o,
-          items: o.items || o.orderItems || [],
-          orderItems: o.items || o.orderItems || []
-        })) : [];
+        const normalized = Array.isArray(data)
+          ? data
+              .map((o: any) => ({
+                ...o,
+                items: o.items || o.orderItems || [],
+                orderItems: o.items || o.orderItems || []
+              }))
+              .filter((o: any) => {
+                const p = (o.paymentStatus || '').toLowerCase();
+                return p.includes('paid') || p.includes('refund');
+              })
+          : [];
         setOrders(normalized);
       } else {
         setOrders([]);
@@ -712,17 +725,19 @@ export default function BuyerDashboardPage() {
         }
       } else if (tabParam === 'orders') {
         setActiveTab('orders');
-      } else if (tabParam === 'cart') {
-        setActiveTab('cart');
       } else if (tabParam === 'profile') {
         setActiveTab('profile');
+      } else if (tabParam === 'cart') {
+        router.push('/cart');
       }
     }
 
     const handleSetTab = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail === 'orders' || customEvent.detail === 'articles' || customEvent.detail === 'cart' || customEvent.detail === 'profile') {
+      if (customEvent.detail === 'orders' || customEvent.detail === 'articles' || customEvent.detail === 'profile') {
         setActiveTab(customEvent.detail);
+      } else if (customEvent.detail === 'cart') {
+        router.push('/cart');
       }
     };
 
@@ -1349,25 +1364,6 @@ export default function BuyerDashboardPage() {
                 {orders.length} Order(s)
               </span>
             </div>
-
-            {/* Quick Cart Action if items present */}
-            {cart.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-[#edf5ee] border border-[#c2dac5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2.5">
-                  <ShoppingBag className="w-4 h-4 text-[#24492d]" />
-                  <span className="text-xs text-stone-700">
-                    You have <strong>{cart.reduce((s, i) => s + i.quantity, 0)} herbal item(s)</strong> (${subtotal.toFixed(2)}) in your cart ready for checkout.
-                  </span>
-                </div>
-                <button
-                  onClick={() => setActiveTab('cart')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#24492d] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#1a3821] transition cursor-pointer self-start sm:self-auto"
-                >
-                  <span>Review Cart & Checkout</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
 
             {loadingOrders ? (
               <div className="py-16 text-center text-stone-400 text-xs flex flex-col items-center justify-center gap-2">
@@ -2108,375 +2104,6 @@ export default function BuyerDashboardPage() {
           </div>
         )}
 
-        {/* TAB 3: VIEW FULL CART, SHIPPING ADDRESS & PLACE ORDER */}
-        {activeTab === 'cart' && (
-          <div className="space-y-6">
-            {cart.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center space-y-4 shadow-sm">
-                <div className="w-16 h-16 rounded-full bg-[#edf5ee] text-[#24492d] flex items-center justify-center mx-auto">
-                  <ShoppingBag className="w-8 h-8" />
-                </div>
-                <div>
-                  <h3 className="font-serif text-lg font-bold text-stone-900">Your Botanical Cart is Empty</h3>
-                  <p className="text-xs text-stone-500 mt-1 max-w-md mx-auto">
-                    Explore our wildcrafted tinctures, Ayurvedic brews, and single-origin wellness botanicals to add remedies to your cart.
-                  </p>
-                </div>
-                <Link
-                  href="/shop"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold uppercase tracking-wider transition"
-                >
-                  <span>Explore Herbal Catalog</span>
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Left Column: Cart Items & Shipping Address Form */}
-                <div className="lg:col-span-7 space-y-6">
-                  
-                  {/* Cart Items List */}
-                  <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-                      <h3 className="font-serif text-base font-bold text-stone-900 flex items-center gap-2">
-                        <ShoppingBag className="w-4 h-4 text-[#2E4D38]" />
-                        <span>Your Herbal Remedies ({cart.reduce((s, i) => s + i.quantity, 0)} Items)</span>
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={clearCart}
-                        className="text-xs text-stone-400 hover:text-rose-600 transition cursor-pointer"
-                      >
-                        Clear Cart
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {cart.map((item) => (
-                        <div
-                          key={item.product.id}
-                          className="p-3.5 rounded-2xl bg-[#FBFBFA] border border-stone-200/80 flex items-center justify-between gap-4"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-100">
-                              <Image
-                                src={resolveBackendImageUrl(item.product.imageUrl, '/images/gotu-kola-tea.jpg')}
-                                alt={item.product.name}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <h4 className="font-medium text-xs sm:text-sm text-stone-900 truncate">
-                                {item.product.name}
-                              </h4>
-                              <span className="text-[11px] text-stone-500 block">
-                                ${item.product.price.toFixed(2)} each
-                              </span>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    const authToken = (token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || undefined) ?? undefined;
-                                    const conv = await startProductConversation(item.product.id, undefined, authToken);
-                                    router.push(`/account/messages?id=${conv.id}`);
-                                  } catch (err: any) {
-                                    alert(err.message || 'Failed to start chat with seller.');
-                                  }
-                                }}
-                                className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
-                                title={`Chat with seller about ${item.product.name}`}
-                              >
-                                <MessageSquare className="w-3 h-3 text-[#24492d]" />
-                                <span>Chat with Seller</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <div className="flex items-center border border-stone-300 rounded-xl bg-white overflow-hidden shadow-2xs">
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                                className="px-2.5 py-1 text-stone-600 hover:bg-stone-100 transition text-xs font-bold cursor-pointer"
-                              >
-                                -
-                              </button>
-                              <span className="px-2 text-xs font-bold text-stone-800">
-                                {item.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                                className="px-2.5 py-1 text-stone-600 hover:bg-stone-100 transition text-xs font-bold cursor-pointer"
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            <span className="font-bold text-sm text-[#2E4D38] min-w-[55px] text-right">
-                              ${(item.product.price * item.quantity).toFixed(2)}
-                            </span>
-
-                            <button
-                              type="button"
-                              onClick={() => removeFromCart(item.product.id)}
-                              className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                              title="Remove Item"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Shipping & Delivery Address Form */}
-                  <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm space-y-4">
-                    <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
-                      <MapPin className="w-4 h-4 text-[#2E4D38]" />
-                      <h3 className="font-serif text-base font-bold text-stone-900">
-                        Shipping & Delivery Address
-                      </h3>
-                    </div>
-
-                    {orderError && (
-                      <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                        {orderError}
-                      </div>
-                    )}
-
-                    <form id="buyer-checkout-form" onSubmit={handlePlaceOrder} className="space-y-3.5">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div>
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                            Full Name *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={shippingFullName}
-                            onChange={(e) => setShippingFullName(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                            Email Address *
-                          </label>
-                          <input
-                            type="email"
-                            required
-                            value={shippingEmail}
-                            onChange={(e) => setShippingEmail(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div>
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                            Phone Contact *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={shippingPhone}
-                            onChange={(e) => setShippingPhone(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                            Country *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={shippingCountry}
-                            onChange={(e) => setShippingCountry(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div>
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                            City / District *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={shippingCity}
-                            onChange={(e) => setShippingCity(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                            ZIP / Postal Code *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={shippingZip}
-                            onChange={(e) => setShippingZip(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                          Delivery Street Address (1st Lane, 2nd Lane) *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={shippingAddress}
-                          onChange={(e) => setShippingAddress(e.target.value)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
-                        />
-                      </div>
-
-                      <div className="pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-600">
-                          <input
-                            type="checkbox"
-                            checked={agreeTerms}
-                            onChange={(e) => setAgreeTerms(e.target.checked)}
-                            className="rounded text-[#24492d] focus:ring-[#24492d]"
-                          />
-                          <span>I agree to Arboveya quality terms & dispatch conditions.</span>
-                        </label>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-
-                {/* Right Column: Order Summary & Place Order */}
-                <div className="lg:col-span-5 space-y-6 sticky top-28">
-                  <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm space-y-5">
-                    <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
-                      <CheckCircle2 className="w-4 h-4 text-[#2E4D38]" />
-                      <h3 className="font-serif text-base font-bold text-stone-900">
-                        Order Summary
-                      </h3>
-                    </div>
-
-                    {/* Promo Code Input */}
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={couponInput}
-                          onChange={(e) => setCouponInput(e.target.value)}
-                          className="flex-1 px-3 py-1.5 rounded-xl border border-stone-300 text-xs uppercase font-medium focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (couponInput.trim()) {
-                              applyCoupon(couponInput.trim());
-                              setCouponInput('');
-                            }
-                          }}
-                          className="px-3.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-xl transition cursor-pointer"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                      {couponSuccess && (
-                        <p className="text-[11px] text-emerald-700 font-semibold">{couponSuccess}</p>
-                      )}
-                      {couponError && (
-                        <p className="text-[11px] text-rose-600 font-medium">{couponError}</p>
-                      )}
-                    </div>
-
-                    {/* Pricing Breakdown */}
-                    <div className="space-y-2.5 text-xs text-stone-600 border-t border-stone-100 pt-3">
-                      <div className="flex justify-between">
-                        <span>Herbal Subtotal:</span>
-                        <span className="font-semibold text-stone-900">${subtotal.toFixed(2)}</span>
-                      </div>
-
-                      {discountAmount > 0 && (
-                        <div className="flex justify-between text-emerald-700 font-medium">
-                          <span>Promo Discount ({coupon?.code}):</span>
-                          <span>-${discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between">
-                        <span>Spring Delivery:</span>
-                        <span>{shipping === 0 ? <strong className="text-emerald-700 uppercase">FREE</strong> : `$${shipping.toFixed(2)}`}</span>
-                      </div>
-
-                      <div className="flex justify-between text-base font-serif font-bold text-[#1c3f24] border-t border-stone-200 pt-2.5">
-                        <span>Total Charged:</span>
-                        <span>${total.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    {/* Terms Agreement Notice */}
-                    <p className="text-[11px] text-stone-500 leading-relaxed text-center px-1">
-                      By placing this order, you confirm that you have read and agree to Arboveya&apos;s{' '}
-                      <Link
-                        href="/terms-and-conditions"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[#1c3f24] underline hover:text-[#2d5c36]"
-                      >
-                        Terms &amp; Conditions
-                      </Link>
-                      ,{' '}
-                      <Link
-                        href="/privacy-policy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[#1c3f24] underline hover:text-[#2d5c36]"
-                      >
-                        Privacy Policy
-                      </Link>
-                      , and{' '}
-                      <Link
-                        href="/refund-policy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[#1c3f24] underline hover:text-[#2d5c36]"
-                      >
-                        Refund Policy
-                      </Link>
-                      .
-                    </p>
-
-                    {/* Place Order Button */}
-                    <button
-                      type="submit"
-                      form="buyer-checkout-form"
-                      disabled={placingOrder}
-                      className="w-full py-3.5 px-6 rounded-2xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-wider uppercase shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <Lock className="w-4 h-4" />
-                      <span>
-                        {placingOrder 
-                          ? 'PROCESSING TRANSACTION...' 
-                          : `Pay $${total.toFixed(2)}`}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* TAB 4: BUYER PROFILE & ACCOUNT SETTINGS */}
         {activeTab === 'profile' && (
@@ -2706,9 +2333,6 @@ export default function BuyerDashboardPage() {
                   <label className="block text-xs font-semibold text-stone-700">
                     Add Product Photos (Optional)
                   </label>
-                  <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    No limit · Upload as many photos as you want
-                  </span>
                 </div>
 
                 <div
@@ -3008,9 +2632,6 @@ export default function BuyerDashboardPage() {
                   <label className="block text-xs font-semibold text-stone-700">
                     Product Photos
                   </label>
-                  <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    No limit · Upload as many photos as you want
-                  </span>
                 </div>
 
                 <div

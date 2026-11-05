@@ -260,9 +260,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
 const DEFAULT_SHIPPING_METHODS: ShippingOption[] = [
+  { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 },
   { name: 'Standard Shipping', estimatedDeliveryTime: '3-5 business days', cost: 4.99 },
-  { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 },
-  { name: 'Free Shipping', estimatedDeliveryTime: '5-7 business days', cost: 0 }
+  { name: 'Express Shipping', estimatedDeliveryTime: '1-2 business days', cost: 14.99 }
 ];
 
   // If user is a Seller or Admin, cart is strictly empty and counts are 0; guests and customers have active carts
@@ -337,7 +337,15 @@ const DEFAULT_SHIPPING_METHODS: ShippingOption[] = [
       });
     });
 
-    return Array.from(map.values());
+    const list = Array.from(map.values());
+    list.sort((a, b) => {
+      const aIsFree = a.cost === 0 || /free/i.test(a.name);
+      const bIsFree = b.cost === 0 || /free/i.test(b.name);
+      if (aIsFree && !bIsFree) return -1;
+      if (!aIsFree && bIsFree) return 1;
+      return a.cost - b.cost;
+    });
+    return list;
   }, [activeCart]);
 
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingOption>(DEFAULT_SHIPPING_METHODS[0]);
@@ -353,7 +361,8 @@ const DEFAULT_SHIPPING_METHODS: ShippingOption[] = [
         }
         return match;
       }
-      return availableShippingMethods[0];
+      const freeOpt = availableShippingMethods.find(m => m.cost === 0 || /free/i.test(m.name));
+      return freeOpt || availableShippingMethods[0];
     });
   }, [availableShippingMethods]);
 

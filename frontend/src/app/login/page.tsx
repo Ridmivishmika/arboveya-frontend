@@ -22,12 +22,11 @@ import {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
 
   const roleParam = searchParams.get('role');
   const redirectParam = searchParams.get('redirect') || searchParams.get('returnUrl');
 
-  const [selectedRole, setSelectedRole] = useState<'Customer' | 'Seller'>('Customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -47,9 +46,7 @@ function LoginForm() {
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (roleParam && roleParam.toLowerCase() === 'seller') {
-      setSelectedRole('Seller');
-    } else if (roleParam && (roleParam.toLowerCase() === 'admin' || roleParam.toLowerCase() === 'administrator')) {
+    if (roleParam && (roleParam.toLowerCase() === 'admin' || roleParam.toLowerCase() === 'administrator')) {
       // Admin login has moved to the private administrative portal
       router.replace('/admin/login');
     }
@@ -62,16 +59,22 @@ function LoginForm() {
     setIsUnregisteredError(false);
 
     try {
-      const profile = await login(email, selectedRole, password);
-      setSuccessMsg(`Signed in successfully as ${profile?.fullName || profile?.firstName || 'User'}!`);
+      const profile = await login(email, 'Customer', password);
+
+      if (profile?.role === 'Seller') {
+        logout();
+        setErrorMsg('Seller sign-in is disabled. Please sign in with your buyer account.');
+        setSubmitting(false);
+        return;
+      }
+
+      setSuccessMsg(`Signed in successfully as ${profile?.fullName || profile?.firstName || 'Buyer'}!`);
 
       setTimeout(() => {
         if (redirectParam) {
           router.push(redirectParam);
         } else if (profile?.role === 'Admin') {
           router.push('/admin/products');
-        } else if (selectedRole === 'Seller' || profile?.role === 'Seller') {
-          router.push('/seller');
         } else {
           router.push('/');
         }
@@ -173,17 +176,15 @@ function LoginForm() {
             </span>
           </Link>
           <h1 className="text-2xl font-serif font-bold text-stone-900">
-            Welcome Back
+            Sign In to Your Account
           </h1>
-          {redirectParam?.includes('checkout') ? (
-            <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
-              Sign in to complete your checkout and use your saved delivery address.
-            </p>
-          ) : redirectParam?.includes('blog') ? (
-            <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
-              Sign in to publish your herbal blog and contribute to Arboveya.
-            </p>
-          ) : null}
+          <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
+            {redirectParam?.includes('checkout')
+              ? 'Sign in to complete your checkout and use your saved delivery address.'
+              : redirectParam?.includes('blog')
+              ? 'Sign in to publish your herbal blog and contribute to Arboveya.'
+              : 'Sign in to your buyer account to view your orders and track shipments.'}
+          </p>
         </div>
 
         {/* Form Card */}
@@ -196,13 +197,13 @@ function LoginForm() {
               </div>
               {isUnregisteredError && (
                 <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between">
-                  <span className="text-stone-600 text-[11px]">You must create an account first:</span>
+                  <span className="text-stone-600 text-[11px]">You must create a buyer account first:</span>
                   <Link
                     href={registerUrl}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2E4D38] text-white font-bold text-xs hover:bg-[#223d2b] transition shadow-xs"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>Register / Sign Up Now</span>
+                    <span>Register Buyer Account</span>
                   </Link>
                 </div>
               )}
@@ -224,7 +225,6 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
               />
             </div>
@@ -245,7 +245,6 @@ function LoginForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your registered password"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
               />
             </div>
@@ -263,7 +262,7 @@ function LoginForm() {
           {/* Toggle to Register */}
           <div className="mt-6 pt-5 border-t border-stone-100 text-center text-xs text-stone-500">
             <p>
-              Don&apos;t have an account yet?{' '}
+              Don&apos;t have a buyer account yet?{' '}
               <Link
                 href={registerUrl}
                 className="font-bold text-[#2E4D38] hover:underline cursor-pointer ml-1"
@@ -367,7 +366,6 @@ function LoginForm() {
                     maxLength={6}
                     value={resetCode}
                     onChange={(e) => setResetCode(e.target.value.trim())}
-                    placeholder="e.g. 123456"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-center font-mono text-base tracking-widest font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                   />
                 </div>
@@ -384,7 +382,6 @@ function LoginForm() {
                       minLength={6}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Minimum 6 characters"
                       className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                     />
                   </div>
@@ -402,7 +399,6 @@ function LoginForm() {
                       minLength={6}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter your new password"
                       className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
                     />
                   </div>

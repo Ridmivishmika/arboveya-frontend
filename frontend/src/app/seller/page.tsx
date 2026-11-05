@@ -740,95 +740,29 @@ export default function SellerDashboardPage() {
     );
   }
 
-  if (!user) {
+  if (!user || user.role === 'Customer') {
     return (
       <div className="min-h-screen bg-[#FBFBFA] py-16 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
         <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-8 sm:p-10 shadow-sm text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
-            <Store className="w-8 h-8" />
-          </div>
-
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
-              Seller Studio Access
-            </h1>
-            <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
-              To access your botanical catalog, add products, and manage merchant orders, please sign in with your registered Seller account.
-            </p>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <Link
-              href="/login?redirect=/seller"
-              className="w-full py-3 px-5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-sm transition flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In to Continue</span>
-            </Link>
-
-            <Link
-              href="/register?role=Seller&redirect=/seller"
-              className="w-full py-3 px-5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold tracking-wider uppercase transition flex items-center justify-center gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Register Seller Account</span>
-            </Link>
-
-            <div>
-              <Link href="/" className="text-xs text-stone-500 hover:text-stone-900 underline">
-                Return to Store Home
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Logged-in Customer asking to become seller
-  if (user && user.role?.toLowerCase() === 'customer') {
-    return (
-      <div className="min-h-screen bg-[#FBFBFA] py-16 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
-        <div className="max-w-lg w-full bg-white rounded-3xl border border-stone-200 p-8 sm:p-10 shadow-sm text-center space-y-6">
           <div className="w-16 h-16 rounded-2xl bg-[#edf5ee] text-[#24492d] flex items-center justify-center mx-auto shadow-xs">
             <Leaf className="w-8 h-8" />
           </div>
 
           <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
-              Activate Seller Privileges
+            <h1 className="font-serif text-2xl font-bold text-stone-900">
+              Merchant Management
             </h1>
             <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
-              Hello <strong className="text-stone-900">{user.fullName || user.firstName}</strong>. You are currently logged in with a Customer profile. Upgrade your account to become an authorized Herbal Seller and access the Product Add Dashboard.
+              Arboveya store catalog and products are managed through the administrative portal.
             </p>
           </div>
 
-          <div className="p-4 bg-[#f7faf7] rounded-2xl border border-[#dce7dc] text-left text-xs space-y-2">
-            <div className="flex items-center gap-2 text-[#1c3f24] font-bold">
-              <CheckCircle2 className="w-4 h-4 text-[#2E4D38]" />
-              <span>Full Access to Product Add Dashboard</span>
-            </div>
-            <div className="flex items-center gap-2 text-[#1c3f24] font-bold">
-              <CheckCircle2 className="w-4 h-4 text-[#2E4D38]" />
-              <span>Author Botanical Blogs for the Community</span>
-            </div>
-            <div className="flex items-center gap-2 text-[#1c3f24] font-bold">
-              <CheckCircle2 className="w-4 h-4 text-[#2E4D38]" />
-              <span>Direct Sales Channel on Arboveya</span>
-            </div>
-          </div>
-
-          <button
-            onClick={handleActivateSeller}
-            className="w-full py-3.5 px-6 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs sm:text-sm font-bold tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Store className="w-4 h-4" />
-            <span>Activate Seller Dashboard Now</span>
-          </button>
-
-          <div>
-            <Link href="/" className="text-xs text-stone-500 hover:text-stone-900 underline">
-              Return to Home
+          <div className="space-y-3 pt-2">
+            <Link
+              href="/"
+              className="w-full py-3 px-5 rounded-xl bg-[#24492d] hover:bg-[#1a3821] text-white text-xs font-bold tracking-wider uppercase shadow-sm transition flex items-center justify-center gap-2"
+            >
+              <span>Return to Store</span>
             </Link>
           </div>
         </div>

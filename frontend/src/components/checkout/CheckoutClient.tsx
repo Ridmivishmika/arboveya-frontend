@@ -15,10 +15,13 @@ import {
   AlertCircle,
   MessageSquare,
   X,
-  Loader2
+  Loader2,
+  Tag,
+  Sparkles
 } from 'lucide-react';
 import { API_BASE_URL, resolveBackendImageUrl, startProductConversation } from '@/lib/api';
 import { Product } from '@/types';
+import { calculateEffectivePrice } from '@/lib/offerUtils';
 
 declare global {
   interface Window {
@@ -46,6 +49,15 @@ export default function CheckoutClient() {
     availableShippingMethods, 
     clearCart 
   } = useCart();
+
+  const rawSubtotal = React.useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const rawLinePrice = Number(item.selectedVariant?.price ?? item.product.price);
+      return sum + rawLinePrice * item.quantity;
+    }, 0);
+  }, [cart]);
+
+  const totalOfferSavings = Math.max(0, rawSubtotal - subtotal);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -363,13 +375,24 @@ export default function CheckoutClient() {
         shippingAddress: fullShippingAddress,
         shippingMethod: selectedShippingMethod?.name || 'Standard Shipping',
         shippingCost: selectedShippingMethod?.cost ?? 0,
-        items: cart.map(item => ({
-          productId: item.product.id,
-          productName: item.product.name,
-          quantity: item.quantity,
-          unitPrice: item.product.price,
-          productImageUrl: item.product.imageUrl
-        }))
+        items: cart.map(item => {
+          const rawLinePrice = Number(item.selectedVariant?.price ?? item.product.price);
+          const calc = calculateEffectivePrice(
+            rawLinePrice,
+            Number(item.product.discountPercentage) || 0,
+            item.product.offerName,
+            item.quantity
+          );
+          return {
+            productId: item.product.id,
+            productName: item.selectedVariant?.weight
+              ? `${item.product.name} (${item.selectedVariant.weight})`
+              : item.product.name,
+            quantity: item.quantity,
+            unitPrice: calc.unitPrice,
+            productImageUrl: item.product.imageUrl
+          };
+        })
       };
 
       const res = await fetch(`${API_BASE_URL}/orders`, {
@@ -614,7 +637,6 @@ export default function CheckoutClient() {
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Eleanor Vance"
                   className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                 />
               </div>
@@ -627,7 +649,6 @@ export default function CheckoutClient() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="eleanor@example.com"
                     className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -642,7 +663,6 @@ export default function CheckoutClient() {
                     required
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
-                    placeholder="e.g. United States, Sri Lanka, United Kingdom"
                     className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -654,7 +674,6 @@ export default function CheckoutClient() {
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +1 555 123 4567 or 077 123 4567"
                     className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -668,7 +687,6 @@ export default function CheckoutClient() {
                   required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Apartment, suite, unit, building, street address"
                   className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                 />
               </div>
@@ -682,7 +700,6 @@ export default function CheckoutClient() {
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. New York, London, Colombo"
                     className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -694,7 +711,6 @@ export default function CheckoutClient() {
                     required
                     value={zipCode}
                     onChange={(e) => setZipCode(e.target.value)}
-                    placeholder="e.g. 78701 or 00100"
                     className="w-full px-3.5 py-2.5 rounded-md border border-[#ccdacc] bg-[#fafcfa] text-xs focus:outline-none focus:ring-1 focus:ring-[#24492d]"
                   />
                 </div>
@@ -721,51 +737,88 @@ export default function CheckoutClient() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#edf3ed]">
-                  {cart.map((item) => (
-                    <tr key={item.product.id} className="hover:bg-[#fafcfa] transition-colors">
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#d6dfd7] bg-[#f2f6f2] flex-shrink-0">
-                            <Image
-                              src={resolveBackendImageUrl(item.product.imageUrl, '/images/gotu-kola-tea.jpg')}
-                              alt={item.product.name}
-                              fill
-                              sizes="48px"
-                              className="object-cover"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#1c3f24] line-clamp-2 leading-tight">
-                              {item.product.name}
-                            </p>
-                            {(item.product.weight || item.product.categoryName) && (
-                              <p className="text-[10px] text-stone-500 mt-0.5">
-                                {item.product.weight ? `Weight: ${item.product.weight}` : item.product.categoryName}
+                  {cart.map((item) => {
+                    const rawLinePrice = Number(item.selectedVariant?.price ?? item.product.price);
+                    const calc = calculateEffectivePrice(
+                      rawLinePrice,
+                      Number(item.product.discountPercentage) || 0,
+                      item.product.offerName,
+                      item.quantity
+                    );
+                    const linePrice = calc.unitPrice;
+                    const lineTotal = calc.totalPrice;
+                    const isDiscountApplied = calc.isDiscountApplied;
+                    const activeTier = calc.activeTier;
+                    const vKey = item.selectedVariant?.weight ?? '__default__';
+
+                    return (
+                      <tr key={`${item.product.id}_${vKey}`} className="hover:bg-[#fafcfa] transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#d6dfd7] bg-[#f2f6f2] flex-shrink-0">
+                              <Image
+                                src={resolveBackendImageUrl(item.product.imageUrl, '/images/gotu-kola-tea.jpg')}
+                                alt={item.product.name}
+                                fill
+                                sizes="48px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-[#1c3f24] line-clamp-2 leading-tight">
+                                {item.product.name}
                               </p>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleOpenContactSeller(item.product)}
-                              className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
-                              title={`Chat with the seller about ${item.product.name}`}
-                            >
-                              <MessageSquare className="w-3 h-3 text-[#24492d]" />
-                              <span>Chat with Seller</span>
-                            </button>
+                              {(item.selectedVariant?.weight || item.product.weight || item.product.categoryName) && (
+                                <p className="text-[10px] text-stone-500 mt-0.5">
+                                  {item.selectedVariant?.weight ? `Variant: ${item.selectedVariant.weight}` : item.product.weight ? `Weight: ${item.product.weight}` : item.product.categoryName}
+                                </p>
+                              )}
+                              {isDiscountApplied && (
+                                <div className="mt-1">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                    <Tag className="w-2.5 h-2.5 text-emerald-700" />
+                                    {activeTier?.label || item.product.offerName}
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenContactSeller(item.product)}
+                                className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#24492d] hover:text-[#1a3821] hover:underline cursor-pointer"
+                                title={`Chat with the seller about ${item.product.name}`}
+                              >
+                                <MessageSquare className="w-3 h-3 text-[#24492d]" />
+                                <span>Chat with Seller</span>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-2 text-center font-bold text-[#24492d]">
-                        {item.quantity}
-                      </td>
-                      <td className="py-3 px-3 text-right text-stone-600 font-medium whitespace-nowrap">
-                        ${Number(item.product.price).toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-bold text-[#1c3f24] whitespace-nowrap">
-                        ${(Number(item.product.price) * item.quantity).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3 px-2 text-center font-bold text-[#24492d]">
+                          {item.quantity}
+                        </td>
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          <div className="font-semibold text-xs text-[#1c3f24]">
+                            ${linePrice.toFixed(2)}
+                          </div>
+                          {isDiscountApplied && (
+                            <div className="text-[10px] text-stone-400 line-through">
+                              ${rawLinePrice.toFixed(2)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          <div className="font-bold text-xs text-[#1c3f24]">
+                            ${lineTotal.toFixed(2)}
+                          </div>
+                          {isDiscountApplied && (
+                            <div className="text-[10px] text-emerald-700 font-semibold">
+                              Save ${(calc.savingsTotal).toFixed(2)}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -833,13 +886,34 @@ export default function CheckoutClient() {
 
             {/* Totals */}
             <div className="space-y-2 border-t border-[#e2eae2] pt-3 text-xs">
-              <div className="flex justify-between">
-                <span className="text-[#556e59]">SUBTOTAL</span>
-                <span className="font-bold text-[#1c3f24]">${subtotal.toFixed(2)}</span>
-              </div>
+              {totalOfferSavings > 0 ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-[#556e59]">ITEMS TOTAL</span>
+                    <span className="text-stone-500 line-through">${rawSubtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[#15803d]">
+                    <span className="flex items-center gap-1 font-semibold">
+                      <Tag className="w-3 h-3 text-emerald-700" />
+                      OFFER SAVINGS
+                    </span>
+                    <span className="font-bold">-${totalOfferSavings.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-dashed border-[#e2eae2] pt-1.5">
+                    <span className="text-[#556e59] font-medium">SUBTOTAL</span>
+                    <span className="font-bold text-[#1c3f24]">${subtotal.toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-[#556e59]">SUBTOTAL</span>
+                  <span className="font-bold text-[#1c3f24]">${subtotal.toFixed(2)}</span>
+                </div>
+              )}
+
               {discountAmount > 0 && (
                 <div className="flex justify-between text-[#15803d]">
-                  <span>DISCOUNT</span>
+                  <span>COUPON DISCOUNT</span>
                   <span className="font-bold">-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
@@ -1025,7 +1099,6 @@ export default function CheckoutClient() {
                   rows={4}
                   required
                   maxLength={4000}
-                  placeholder="e.g. Hello, what is the shelf life of this herbal remedy? Can it be dispatched expedited?"
                   value={contactSellerMessage}
                   onChange={(e) => setContactSellerMessage(e.target.value)}
                   className="w-full p-3 rounded-xl border border-[#cfded0] text-xs sm:text-sm text-[#1c3f24] placeholder-[#8ea894] focus:outline-none focus:ring-2 focus:ring-[#24492d] resize-none"

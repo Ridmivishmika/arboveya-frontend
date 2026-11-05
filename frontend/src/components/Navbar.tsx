@@ -658,24 +658,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 <span>Blogs</span>
               </button>
 
-              {/* Cart & Checkout Tab Button */}
-              <button
-                onClick={handleBuyerCartClick}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-2xs cursor-pointer ${buyerTab === 'cart'
-                    ? 'bg-[#2E4D38] text-white shadow-xs'
-                    : 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
-                  }`}
-                title="View Cart & Checkout"
-              >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Cart & Checkout</span>
-                {cartCount > 0 && (
-                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#24492d] text-white">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
               {/* Search Bar in Buyer Dashboard */}
               <div className="hidden xl:block w-28 2xl:w-32 mr-1">
                 <NavbarSearch variant="compact" placeholder="Search..." />
@@ -799,7 +781,7 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                 </div>
 
                 {/* Navigation Tabs Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
                       handleBuyerOrdersClick();
@@ -826,20 +808,6 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                   >
                     <BookOpen className="w-4 h-4" />
                     <span>Blogs</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      handleBuyerCartClick();
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${buyerTab === 'cart'
-                        ? 'bg-[#2E4D38] text-white shadow-xs'
-                        : 'border border-stone-200 bg-stone-50/70 text-stone-700 hover:bg-stone-100'
-                      }`}
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>Cart ({cartCount})</span>
                   </button>
                 </div>
 
@@ -1070,14 +1038,34 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
                         </Link>
 
                         {user.role === 'Admin' && (
-                          <Link
-                            href="/admin/messages"
-                            onClick={() => setProfileDropdownOpen(false)}
-                            className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
-                          >
-                            <Store className="w-3.5 h-3.5 text-[#2E4D38]" />
-                            <span>Admin Communication Console</span>
-                          </Link>
+                          <>
+                            <Link
+                              href="/admin/orders"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                            >
+                              <ShoppingBag className="w-3.5 h-3.5 text-[#2E4D38]" />
+                              <span>Manage Orders</span>
+                            </Link>
+
+                            <Link
+                              href="/seller"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                            >
+                              <Store className="w-3.5 h-3.5 text-[#2E4D38]" />
+                              <span>Seller Studio</span>
+                            </Link>
+
+                            <Link
+                              href="/admin/messages"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-[#2E4D38] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-[#2E4D38]" />
+                              <span>Admin Communication Console</span>
+                            </Link>
+                          </>
                         )}
 
                         <button
@@ -1232,13 +1220,29 @@ export default function Navbar({ cartCount: propCount }: NavbarProps) {
             )}
 
             {user && user.role === 'Admin' && (
-              <Link
-                href="/admin/products"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] bg-[#edf5ee]"
-              >
-                Admin Dashboard
-              </Link>
+              <>
+                <Link
+                  href="/admin/products"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] bg-[#edf5ee]"
+                >
+                  Admin Dashboard
+                </Link>
+                <Link
+                  href="/admin/orders"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] hover:bg-[#edf5ee]"
+                >
+                  Manage Orders
+                </Link>
+                <Link
+                  href="/seller"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 rounded-lg text-base font-medium text-[#1c3f24] hover:bg-[#edf5ee]"
+                >
+                  Seller Studio
+                </Link>
+              </>
             )}
 
             {user && (

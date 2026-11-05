@@ -86,7 +86,7 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
     }
   };
 
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'care@arboveya.com';
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'arboveya@gmail.com';
   const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || '';
   const contactWhatsApp = initialSettings?.whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || contactPhone;
   const contactAddress = process.env.NEXT_PUBLIC_CONTACT_ADDRESS || '';

@@ -133,6 +133,15 @@ export default function CartClient() {
 
   const isFreeShipping = subtotal >= 50;
 
+  const rawSubtotal = React.useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const rawLinePrice = Number(item.selectedVariant?.price ?? item.product.price);
+      return sum + rawLinePrice * item.quantity;
+    }, 0);
+  }, [cart]);
+
+  const totalOfferSavings = Math.max(0, rawSubtotal - subtotal);
+
   return (
     <div className="min-h-screen bg-white text-[#1c3f24] font-sans">
       
@@ -447,10 +456,30 @@ export default function CartClient() {
               {/* Order Summary Card */}
               <div className="w-full lg:max-w-md bg-[#f7faf7] border border-[#e0eae0] rounded-xl p-6 sm:p-7 space-y-4">
                 
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="font-bold text-[#1c3f24] uppercase tracking-wider">SUBTOTAL</span>
-                  <span className="font-bold text-[#1c3f24]">${subtotal.toFixed(2)}</span>
-                </div>
+                {totalOfferSavings > 0 ? (
+                  <div className="space-y-2 border-b border-[#e2eae2] pb-3 text-xs sm:text-sm">
+                    <div className="flex items-center justify-between text-[#556e59]">
+                      <span>ITEMS TOTAL</span>
+                      <span className="line-through">${rawSubtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[#15803d]">
+                      <span className="flex items-center gap-1 font-semibold">
+                        <Tag className="w-3.5 h-3.5 text-emerald-700" />
+                        OFFER SAVINGS
+                      </span>
+                      <span className="font-bold">-${totalOfferSavings.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-dashed border-[#e2eae2]">
+                      <span className="font-bold text-[#1c3f24] uppercase tracking-wider">SUBTOTAL</span>
+                      <span className="font-bold text-[#1c3f24]">${subtotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
+                    <span className="font-bold text-[#1c3f24] uppercase tracking-wider">SUBTOTAL</span>
+                    <span className="font-bold text-[#1c3f24]">${subtotal.toFixed(2)}</span>
+                  </div>
+                )}
 
                 {coupon && (
                   <div className="flex items-center justify-between text-xs sm:text-sm text-[#15803d]">

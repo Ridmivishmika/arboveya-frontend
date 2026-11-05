@@ -1268,3 +1268,34 @@ export async function sendAdminConversationMessage(
 
 
 
+
+
+export async function getAllOrders(token?: string): Promise<any[]> {
+  try {
+    const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("arboveya_token") : "") || "";
+    const res = await fetch(`${API_BASE_URL}/orders`, {
+      headers: {
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+      },
+      cache: "no-store"
+    });
+    if (!res.ok) {
+      const fallbackRes = await fetch(`${API_BASE_URL}/orders/seller-orders`, {
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+        },
+        cache: "no-store"
+      });
+      if (fallbackRes.ok) {
+        const data = await fallbackRes.json();
+        return Array.isArray(data) ? data : [];
+      }
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("Failed to fetch all orders:", err);
+    return [];
+  }
+}

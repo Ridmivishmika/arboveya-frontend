@@ -9,7 +9,7 @@ import { resolveBackendImageUrl } from '@/lib/api';
 // Custom SVG Icons for the 11 Wellness Needs
 function WellnessIcon({ name = 'leaf' }: { name?: string }) {
   const iconProps = "w-9 h-9 text-[#2a4d31] stroke-[1.4] transition-colors";
-  
+
   switch (name) {
     case 'lungs':
       return (
@@ -122,7 +122,7 @@ export default function WellnessNeeds({ wellnessNeeds = [], products = [] }: Wel
   return (
     <section className="py-14 bg-[#fcfdfc]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Section Header with Decorative Leaf Flourishes */}
         <div className="flex items-center justify-center gap-3 mb-10 text-center">
           <span className="text-[#3b6040] text-lg">🌿</span>
