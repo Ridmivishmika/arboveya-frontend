@@ -87,10 +87,13 @@ interface Order {
   orderStatus: string;
   paymentStatus: string;
   createdAt: string;
+  updatedAt?: string;
   trackingNumber?: string;
   shippingCarrier?: string;
   shippedAt?: string;
+  estimatedShipDate?: string;
   estimatedDeliveryDate?: string;
+  handlingTime?: string;
   trackingUrl?: string;
   refundStatus?: string;
   refundReason?: string;
@@ -98,6 +101,65 @@ interface Order {
   refundProcessedAt?: string;
   items?: OrderItem[];
   orderItems?: OrderItem[];
+}
+
+function getEstimatedShipDate(order?: { 
+  estimatedShipDate?: string; 
+  shippedAt?: string; 
+  createdAt?: string; 
+  updatedAt?: string; 
+  handlingTime?: string;
+  items?: Array<{ handlingTime?: string; product?: { handlingTime?: string } }>;
+  orderItems?: Array<{ handlingTime?: string; product?: { handlingTime?: string } }>;
+} | null): Date {
+  if (order?.shippedAt) {
+    const s = new Date(order.shippedAt);
+    if (!isNaN(s.getTime())) return s;
+  }
+  if (order?.estimatedShipDate) {
+    const parsed = new Date(order.estimatedShipDate);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  const paidDate = order?.updatedAt ? new Date(order.updatedAt) : (order?.createdAt ? new Date(order.createdAt) : new Date());
+  let handlingDays = 5;
+  const ht = order?.handlingTime || 
+    order?.items?.[0]?.handlingTime || 
+    order?.items?.[0]?.product?.handlingTime || 
+    order?.orderItems?.[0]?.handlingTime || 
+    order?.orderItems?.[0]?.product?.handlingTime;
+
+  if (ht) {
+    const match = ht.match(/(\d+)(?:\s*-\s*(\d+))?/);
+    if (match) {
+      handlingDays = match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10);
+    }
+  }
+  const shipDate = new Date(paidDate.getTime());
+  let added = 0;
+  while (added < handlingDays) {
+    shipDate.setDate(shipDate.getDate() + 1);
+    const day = shipDate.getDay();
+    if (day !== 0 && day !== 6) {
+      added++;
+    }
+  }
+  return shipDate;
+}
+
+function formatEstimatedShipDate(order?: any): string {
+  if (!order) return 'Pending';
+  const d = getEstimatedShipDate(order);
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function getTrackingUrl(trackingNumber?: string, customUrl?: string): string {
+  if (customUrl && customUrl.startsWith('http')) return customUrl;
+  if (!trackingNumber) return 'https://track24.net/service/lkpost/tracking/';
+  return `https://track24.net/service/lkpost/tracking/${encodeURIComponent(trackingNumber.trim())}`;
 }
 
 function getEstimatedDeliveryDate(order?: { estimatedDeliveryDate?: string; createdAt?: string } | null): Date {
@@ -1541,13 +1603,30 @@ export default function BuyerDashboardPage() {
                                    </td>
 
                                    {/* Col 3: Shipment & Delivery */}
-                                  <td className="py-3.5 px-4 align-top max-w-[220px]">
+                                  <td className="py-3.5 px-4 align-top max-w-[240px]">
                                     <div className="space-y-1.5">
                                       {order.trackingNumber ? (
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="font-mono text-[11px] font-bold text-[#1c3f24] bg-[#edf5ee] px-2 py-0.5 rounded border border-[#c5dec7]">
-                                            {order.trackingNumber}
-                                          </span>
+                                          <a
+                                            href={getTrackingUrl(order.trackingNumber, order.trackingUrl)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-mono text-[11px] font-bold text-[#1c3f24] bg-[#edf5ee] hover:bg-[#dcebdd] hover:underline px-2 py-0.5 rounded border border-[#c5dec7] inline-flex items-center gap-1 transition"
+                                            title="Track package on Sri Lanka Post via Track24"
+                                          >
+                                            <span>{order.trackingNumber}</span>
+                                            <ExternalLink className="w-3 h-3 text-[#24492d]" />
+                                          </a>
+                                          <a
+                                            href={getTrackingUrl(order.trackingNumber, order.trackingUrl)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#24492d] hover:bg-[#1b3622] text-white transition shadow-2xs"
+                                            title="Check live status on Track24 (Sri Lanka Post)"
+                                          >
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                            <span>Track</span>
+                                          </a>
                                           <button
                                             type="button"
                                             onClick={() => handleCopyTracking(order.trackingNumber!)}
@@ -1567,6 +1646,15 @@ export default function BuyerDashboardPage() {
                                           <span>{order.shippingMethod || 'Standard Delivery'}</span>
                                         </div>
                                       )}
+
+                                      {/* Estimated Ship Date (Buyer Paid Date + Handling Time) */}
+                                      <div className="flex items-center gap-1 text-[11px] text-stone-700 bg-stone-50 px-2 py-0.5 rounded border border-stone-200">
+                                        <Truck className="w-3 h-3 text-[#24492d] flex-shrink-0" />
+                                        <span>
+                                          {order.shippedAt ? 'Shipped:' : 'Ship by:'}{' '}
+                                          <strong className="text-stone-900">{formatEstimatedShipDate(order)}</strong>
+                                        </span>
+                                      </div>
 
                                       {/* Estimated Delivery Date display */}
                                       <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-semibold bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-100">
@@ -1841,9 +1929,16 @@ export default function BuyerDashboardPage() {
                                              <Truck className="w-3.5 h-3.5 text-stone-400" />
                                              <span>Shipping: <strong>{order.shippingMethod || 'Standard Delivery'}</strong></span>
                                              {order.trackingNumber && (
-                                               <span className="font-mono text-[11px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
-                                                 Tracking #{order.trackingNumber}
-                                               </span>
+                                               <a
+                                                 href={getTrackingUrl(order.trackingNumber, order.trackingUrl)}
+                                                 target="_blank"
+                                                 rel="noopener noreferrer"
+                                                 className="font-mono text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1 transition"
+                                                 title="Check package tracking on Track24 - Sri Lanka Post"
+                                               >
+                                                 <span>Tracking #{order.trackingNumber}</span>
+                                                 <ExternalLink className="w-3 h-3 text-emerald-700" />
+                                               </a>
                                              )}
                                            </div>
                                            <div className="flex items-center gap-3">
@@ -3092,6 +3187,10 @@ export default function BuyerDashboardPage() {
                 <span className="text-stone-400 block text-[10px] uppercase font-bold">Order Status</span>
                 <span className="text-stone-800 font-semibold">{selectedOrderReceipt.orderStatus || 'Processing'}</span>
               </div>
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold">Estimated Ship Date</span>
+                <span className="text-stone-800 font-semibold">{formatEstimatedShipDate(selectedOrderReceipt)}</span>
+              </div>
             </div>
 
             <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-1">
@@ -3099,6 +3198,25 @@ export default function BuyerDashboardPage() {
               <p className="font-semibold text-stone-900">{selectedOrderReceipt.customerName || user?.fullName || 'Customer'}</p>
               <p className="text-stone-600">{selectedOrderReceipt.shippingAddress || 'Address on file'}</p>
             </div>
+
+            {selectedOrderReceipt.trackingNumber && (
+              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200 text-xs flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <span className="text-emerald-800 block text-[10px] uppercase font-bold">Tracking Number (Sri Lanka Post)</span>
+                  <span className="font-mono font-bold text-[#1c3f24] text-sm">{selectedOrderReceipt.trackingNumber}</span>
+                </div>
+                <a
+                  href={getTrackingUrl(selectedOrderReceipt.trackingNumber, selectedOrderReceipt.trackingUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1c3f24] hover:bg-[#2e5737] text-white text-xs font-bold transition shadow-2xs"
+                  title="Check live status on Track24"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Check Status on Track24</span>
+                </a>
+              </div>
+            )}
 
             {/* Itemized Table */}
             <div className="rounded-xl border border-stone-200 overflow-hidden text-xs">

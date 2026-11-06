@@ -27,7 +27,7 @@ export default function Footer({
   }
 
   const effectiveFacebook = facebookLink || process.env.NEXT_PUBLIC_FACEBOOK_LINK || "https://facebook.com";
-  const effectiveWhatsApp = whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || process.env.NEXT_PUBLIC_CONTACT_PHONE || "";
+  const effectiveWhatsApp = whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || process.env.NEXT_PUBLIC_CONTACT_PHONE || "0767810420";
   const effectivePhone = phone || process.env.NEXT_PUBLIC_CONTACT_PHONE || "";
   const effectiveEmail = email || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "arboveya@gmail.com";
   const effectiveAddress = address || process.env.NEXT_PUBLIC_CONTACT_ADDRESS || "Sri Lanka";

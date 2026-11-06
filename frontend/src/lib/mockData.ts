@@ -5,7 +5,7 @@ export const fallbackSettings: SiteSettings = {
   homePageHeroText: "Nature's Healing, Perfected",
   aboutUsContent: "Premium herbal wellness products crafted from nature's finest ingredients to support a healthier and balanced lifestyle.",
   facebookLink: "https://www.facebook.com/share/1DspKR2vtm/",
-  whatsAppNumber: "0717981355"
+  whatsAppNumber: "0767810420"
 };
 
 export const wellnessNeeds: WellnessNeed[] = [

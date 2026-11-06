@@ -250,6 +250,39 @@ const sampleOrdersData: DetailedOrder[] = [
   }
 ];
 
+
+function calculateShipByDate(order: any): string {
+  if (order.shippedAt) {
+    const s = new Date(order.shippedAt);
+    if (!isNaN(s.getTime())) return s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  if (order.estimatedShipDate) {
+    const s = new Date(order.estimatedShipDate);
+    if (!isNaN(s.getTime())) return s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  const paidDate = order.updatedAt ? new Date(order.updatedAt) : (order.createdAt ? new Date(order.createdAt) : new Date());
+  let handlingDays = 5;
+  const ht = order.handlingTime || 
+    order.items?.[0]?.handlingTime || 
+    order.orderItems?.[0]?.handlingTime;
+  if (ht) {
+    const match = String(ht).match(/(\d+)(?:\s*-\s*(\d+))?/);
+    if (match) {
+      handlingDays = match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10);
+    }
+  }
+  const shipDate = new Date(paidDate.getTime());
+  let added = 0;
+  while (added < handlingDays) {
+    shipDate.setDate(shipDate.getDate() + 1);
+    const day = shipDate.getDay();
+    if (day !== 0 && day !== 6) {
+      added++;
+    }
+  }
+  return shipDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, token }: ManageOrdersProps) {
   // Navigation & View state
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -364,7 +397,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
           salesRecordNo: `${236 - idx}`,
           createdAt: o.createdAt || new Date().toISOString(),
           datePaid: o.createdAt || new Date().toISOString(),
-          shipByDate: 'Within 3 business days',
+          shipByDate: calculateShipByDate(o),
           estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
           estimatedDelivery: o.estimatedDeliveryDate
             ? new Date(o.estimatedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -459,7 +492,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
             salesRecordNo: `${236 - idx}`,
             createdAt: o.createdAt || new Date().toISOString(),
             datePaid: o.createdAt || new Date().toISOString(),
-            shipByDate: 'Within 3 business days',
+            shipByDate: calculateShipByDate(o),
             estimatedDeliveryDate: o.estimatedDeliveryDate || existing?.estimatedDeliveryDate || undefined,
             estimatedDelivery: (o.estimatedDeliveryDate || existing?.estimatedDeliveryDate)
               ? new Date(o.estimatedDeliveryDate || existing?.estimatedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1843,7 +1876,16 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                                         {order.trackingNumber ? (
                                           <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
                                             <span className="text-stone-500">Tracking:</span>
-                                            <span className="font-mono font-bold text-stone-800">{order.trackingNumber}</span>
+                                            <a
+                                               href={order.trackingUrl || `https://track24.net/service/lkpost/tracking/${encodeURIComponent(order.trackingNumber.trim())}`}
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               className="font-mono font-bold text-blue-600 hover:underline inline-flex items-center gap-1"
+                                               title="Track on Track24 (Sri Lanka Post)"
+                                             >
+                                               <span>{order.trackingNumber}</span>
+                                               <ExternalLink className="w-3 h-3" />
+                                             </a>
                                             <button
                                               onClick={() => handleOpenTrackingModal(order)}
                                               className="text-blue-600 underline font-semibold cursor-pointer"

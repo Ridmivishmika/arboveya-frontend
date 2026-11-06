@@ -87,8 +87,8 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
   };
 
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'arboveya@gmail.com';
-  const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || '';
-  const contactWhatsApp = initialSettings?.whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || contactPhone;
+  const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || '0767810420';
+  const contactWhatsApp = initialSettings?.whatsAppNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || contactPhone || '0767810420';
   const contactAddress = process.env.NEXT_PUBLIC_CONTACT_ADDRESS || 'Sri Lanka';
 
   return (
@@ -236,12 +236,12 @@ export default function ContactClient({ initialSettings }: ContactClientProps) {
                   WHATSAPP
                 </h3>
                 <a
-                  href="https://wa.me/94717981355"
+                  href={`https://wa.me/94${(contactWhatsApp || '0767810420').replace(/\D/g, '').replace(/^0/, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs sm:text-sm text-stone-600 hover:text-[#24492d] transition-colors"
                 >
-                  {contactWhatsApp}
+                  {contactWhatsApp || '0767810420'}
                 </a>
               </div>
             </div>

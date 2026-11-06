@@ -23,6 +23,7 @@ import {
   LogIn,
   Building2,
   CreditCard,
+  ExternalLink,
   Edit3,
   X,
   Copy,
@@ -283,7 +284,17 @@ export default function ProfilePage() {
                           <div className="mt-2 inline-flex items-center gap-2 text-[11px] text-[#1c3f24] bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200">
                             <Truck className="w-3.5 h-3.5 text-emerald-700" />
                             <span>
-                              <strong>{order.shippingCarrier || 'Courier'}:</strong> {order.trackingNumber}
+                              <strong>{order.shippingCarrier || 'Sri Lanka Post'}:</strong>{' '}
+                              <a
+                                href={`https://track24.net/service/lkpost/tracking/${encodeURIComponent(order.trackingNumber.trim())}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-mono font-bold text-[#1c3f24] hover:underline inline-flex items-center gap-1"
+                                title="Check status on Track24 (Sri Lanka Post)"
+                              >
+                                {order.trackingNumber}
+                                <ExternalLink className="w-3 h-3 text-[#1c3f24]" />
+                              </a>
                             </span>
                           </div>
                         ) : null}
