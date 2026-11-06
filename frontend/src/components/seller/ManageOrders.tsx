@@ -251,16 +251,18 @@ const sampleOrdersData: DetailedOrder[] = [
 ];
 
 
-function calculateShipByDate(order: any): string {
+function calculateShipByDateObj(order: any): Date {
   if (order.shippedAt) {
     const s = new Date(order.shippedAt);
-    if (!isNaN(s.getTime())) return s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!isNaN(s.getTime())) return s;
   }
   if (order.estimatedShipDate) {
     const s = new Date(order.estimatedShipDate);
-    if (!isNaN(s.getTime())) return s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!isNaN(s.getTime())) return s;
   }
-  const paidDate = order.updatedAt ? new Date(order.updatedAt) : (order.createdAt ? new Date(order.createdAt) : new Date());
+  const paidDate = order.datePaid 
+    ? new Date(order.datePaid) 
+    : (order.createdAt ? new Date(order.createdAt) : (order.updatedAt ? new Date(order.updatedAt) : new Date()));
   let handlingDays = 5;
   const ht = order.handlingTime || 
     order.items?.[0]?.handlingTime || 
@@ -280,7 +282,17 @@ function calculateShipByDate(order: any): string {
       added++;
     }
   }
-  return shipDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return shipDate;
+}
+
+function calculateShipByDate(order: any): string {
+  const d = calculateShipByDateObj(order);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getShipByShortDate(order: any): string {
+  const d = calculateShipByDateObj(order);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, token }: ManageOrdersProps) {
@@ -1028,7 +1040,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                           )}
                         </div>
                         <span className="text-xs font-bold text-stone-900 mt-2">Ship by</span>
-                        <span className="text-[11px] text-stone-500">Oct 7</span>
+                        <span className="text-[11px] text-stone-500">{getShipByShortDate(o)}</span>
                       </div>
 
                       {/* Step 3: Delivery */}
@@ -1794,7 +1806,7 @@ export default function ManageOrders({ orders: rawOrders = [], onRefresh, user, 
                                     ) : (
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900">
                                         <Truck className="w-3 h-3 text-amber-800" />
-                                        <span>Ship by {order.shipByDate || 'Oct 7'}</span>
+                                        <span>Ship by {order.shipByDate || calculateShipByDate(order)}</span>
                                       </span>
                                     )}
 
