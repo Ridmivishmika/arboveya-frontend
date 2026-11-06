@@ -301,9 +301,20 @@ function BlogContent() {
     }
   }, [user]);
 
-  // Check if returning with intent to write an article
+  // Check if returning with intent to edit or write an article
   useEffect(() => {
-    if (searchParams.get('action') === 'write') {
+    const editId = searchParams.get('edit');
+    if (editId) {
+      const found = blogs.find(b => b.id === editId) || myBlogs.find(b => b.id === editId);
+      if (found) {
+        handleOpenEdit(found);
+      } else {
+        const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || undefined;
+        getBlogById(editId, authToken).then(b => {
+          if (b) handleOpenEdit(b);
+        });
+      }
+    } else if (searchParams.get('action') === 'write') {
       if (user) {
         setEditingBlog(null);
         setFormTitle('');
@@ -317,7 +328,7 @@ function BlogContent() {
         setShowAuthModal(true);
       }
     }
-  }, [searchParams, user]);
+  }, [searchParams, user, blogs, myBlogs, token]);
 
   // Filter published blogs by search & category
   const filteredBlogs = blogs.filter((blog) => {
@@ -897,8 +908,9 @@ function BlogContent() {
                       View
                     </Link>
                     <button
+                      type="button"
                       onClick={() => handleOpenEdit(blog)}
-                      className="px-3 py-1.5 rounded-xl bg-[#2E4D38] text-white hover:bg-[#243f2e] text-xs font-semibold transition flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl bg-[#2E4D38] text-white hover:bg-[#243f2e] text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>Edit</span>
@@ -953,47 +965,60 @@ function BlogContent() {
                     className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col group"
                   >
                     {/* Card Thumbnail */}
-                    <Link href={`/blog/${blog.id}`} className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 flex items-center justify-center block cursor-pointer">
-                      {blog.imageUrl && !blogImgErrors[blog.id] ? (
-                        <Image
-                          src={resolveBackendImageUrl(blog.imageUrl)}
-                          alt={blog.title}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                          onError={() => setBlogImgErrors(prev => ({ ...prev, [blog.id]: true }))}
-                          className="object-cover group-hover:scale-104 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-[#f4f7f4] border-b border-stone-200 text-center select-none" title={blog.title}>
-                          <div className="w-10 h-10 rounded-full bg-white border border-[#cbe0ce] text-[#24492d] flex items-center justify-center mb-2 shadow-2xs">
-                            <Leaf className="w-5 h-5 text-[#2E4D38]" />
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 flex items-center justify-center">
+                      <Link href={`/blog/${blog.id}`} className="absolute inset-0 block cursor-pointer z-0">
+                        {blog.imageUrl && !blogImgErrors[blog.id] ? (
+                          <Image
+                            src={resolveBackendImageUrl(blog.imageUrl)}
+                            alt={blog.title}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            onError={() => setBlogImgErrors(prev => ({ ...prev, [blog.id]: true }))}
+                            className="object-cover group-hover:scale-104 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-[#f4f7f4] border-b border-stone-200 text-center select-none" title={blog.title}>
+                            <div className="w-10 h-10 rounded-full bg-white border border-[#cbe0ce] text-[#24492d] flex items-center justify-center mb-2 shadow-2xs">
+                              <Leaf className="w-5 h-5 text-[#2E4D38]" />
+                            </div>
+                            <span className="text-xs font-serif font-bold text-[#1c3f24] line-clamp-2 break-words px-2 leading-snug">
+                              {blog.title}
+                            </span>
+                            <span className="text-[10px] text-[#55785a] mt-1 uppercase tracking-wider font-semibold truncate max-w-[150px]">
+                              {blog.category || 'Wellness'}
+                            </span>
                           </div>
-                          <span className="text-xs font-serif font-bold text-[#1c3f24] line-clamp-2 break-words px-2 leading-snug">
-                            {blog.title}
-                          </span>
-                          <span className="text-[10px] text-[#55785a] mt-1 uppercase tracking-wider font-semibold truncate max-w-[150px]">
-                            {blog.category || 'Wellness'}
-                          </span>
-                        </div>
-                      )}
+                        )}
+                      </Link>
+
                       {blog.category && (
-                        <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-[#2E4D38] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-xs max-w-[140px] truncate">
+                        <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-[#2E4D38] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-xs max-w-[140px] truncate pointer-events-none z-10">
                           {blog.category}
                         </span>
                       )}
 
                       {/* Quick Edit/Delete toolbar if author or admin */}
                       {isAuthorOrAdmin && (
-                        <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/95 backdrop-blur-xs p-1 rounded-lg shadow-xs">
+                        <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/95 backdrop-blur-xs p-1 rounded-lg shadow-xs z-20">
                           <button
-                            onClick={() => handleOpenEdit(blog)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenEdit(blog);
+                            }}
                             title="Edit Blog"
                             className="p-1 hover:bg-stone-100 rounded text-stone-600 hover:text-[#2E4D38] transition cursor-pointer"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteBlog(blog)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteBlog(blog);
+                            }}
                             title="Delete Blog"
                             className="p-1 hover:bg-rose-50 rounded text-stone-400 hover:text-rose-600 transition cursor-pointer"
                           >
@@ -1001,7 +1026,7 @@ function BlogContent() {
                           </button>
                         </div>
                       )}
-                    </Link>
+                    </div>
 
                     {/* Card Body */}
                     <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between overflow-hidden">

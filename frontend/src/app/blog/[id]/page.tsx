@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
@@ -23,9 +23,27 @@ import {
   ShieldCheck,
   AlertCircle,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  X,
+  PenTool,
+  Upload,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Quote,
+  Minus,
+  Eye,
+  Type,
+  Info,
+  CheckCircle2
 } from 'lucide-react';
-import { getBlogById, getPublishedBlogs, resolveBackendImageUrl, deleteBlog } from '@/lib/api';
+import { getBlogById, getPublishedBlogs, resolveBackendImageUrl, deleteBlog, updateBlog, uploadBlogImage } from '@/lib/api';
 import BlogRenderer, { stripBlogFormatting } from '@/components/blog/BlogRenderer';
 
 export default function BlogPostDetailPage() {
@@ -42,6 +60,22 @@ export default function BlogPostDetailPage() {
   const [imageError, setImageError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Edit Modal States
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formCategories, setFormCategories] = useState<string[]>(['Wellness']);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [formContent, setFormContent] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
+  const [selectedFontSize, setSelectedFontSize] = useState<string>('normal');
+  const [submitting, setSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+
   // Fetch blog data
   useEffect(() => {
     if (!blogId) return;
@@ -51,7 +85,8 @@ export default function BlogPostDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getBlogById(blogId, token || undefined);
+        const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || undefined;
+        const data = await getBlogById(blogId, authToken);
         if (!isMounted) return;
 
         if (!data) {
@@ -88,7 +123,7 @@ export default function BlogPostDetailPage() {
   }, [blogId, token]);
 
   // Reading time estimate (200 wpm)
-  const readingTime = React.useMemo(() => {
+  const readingTime = useMemo(() => {
     if (!blog?.content) return 1;
     const plain = stripBlogFormatting(blog.content);
     const words = plain.trim().split(/\s+/).filter(Boolean).length;
@@ -108,15 +143,191 @@ export default function BlogPostDetailPage() {
     }
   };
 
+  // Open Edit Modal
+  const handleOpenEdit = () => {
+    if (!blog) return;
+    setFormTitle(blog.title);
+    let cats: string[] = [];
+    if (blog.categories && blog.categories.length > 0) {
+      cats = [...blog.categories];
+    } else if (blog.category) {
+      cats = blog.category.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (cats.length === 0) cats = ['Wellness'];
+    setFormCategories(cats);
+    setCustomCategoryInput('');
+    setFormImageUrl(blog.imageUrl || '');
+    setFormContent(blog.content || '');
+    setEditorTab('write');
+    setSelectedFontSize('normal');
+    setStatusMessage(null);
+    setUploadError(null);
+    setShowEditModal(true);
+  };
+
+  // Text formatting helpers for Blog content
+  const applyFormatting = (prefix: string, suffix: string = '', defaultText: string = 'text') => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = formContent;
+    const selectedText = text.substring(start, end);
+
+    const insertText = selectedText ? `${prefix}${selectedText}${suffix}` : `${prefix}${defaultText}${suffix}`;
+    const updated = text.substring(0, start) + insertText + text.substring(end);
+    setFormContent(updated);
+
+    setTimeout(() => {
+      el.focus();
+      if (selectedText) {
+        el.setSelectionRange(start + prefix.length, end + prefix.length);
+      } else {
+        el.setSelectionRange(start + prefix.length, start + prefix.length + defaultText.length);
+      }
+    }, 0);
+  };
+
+  const applyLinePrefix = (prefix: string, defaultText: string = 'Heading text') => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = formContent;
+
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = text.indexOf('\n', end);
+    const actualLineEnd = lineEnd === -1 ? text.length : lineEnd;
+
+    const currentLine = text.substring(lineStart, actualLineEnd);
+    const cleanedLine = currentLine.replace(/^(#+\s*|>\s*|[-*]\s*|\d+\.\s*)/, '');
+    const newText = prefix ? `${prefix} ${cleanedLine || defaultText}` : cleanedLine;
+
+    const updated = text.substring(0, lineStart) + newText + text.substring(actualLineEnd);
+    setFormContent(updated);
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(lineStart + newText.length, lineStart + newText.length);
+    }, 0);
+  };
+
+  const applyFontSize = (size: string) => {
+    setSelectedFontSize(size);
+    if (size === 'h1') applyLinePrefix('#', 'Main Title');
+    else if (size === 'h2') applyLinePrefix('##', 'Subheading');
+    else if (size === 'h3') applyLinePrefix('###', 'Section Heading');
+    else if (size === 'small') applyFormatting('<small>', '</small>', 'Small text note');
+    else applyLinePrefix('', '');
+  };
+
+  const toggleFormCategory = (cat: string) => {
+    setFormCategories((prev) => {
+      if (prev.includes(cat)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter(c => c !== cat);
+      } else {
+        return [...prev, cat];
+      }
+    });
+  };
+
+  const handleAddFormCustomCategory = () => {
+    const trimmed = customCategoryInput.trim();
+    if (!trimmed) return;
+    if (!formCategories.includes(trimmed)) {
+      setFormCategories(prev => [...prev, trimmed]);
+    }
+    setCustomCategoryInput('');
+  };
+
+  // Image Upload handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image size exceeds 5MB limit');
+      return;
+    }
+
+    setUploadingImage(true);
+    setUploadError(null);
+
+    try {
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || undefined;
+      const uploadedUrl = await uploadBlogImage(file, authToken);
+      setFormImageUrl(uploadedUrl);
+    } catch (err: any) {
+      setUploadError(err?.message || 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Submit Updated Blog
+  const handleUpdateBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blog) return;
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+    if (!authToken) {
+      alert('Please log in to edit this blog.');
+      return;
+    }
+
+    setSubmitting(true);
+    setStatusMessage(null);
+
+    const finalCategoryString = formCategories.join(', ');
+
+    try {
+      const updated = await updateBlog(
+        blog.id,
+        {
+          title: formTitle.trim(),
+          content: formContent.trim(),
+          category: finalCategoryString,
+          categories: formCategories,
+          imageUrl: formImageUrl.trim(),
+        },
+        authToken
+      );
+
+      setBlog(updated);
+      setImageError(false);
+      setShowEditModal(false);
+      setStatusMessage({ text: 'Article updated successfully!', type: 'success' });
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (err: any) {
+      setStatusMessage({ text: err?.message || 'Failed to update article', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Delete handler
   const handleDelete = async () => {
-    if (!blog || !token) return;
+    if (!blog) return;
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arboveya_token') : '') || '';
+    if (!authToken) {
+      alert('Please log in to delete this article.');
+      return;
+    }
+
     const confirmed = window.confirm(`Are you sure you want to delete "${blog.title}"? This cannot be undone.`);
     if (!confirmed) return;
 
     setIsDeleting(true);
     try {
-      await deleteBlog(blog.id, token);
+      await deleteBlog(blog.id, authToken);
       router.push('/blog');
     } catch (err: any) {
       alert(err?.message || 'Failed to delete blog');
@@ -229,15 +440,17 @@ export default function BlogPostDetailPage() {
 
             {isAuthorOrAdmin && (
               <>
-                <Link
-                  href={`/blog?edit=${blog.id}`}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#243f2e] transition shadow-2xs"
+                <button
+                  type="button"
+                  onClick={handleOpenEdit}
+                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-[#2E4D38] text-white text-xs font-semibold hover:bg-[#243f2e] transition shadow-2xs cursor-pointer"
                   title="Edit this blog"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Edit</span>
-                </Link>
+                  <span>Edit</span>
+                </button>
                 <button
+                  type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold hover:bg-rose-100 transition shadow-2xs cursor-pointer disabled:opacity-50"
@@ -251,6 +464,24 @@ export default function BlogPostDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Floating Status / Success Toast */}
+      {statusMessage && (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className={`p-4 rounded-xl flex items-center gap-3 text-xs sm:text-sm font-medium shadow-sm ${
+            statusMessage.type === 'success' 
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' 
+              : 'bg-rose-50 text-rose-900 border border-rose-200'
+          }`}>
+            {statusMessage.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            )}
+            <span>{statusMessage.text}</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Article Container */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
@@ -444,7 +675,389 @@ export default function BlogPostDetailPage() {
           </section>
         )}
       </main>
+
+      {/* EDIT BLOG MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-5">
+              <div className="flex items-center gap-2">
+                <PenTool className="w-5 h-5 text-[#2E4D38]" />
+                <h3 className="font-serif text-xl font-bold text-stone-900">
+                  Edit Blog Post
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="p-1 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {user?.role === 'Seller' && (
+              <div className="mb-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Seller Publishing Policy:</strong> For changes to appear publicly, an administrator may review updated content.
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateBlog} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Blog Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g. The Healing Power of Gotu Kola"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38]"
+                />
+              </div>
+
+              {/* Multi-category Selector */}
+              <div className="space-y-2 p-3.5 bg-[#fbfdfb] border border-stone-200 rounded-xl">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Categories (Select one or more) *
+                  </label>
+                  <span className="text-[11px] font-bold text-[#2E4D38] bg-[#edf5ee] px-2.5 py-0.5 rounded-full border border-[#bcd2bf]">
+                    {formCategories.length} {formCategories.length === 1 ? 'Category' : 'Categories'} Selected
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pt-0.5">
+                  {Array.from(new Set([
+                    'Wellness',
+                    'Herbal Remedies',
+                    'Ayurveda',
+                    'Herbal Tea',
+                    'Skincare',
+                    'Nutrition',
+                    'Mindfulness',
+                    'Tea Rituals',
+                    'Plant Nutrition',
+                    ...formCategories
+                  ])).map((cat) => {
+                    const isSelected = formCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => toggleFormCategory(cat)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                          isSelected
+                            ? 'bg-[#2E4D38] text-white border-[#2E4D38]'
+                            : 'bg-white text-stone-700 border-stone-200 hover:border-[#2E4D38]/40 hover:bg-[#edf5ee]'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                        <span>{cat}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddFormCustomCategory();
+                      }
+                    }}
+                    placeholder="Or type custom category and click Add..."
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-200 focus:outline-none focus:ring-1 focus:ring-[#2E4D38]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddFormCustomCategory}
+                    disabled={!customCategoryInput.trim()}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Cover Image Upload */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Featured Image / Cover (Optional)
+                  </label>
+                  {formImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormImageUrl('')}
+                      className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+                    >
+                      Remove Image
+                    </button>
+                  )}
+                </div>
+
+                {formImageUrl ? (
+                  <div className="relative aspect-[16/7] w-full rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs">
+                    <Image
+                      src={resolveBackendImageUrl(formImageUrl)}
+                      alt={formTitle || 'Blog cover preview'}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-white/95 text-stone-800 text-xs font-semibold hover:bg-white shadow-xs transition cursor-pointer"
+                      >
+                        Change Image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormImageUrl('')}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 shadow-xs transition cursor-pointer"
+                      >
+                        Clear Image
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="aspect-[16/7] w-full rounded-xl bg-[#f4f7f4] border-2 border-dashed border-[#ccdccd] flex flex-col items-center justify-center p-4 text-center">
+                    <div className="w-10 h-10 rounded-full bg-white text-[#24492d] flex items-center justify-center mb-1.5 shadow-2xs">
+                      <Leaf className="w-5 h-5 opacity-70" />
+                    </div>
+                    <span className="text-xs font-serif font-bold text-[#1c3f24] line-clamp-1 break-words">
+                      {formTitle || 'No Image Added (Will display blog title)'}
+                    </span>
+                    <span className="text-[10px] text-stone-400 mt-0.5">
+                      Upload an image from your device below, or leave blank to display title banner
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="w-full py-2.5 px-3 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-[#2E4D38]" />
+                        <span>Uploading image...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 text-stone-600" />
+                        <span>Upload Image from Device</span>
+                      </>
+                    )}
+                  </button>
+                  {uploadError && (
+                    <p className="text-[11px] text-rose-600 mt-1">{uploadError}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Write & Preview Tabs */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1 p-1 bg-stone-100 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setEditorTab('write')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                        editorTab === 'write' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-500 hover:text-stone-900'
+                      }`}
+                    >
+                      Write
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorTab('preview')}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${
+                        editorTab === 'preview' ? 'bg-white text-[#2E4D38] shadow-2xs' : 'text-stone-500 hover:text-stone-900'
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Live Preview</span>
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] text-stone-400">
+                    {formContent.length} characters
+                  </span>
+                </div>
+
+                {editorTab === 'write' ? (
+                  <div className="space-y-1.5">
+                    {/* Rich Formatting Toolbar */}
+                    <div className="flex flex-wrap items-center gap-1 p-2 bg-[#f9faf9] border border-stone-200 rounded-xl">
+                      <div className="flex items-center gap-1 border-r border-stone-200 pr-2 mr-1">
+                        <Type className="w-3.5 h-3.5 text-stone-500" />
+                        <select
+                          value={selectedFontSize}
+                          onChange={(e) => applyFontSize(e.target.value)}
+                          className="text-xs bg-white border border-stone-200 rounded-md px-1.5 py-0.5 text-stone-700 focus:outline-none"
+                          title="Font size / Heading level"
+                        >
+                          <option value="normal">Normal Body</option>
+                          <option value="h1">Heading 1 (Main)</option>
+                          <option value="h2">Heading 2 (Sub)</option>
+                          <option value="h3">Heading 3 (Section)</option>
+                          <option value="small">Small Note</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('**', '**', 'bold text')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Bold (**text**)"
+                      >
+                        <Bold className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('*', '*', 'italic text')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Italic (*text*)"
+                      >
+                        <Italic className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('<u>', '</u>', 'underlined text')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Underline"
+                      >
+                        <Underline className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('~~', '~~', 'strikethrough text')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Strikethrough (~~text~~)"
+                      >
+                        <Strikethrough className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="w-[1px] h-4 bg-stone-200 mx-1" />
+
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('#', 'Main Heading')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Heading 1 (# Heading)"
+                      >
+                        <Heading1 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('##', 'Subheading')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Heading 2 (## Heading)"
+                      >
+                        <Heading2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('###', 'Section Heading')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Heading 3 (### Heading)"
+                      >
+                        <Heading3 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="w-[1px] h-4 bg-stone-200 mx-1" />
+
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('- ', 'List item')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Bullet List (- item)"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('1. ', 'Ordered item')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Numbered List (1. item)"
+                      >
+                        <ListOrdered className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('> ', 'Quote line')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Quote (> Quote)"
+                      >
+                        <Quote className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyLinePrefix('---', '')}
+                        className="p-1.5 hover:bg-stone-200 rounded text-stone-700 transition cursor-pointer"
+                        title="Horizontal Divider (---)"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <textarea
+                      ref={textareaRef}
+                      required
+                      rows={12}
+                      value={formContent}
+                      onChange={(e) => setFormContent(e.target.value)}
+                      placeholder="Write your article content here..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4D38]/30 focus:border-[#2E4D38] font-mono leading-relaxed resize-y"
+                    />
+                  </div>
+                ) : (
+                  <div className="border border-stone-200 rounded-xl p-5 min-h-[300px] max-h-[500px] overflow-y-auto bg-white">
+                    <BlogRenderer content={formContent || '*No content to preview yet.*'} />
+                  </div>
+                )}
+              </div>
+
+              {/* Form Buttons */}
+              <div className="pt-4 border-t border-stone-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2.5 rounded-xl bg-[#2E4D38] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#243f2e] transition shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {submitting ? 'Updating...' : 'Save & Update Article'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
