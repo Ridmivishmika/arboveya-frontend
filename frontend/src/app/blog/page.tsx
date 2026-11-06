@@ -50,7 +50,7 @@ import {
   Filter,
   Leaf
 } from 'lucide-react';
-import { uploadBlogImage, API_BASE_URL, resolveBackendImageUrl } from '@/lib/api';
+import { uploadBlogImage, API_BASE_URL, resolveBackendImageUrl, getBlogById } from '@/lib/api';
 import BlogRenderer, { stripBlogFormatting } from '@/components/blog/BlogRenderer';
 
 const CATEGORIES = ['All', 'Wellness', 'Herbal Tea', 'Skincare', 'Nutrition', 'Mindfulness'];
@@ -102,7 +102,7 @@ function BlogContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
-  const [readingBlog, setReadingBlog] = useState<BlogPost | null>(null);
+  // Removed readingBlog popup state in favor of full-page navigation (/blog/[id])
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -847,7 +847,7 @@ function BlogContent() {
                   className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs hover:shadow-md transition flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200 flex items-center justify-center">
+                    <Link href={`/blog/${blog.id}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200 flex items-center justify-center hover:opacity-90 transition block">
                       {blog.imageUrl && !blogImgErrors[blog.id] ? (
                         <Image
                           src={resolveBackendImageUrl(blog.imageUrl)}
@@ -864,7 +864,7 @@ function BlogContent() {
                           </span>
                         </div>
                       )}
-                    </div>
+                    </Link>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1.5 flex-wrap overflow-hidden">
                         {renderStatusBadge(blog)}
@@ -875,13 +875,14 @@ function BlogContent() {
                           {new Date(blog.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       </div>
-                      <h3 
-                        onClick={() => setReadingBlog(blog)}
-                        className="font-serif text-sm sm:text-base font-bold text-stone-900 hover:text-[#2E4D38] cursor-pointer break-words line-clamp-2 leading-snug"
-                        title={blog.title}
-                      >
-                        {blog.title}
-                      </h3>
+                      <Link href={`/blog/${blog.id}`}>
+                        <h3 
+                          className="font-serif text-sm sm:text-base font-bold text-stone-900 hover:text-[#2E4D38] cursor-pointer break-words line-clamp-2 leading-snug"
+                          title={blog.title}
+                        >
+                          {blog.title}
+                        </h3>
+                      </Link>
                       <p className="text-xs text-stone-500 line-clamp-1 mt-1 max-w-xl break-words">
                         {stripBlogFormatting(blog.content)}
                       </p>
@@ -889,12 +890,12 @@ function BlogContent() {
                   </div>
 
                   <div className="flex items-center gap-2 self-end md:self-center">
-                    <button
-                      onClick={() => setReadingBlog(blog)}
-                      className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 text-xs font-semibold transition"
+                    <Link
+                      href={`/blog/${blog.id}`}
+                      className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 text-xs font-semibold transition inline-flex items-center gap-1"
                     >
-                      Preview
-                    </button>
+                      View
+                    </Link>
                     <button
                       onClick={() => handleOpenEdit(blog)}
                       className="px-3 py-1.5 rounded-xl bg-[#2E4D38] text-white hover:bg-[#243f2e] text-xs font-semibold transition flex items-center gap-1"
@@ -952,7 +953,7 @@ function BlogContent() {
                     className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col group"
                   >
                     {/* Card Thumbnail */}
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 flex items-center justify-center">
+                    <Link href={`/blog/${blog.id}`} className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 flex items-center justify-center block cursor-pointer">
                       {blog.imageUrl && !blogImgErrors[blog.id] ? (
                         <Image
                           src={resolveBackendImageUrl(blog.imageUrl)}
@@ -1000,19 +1001,20 @@ function BlogContent() {
                           </button>
                         </div>
                       )}
-                    </div>
+                    </Link>
 
                     {/* Card Body */}
                     <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between overflow-hidden">
                       <div className="overflow-hidden">
                         {/* Title - break-words and line-clamp so it never crosses boundaries */}
-                        <h2 
-                          onClick={() => setReadingBlog(blog)}
-                          className="font-serif text-base sm:text-lg font-bold text-stone-900 leading-snug mb-2 group-hover:text-[#2E4D38] transition-colors cursor-pointer break-words line-clamp-2"
-                          title={blog.title}
-                        >
-                          {blog.title}
-                        </h2>
+                        <Link href={`/blog/${blog.id}`}>
+                          <h2 
+                            className="font-serif text-base sm:text-lg font-bold text-stone-900 leading-snug mb-2 group-hover:text-[#2E4D38] transition-colors cursor-pointer break-words line-clamp-2"
+                            title={blog.title}
+                          >
+                            {blog.title}
+                          </h2>
+                        </Link>
 
                         {/* Meta */}
                         <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-stone-400 mb-3 font-medium flex-wrap overflow-hidden">
@@ -1035,13 +1037,13 @@ function BlogContent() {
 
                       {/* Read More link button */}
                       <div className="pt-4 border-t border-stone-100 flex items-center justify-between">
-                        <button
-                          onClick={() => setReadingBlog(blog)}
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2E4D38] hover:text-[#1c3524] transition uppercase tracking-wider cursor-pointer"
+                        <Link
+                          href={`/blog/${blog.id}`}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2E4D38] hover:text-[#1c3524] transition uppercase tracking-wider cursor-pointer group/btn"
                         >
                           <span>Read Full Blog</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                        </Link>
                       </div>
                     </div>
                   </article>
@@ -1505,140 +1507,7 @@ function BlogContent() {
         </div>
       )}
 
-      {/* 6. MODAL: READ FULL BLOG (IMAGE DISPLAYED FROM THE TOP) */}
-      {readingBlog && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto overflow-hidden">
-            {/* Top Featured Hero Image or Clean Framed Title Header */}
-            {readingBlog.imageUrl && !blogImgErrors[readingBlog.id] ? (
-              <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-stone-100 overflow-hidden">
-                <Image
-                  src={resolveBackendImageUrl(readingBlog.imageUrl)}
-                  alt={readingBlog.title}
-                  fill
-                  priority
-                  onError={() => setBlogImgErrors(prev => ({ ...prev, [readingBlog.id]: true }))}
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
-                <div className="absolute top-4 left-4 flex flex-wrap gap-1.5 max-w-[80%]">
-                  {readingBlog.categories && readingBlog.categories.length > 0 ? (
-                    readingBlog.categories.map((c, i) => (
-                      <span key={i} className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                        {c}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs font-bold text-white bg-[#2E4D38]/90 backdrop-blur-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                      {readingBlog.category || 'Wellness'}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => setReadingBlog(null)}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10"
-                  title="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <div className="relative bg-[#f4f7f4] border-b border-stone-200 p-6 sm:p-8 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-11 h-11 rounded-full bg-white border border-[#cbe0ce] flex items-center justify-center flex-shrink-0 shadow-2xs">
-                    <Leaf className="w-6 h-6 text-[#2E4D38]" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap gap-1.5 mb-1">
-                      {readingBlog.categories && readingBlog.categories.length > 0 ? (
-                        readingBlog.categories.map((c, i) => (
-                          <span key={i} className="text-[10px] font-bold text-[#2E4D38] bg-[#edf5ee] border border-[#cbe0ce] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                            {c}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[10px] font-bold text-[#2E4D38] bg-[#edf5ee] border border-[#cbe0ce] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                          {readingBlog.category || 'Wellness'}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-stone-500 font-semibold line-clamp-1 break-words">
-                      {readingBlog.title}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setReadingBlog(null)}
-                  className="p-2 rounded-full bg-stone-200/80 hover:bg-stone-300 text-stone-700 transition cursor-pointer flex-shrink-0"
-                  title="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            <div className="p-6 sm:p-8">
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug mb-3 break-words">
-                {readingBlog.title}
-              </h2>
-
-              <div className="flex items-center justify-between pb-5 mb-6 border-b border-stone-100 flex-wrap gap-3">
-                <div className="flex items-center gap-3 text-xs text-stone-500">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#2E4D38] flex items-center justify-center font-bold text-xs">
-                    {readingBlog.authorName ? readingBlog.authorName.charAt(0).toUpperCase() : 'A'}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-stone-800">{readingBlog.authorName || 'Arboveya Author'}</p>
-                    <p className="text-[11px] text-stone-400">
-                      {new Date(readingBlog.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-                {renderStatusBadge(readingBlog)}
-              </div>
-
-              <div className="text-stone-700 text-sm sm:text-base leading-relaxed">
-                <BlogRenderer content={readingBlog.content} />
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
-                <button
-                  onClick={() => setReadingBlog(null)}
-                  className="px-5 py-2 rounded-xl bg-stone-100 text-xs font-semibold text-stone-700 hover:bg-stone-200 transition"
-                >
-                  Close Blog
-                </button>
-
-              {user && (user.id === readingBlog.authorId || user.role === 'Admin') && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const b = readingBlog;
-                      setReadingBlog(null);
-                      handleOpenEdit(b);
-                    }}
-                    className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition"
-                  >
-                    Edit Post
-                  </button>
-                  <button
-                    onClick={() => {
-                      const b = readingBlog;
-                      setReadingBlog(null);
-                      handleDeleteBlog(b);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition"
-                  >
-                    Delete Post
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
-      </div>
-      )}
-    </div>
   );
 }
 

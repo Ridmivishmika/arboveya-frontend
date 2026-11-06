@@ -702,6 +702,27 @@ export async function deleteWellnessNeed(id: string, token?: string): Promise<vo
 
 // ----------------- Blog APIs ----------------- //
 
+export async function getBlogById(id: string, token?: string): Promise<BlogPost | null> {
+  try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = "Bearer " + token;
+    }
+    const res = await fetch(`${API_BASE_URL}/blogs/${id}`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      throw new Error(`Failed to fetch blog post: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.warn(`Error fetching blog ${id}:`, error);
+    return null;
+  }
+}
+
 export async function getPublishedBlogs(search?: string): Promise<BlogPost[]> {
   try {
     const params = new URLSearchParams();
