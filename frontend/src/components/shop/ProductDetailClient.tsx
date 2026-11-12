@@ -406,7 +406,33 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
     }
   };
 
-  const categoryName = product.categoryName || 'Supplements';
+  const categoryNames = useMemo(() => {
+    const list: string[] = [];
+    if (product.categoryNames && product.categoryNames.length > 0) {
+      product.categoryNames.forEach((c) => {
+        if (c && !list.includes(c)) list.push(c);
+      });
+    } else if (product.categoryName) {
+      list.push(product.categoryName);
+    }
+    return list.length > 0 ? list : ['Botanical'];
+  }, [product]);
+
+  const wellnessNeedNames = useMemo(() => {
+    const list: string[] = [];
+    if (product.wellnessNeedNames && product.wellnessNeedNames.length > 0) {
+      product.wellnessNeedNames.forEach((w) => {
+        if (w && !list.includes(w)) list.push(w);
+      });
+    } else if (product.wellnessNeedName) {
+      list.push(product.wellnessNeedName);
+    } else if (product.wellnessNeed) {
+      list.push(product.wellnessNeed);
+    }
+    return list;
+  }, [product]);
+
+  const categoryName = categoryNames[0] || 'Botanical';
   const totalRatingSum = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
   const liveAvg = reviews.length > 0 ? totalRatingSum / reviews.length : (product.averageRating ?? product.rating ?? 0);
   const ratingValue = reviews.length > 0 ? Math.round(liveAvg) : 0;
@@ -421,7 +447,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
           <span>&gt;</span>
           <Link href="/shop" className="hover:text-[#1c3f24] transition-colors">Shop</Link>
           <span>&gt;</span>
-          <span className="text-[#516b55] font-medium">{categoryName}</span>
+          <Link href={`/shop?category=${encodeURIComponent(categoryName)}`} className="text-[#516b55] font-medium hover:underline">
+            {categoryName}
+          </Link>
           <span>&gt;</span>
           <span className="text-[#1c3f24] font-semibold">{product.name}</span>
         </div>
@@ -501,10 +529,19 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
 
             {/* Title & Reviews */}
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              {/* Category & Wellness Need */}
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-xs font-bold tracking-wider uppercase text-[#2d5c37]">
-                  {categoryName}
+                  {categoryNames.length > 0 ? categoryNames.join(' / ') : categoryName}
                 </span>
+                {wellnessNeedNames.length > 0 && (
+                  <>
+                    <span className="text-stone-300">•</span>
+                    <span className="text-xs font-semibold text-[#8a5d1b] tracking-wider uppercase">
+                      {wellnessNeedNames.join(' / ')}
+                    </span>
+                  </>
+                )}
                 {(selectedVariant?.weight || product.weight) && (
                   <span className="text-xs text-[#6e8a73]">
                     • {selectedVariant?.weight || product.weight}
@@ -967,7 +1004,29 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                     <p className="text-xs text-stone-500 italic">Standard botanical purity verified by Arboveya.</p>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-[#e2eae2]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 text-xs border-t border-[#e2eae2]">
+                    <div>
+                      <span className="text-stone-400 font-bold block uppercase text-[10px] mb-1">Categories:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {categoryNames.map((c, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded bg-white border border-[#d2e4d5] text-[#24492d] font-semibold text-[11px]">
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {wellnessNeedNames.length > 0 && (
+                      <div>
+                        <span className="text-stone-400 font-bold block uppercase text-[10px] mb-1">Wellness Needs:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {wellnessNeedNames.map((w, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded bg-white border border-[#f0debb] text-[#8a5d1b] font-semibold text-[11px]">
+                              {w}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <span className="text-stone-400 font-bold block uppercase text-[10px]">Country of Origin:</span>
                       <span className="font-semibold text-[#1c3f24]">{product.countryOfOrigin || 'Sri Lanka'}</span>

@@ -31,8 +31,8 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
           <span className="text-[#3b6040] text-base sm:text-lg">🌿</span>
         </div>
 
-        {/* Dynamic Categories in Balanced Responsive Grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-6 gap-x-2 sm:gap-8 justify-items-center">
+        {/* Dynamic Categories in Balanced Responsive Centered Flex (Centered from middle like Wellness Needs) */}
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-7 max-w-5xl mx-auto">
           {categories.length > 0 ? (
             categories.map((category) => {
               const hasError = imgErrors[category.id];
@@ -42,7 +42,7 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
                 <Link
                   key={category.id}
                   href={`/shop?category=${encodeURIComponent(category.name)}`}
-                  className="group flex flex-col items-center gap-2 text-center cursor-pointer w-full max-w-[105px] sm:max-w-[125px]"
+                  className="group flex flex-col items-center gap-2 text-center cursor-pointer w-[95px] sm:w-[120px]"
                 >
                   {/* Circular Image Badge */}
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#edf4ee] border-2 border-[#ccdccd] group-hover:border-[#24492d] group-hover:scale-105 transition-all duration-300 shadow-2xs overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -73,7 +73,7 @@ export default function ProductTypeSection({ categories = [] }: ProductTypeSecti
               );
             })
           ) : (
-            <div className="col-span-full flex items-center gap-3 py-3 px-5 rounded-xl bg-[#f2f6f2] border border-[#d5e2d6] text-xs text-[#405644]">
+            <div className="flex items-center gap-3 py-3 px-5 rounded-xl bg-[#f2f6f2] border border-[#d5e2d6] text-xs text-[#405644]">
               <Sparkles className="w-4 h-4 text-[#c7a45e]" />
               <span>Curating our pure botanical selections. Check back shortly.</span>
             </div>

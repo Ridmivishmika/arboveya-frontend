@@ -83,9 +83,13 @@ interface Product {
   stockQuantity: number;
   categoryId?: string;
   categoryName?: string;
+  categoryIds?: string[];
+  categoryNames?: string[];
   wellnessNeedId?: string;
   wellnessNeedName?: string;
   wellnessNeed?: string;
+  wellnessNeedIds?: string[];
+  wellnessNeedNames?: string[];
   shippingOptions?: string;
   imageUrl?: string;
   galleryImages?: string;
@@ -113,6 +117,21 @@ interface Product {
   returnPolicy?: string;
   createdAt?: string;
   variants?: import('@/types').ProductVariant[];
+}
+
+function getProductCategories(p: Product): string[] {
+  if (Array.isArray(p.categoryNames) && p.categoryNames.length > 0) {
+    return p.categoryNames.filter(Boolean);
+  }
+  return p.categoryName ? [p.categoryName] : [];
+}
+
+function getProductWellnessNeeds(p: Product): string[] {
+  if (Array.isArray(p.wellnessNeedNames) && p.wellnessNeedNames.length > 0) {
+    return p.wellnessNeedNames.filter(Boolean);
+  }
+  const single = p.wellnessNeedName || p.wellnessNeed;
+  return single ? [single] : [];
 }
 
 export default function SellerDashboardPage() {
@@ -989,11 +1008,11 @@ export default function SellerDashboardPage() {
                           <td className="py-4 px-6">
                             <div className="flex flex-col gap-1.5 items-start">
                               <span className="text-xs font-semibold px-2.5 py-0.5 bg-stone-100 rounded-md text-stone-700">
-                                {p.categoryName || 'Pending Admin Category'}
+                                {getProductCategories(p).join(', ') || 'Pending Admin Category'}
                               </span>
-                              {(p.wellnessNeedName || p.wellnessNeed) ? (
+                              {getProductWellnessNeeds(p).length > 0 ? (
                                 <span className="text-[11px] font-semibold px-2 py-0.5 bg-[#edf5ee] text-[#1c3f24] rounded-md border border-[#cde0d1]">
-                                  {p.wellnessNeedName || p.wellnessNeed}
+                                  {getProductWellnessNeeds(p).join(', ')}
                                 </span>
                               ) : (
                                 <span className="text-[10px] text-stone-400 italic">
@@ -1890,14 +1909,16 @@ export default function SellerDashboardPage() {
           <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-[#2E4D38] uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-md">
-                  {viewingProduct.categoryName || 'Herbal Catalog'}
-                </span>
-                {(viewingProduct.wellnessNeedName || viewingProduct.wellnessNeed) && (
-                  <span className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider bg-[#edf5ee] border border-[#cde0d1] px-2.5 py-1 rounded-md">
-                    Wellness Need: {viewingProduct.wellnessNeedName || viewingProduct.wellnessNeed}
+                {getProductCategories(viewingProduct).map((cat, idx) => (
+                  <span key={idx} className="text-xs font-bold text-[#2E4D38] uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-md">
+                    {cat}
                   </span>
-                )}
+                ))}
+                {getProductWellnessNeeds(viewingProduct).map((wn, idx) => (
+                  <span key={idx} className="text-xs font-bold text-[#1c3f24] uppercase tracking-wider bg-[#edf5ee] border border-[#cde0d1] px-2.5 py-1 rounded-md">
+                    Wellness Need: {wn}
+                  </span>
+                ))}
                 {viewingProduct.approvalStatus?.toLowerCase() === 'approved' ? (
                   <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full">
                     Approved & Live
@@ -1946,12 +1967,24 @@ export default function SellerDashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap pt-1">
-                  <span className="text-xs font-semibold px-2.5 py-1 bg-stone-100 rounded-lg text-stone-700">
-                    Category: {viewingProduct.categoryName || 'Assigned by Admin upon review'}
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-1 bg-[#edf5ee] rounded-lg text-[#1c3f24] border border-[#cde0d1]">
-                    Wellness Need: {viewingProduct.wellnessNeedName || viewingProduct.wellnessNeed || 'Assigned by Admin upon review'}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-stone-500 font-medium">Categories:</span>
+                    {getProductCategories(viewingProduct).map((cat, idx) => (
+                      <span key={idx} className="text-xs font-semibold px-2.5 py-0.5 bg-stone-100 rounded-lg text-stone-700">
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                  {getProductWellnessNeeds(viewingProduct).length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-stone-500 font-medium">Wellness Needs:</span>
+                      {getProductWellnessNeeds(viewingProduct).map((wn, idx) => (
+                        <span key={idx} className="text-xs font-semibold px-2.5 py-0.5 bg-[#edf5ee] rounded-lg text-[#1c3f24] border border-[#cde0d1]">
+                          {wn}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {viewingProduct.adminFeedback && (
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 mt-2">

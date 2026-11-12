@@ -687,12 +687,24 @@ export default function AdminProductsPage() {
                                     </span>
                                   )}
                                 </div>
-                                {(prod.wellnessNeedName || prod.wellnessNeed) && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#fbf5e8] text-[#8a5d1b] border border-[#f0debb]">
-                                    <Sparkles className="w-2.5 h-2.5 text-[#b58129]" />
-                                    <span>{prod.wellnessNeedName || prod.wellnessNeed}</span>
-                                  </span>
-                                )}
+                                <div className="flex flex-wrap gap-1 max-w-xs mt-0.5">
+                                  {prod.wellnessNeedNames && prod.wellnessNeedNames.length > 0 ? (
+                                    prod.wellnessNeedNames.map((wName, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#fbf5e8] text-[#8a5d1b] border border-[#f0debb]"
+                                      >
+                                        <Sparkles className="w-2.5 h-2.5 text-[#b58129]" />
+                                        <span>{wName}</span>
+                                      </span>
+                                    ))
+                                  ) : (prod.wellnessNeedName || prod.wellnessNeed) ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#fbf5e8] text-[#8a5d1b] border border-[#f0debb]">
+                                      <Sparkles className="w-2.5 h-2.5 text-[#b58129]" />
+                                      <span>{prod.wellnessNeedName || prod.wellnessNeed}</span>
+                                    </span>
+                                  ) : null}
+                                </div>
                               </div>
                             </td>
 

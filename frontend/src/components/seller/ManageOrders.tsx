@@ -117,7 +117,7 @@ const sampleOrdersData: DetailedOrder[] = [
     salesRecordNo: '236',
     createdAt: '2026-09-30T14:55:00Z',
     datePaid: '2026-09-30T15:02:00Z',
-    shipByDate: 'Oct 7 at 11:29am PDT',
+    shipByDate: 'Oct 7',
     estimatedDelivery: 'Oct 20, 2026 - Nov 13, 2026',
     orderStatus: 'Awaiting shipment',
     paymentStatus: 'Paid',
@@ -252,28 +252,28 @@ const sampleOrdersData: DetailedOrder[] = [
 
 
 function calculateShipByDateObj(order: any): Date {
-  if (order.shippedAt) {
+  if (order?.shippedAt && (order?.orderStatus === 'Shipped' || order?.orderStatus === 'Delivered')) {
     const s = new Date(order.shippedAt);
     if (!isNaN(s.getTime())) return s;
   }
-  if (order.estimatedShipDate) {
-    const s = new Date(order.estimatedShipDate);
-    if (!isNaN(s.getTime())) return s;
-  }
-  const paidDate = order.datePaid 
-    ? new Date(order.datePaid) 
-    : (order.createdAt ? new Date(order.createdAt) : (order.updatedAt ? new Date(order.updatedAt) : new Date()));
+  // Buyer paid date + handling time rule
+  const rawPaid = order?.datePaid || order?.createdAt || order?.updatedAt;
+  const paidDate = rawPaid ? new Date(rawPaid) : new Date();
+  const validPaidDate = !isNaN(paidDate.getTime()) ? paidDate : new Date();
+
   let handlingDays = 5;
-  const ht = order.handlingTime || 
-    order.items?.[0]?.handlingTime || 
-    order.orderItems?.[0]?.handlingTime;
+  const ht = order?.handlingTime || 
+    order?.items?.[0]?.handlingTime || 
+    order?.items?.[0]?.product?.handlingTime ||
+    order?.orderItems?.[0]?.handlingTime ||
+    order?.orderItems?.[0]?.product?.handlingTime;
   if (ht) {
     const match = String(ht).match(/(\d+)(?:\s*-\s*(\d+))?/);
     if (match) {
       handlingDays = match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10);
     }
   }
-  const shipDate = new Date(paidDate.getTime());
+  const shipDate = new Date(validPaidDate.getTime());
   let added = 0;
   while (added < handlingDays) {
     shipDate.setDate(shipDate.getDate() + 1);

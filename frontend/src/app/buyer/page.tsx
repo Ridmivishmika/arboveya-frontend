@@ -108,19 +108,21 @@ function getEstimatedShipDate(order?: {
   shippedAt?: string; 
   createdAt?: string; 
   updatedAt?: string; 
+  datePaid?: string;
   handlingTime?: string;
+  orderStatus?: string;
   items?: Array<{ handlingTime?: string; product?: { handlingTime?: string } }>;
   orderItems?: Array<{ handlingTime?: string; product?: { handlingTime?: string } }>;
 } | null): Date {
-  if (order?.shippedAt) {
+  if (order?.shippedAt && (order?.orderStatus === 'Shipped' || order?.orderStatus === 'Delivered')) {
     const s = new Date(order.shippedAt);
     if (!isNaN(s.getTime())) return s;
   }
-  if (order?.estimatedShipDate) {
-    const parsed = new Date(order.estimatedShipDate);
-    if (!isNaN(parsed.getTime())) return parsed;
-  }
-  const paidDate = order?.updatedAt ? new Date(order.updatedAt) : (order?.createdAt ? new Date(order.createdAt) : new Date());
+  // Buyer paid date + handling time rule
+  const rawPaid = order?.datePaid || order?.createdAt || order?.updatedAt;
+  const paidDate = rawPaid ? new Date(rawPaid) : new Date();
+  const validPaidDate = !isNaN(paidDate.getTime()) ? paidDate : new Date();
+
   let handlingDays = 5;
   const ht = order?.handlingTime || 
     order?.items?.[0]?.handlingTime || 
@@ -134,7 +136,7 @@ function getEstimatedShipDate(order?: {
       handlingDays = match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10);
     }
   }
-  const shipDate = new Date(paidDate.getTime());
+  const shipDate = new Date(validPaidDate.getTime());
   let added = 0;
   while (added < handlingDays) {
     shipDate.setDate(shipDate.getDate() + 1);

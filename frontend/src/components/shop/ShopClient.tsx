@@ -3,17 +3,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { 
-  Star, 
-  ChevronRight, 
-  ChevronLeft, 
-  ShoppingBag, 
-  Check, 
-  Leaf, 
-  ShieldCheck, 
-  Award, 
-  Truck, 
+import { useSearchParams } from 'next/navigation';
+import {
+  Star,
+  ChevronRight,
+  ChevronLeft,
+  ShoppingBag,
+  Check,
+  Leaf,
+  ShieldCheck,
+  Award,
+  Truck,
   X,
   Eye,
   Search,
@@ -45,7 +45,6 @@ export default function ShopClient({
   initialWellnessNeedParam = 'All Wellness Needs',
   initialSearchQuery = ''
 }: ShopClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { addToCart } = useCart();
   const { user } = useAuth();
@@ -75,7 +74,12 @@ export default function ShopClient({
     }
     return [];
   });
-  const [selectedWellnessNeed, setSelectedWellnessNeed] = useState<string>(initialWellnessNeedParam);
+  const [selectedWellnessNeeds, setSelectedWellnessNeeds] = useState<string[]>(() => {
+    if (initialWellnessNeedParam && initialWellnessNeedParam !== 'All Wellness Needs') {
+      return [initialWellnessNeedParam];
+    }
+    return [];
+  });
   const [maxPrice, setMaxPrice] = useState<number>(() => {
     // Will be reset after catalogMaxPrice is computed; start at a high value
     return 9999;
@@ -105,11 +109,11 @@ export default function ShopClient({
 
   const activeFilterCount = useMemo(() => {
     return (selectedCategories.length > 0 ? 1 : 0) +
-      (selectedWellnessNeed !== 'All Wellness Needs' ? 1 : 0) +
+      (selectedWellnessNeeds.length > 0 ? 1 : 0) +
       (maxPrice < catalogMaxPrice ? 1 : 0) +
       (selectedRatings.length > 0 ? 1 : 0) +
       (searchQuery.trim().length > 0 ? 1 : 0);
-  }, [selectedCategories, selectedWellnessNeed, maxPrice, catalogMaxPrice, selectedRatings, searchQuery]);
+  }, [selectedCategories, selectedWellnessNeeds, maxPrice, catalogMaxPrice, selectedRatings, searchQuery]);
 
   const itemsPerPage = 12;
 
@@ -130,7 +134,12 @@ export default function ShopClient({
     }
     const wellnessNeedParam = searchParams.get('wellnessNeed') || searchParams.get('need');
     if (wellnessNeedParam) {
-      setSelectedWellnessNeed(wellnessNeedParam);
+      if (wellnessNeedParam === 'All Wellness Needs') {
+        setSelectedWellnessNeeds([]);
+      } else {
+        const needs = wellnessNeedParam.split(',').map(s => s.trim()).filter(Boolean);
+        setSelectedWellnessNeeds(needs);
+      }
     }
     const qParam = searchParams.get('q') || searchParams.get('search');
     if (qParam !== null) {
@@ -141,30 +150,85 @@ export default function ShopClient({
   const handleClearSearch = () => {
     setSearchQuery('');
     setCurrentPage(1);
-    const params = new URLSearchParams(window.location.search);
-    params.delete('q');
-    params.delete('search');
-    const qs = params.toString();
-    router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('q');
+      params.delete('search');
+      const qs = params.toString();
+      window.history.replaceState(null, '', qs ? `/shop?${qs}` : '/shop');
+    }
   };
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     setCurrentPage(1);
-    const params = new URLSearchParams(window.location.search);
-    if (val.trim()) {
-      params.set('q', val.trim());
-    } else {
-      params.delete('q');
-      params.delete('search');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (val.trim()) {
+        params.set('q', val.trim());
+      } else {
+        params.delete('q');
+        params.delete('search');
+      }
+      const qs = params.toString();
+      window.history.replaceState(null, '', qs ? `/shop?${qs}` : '/shop');
     }
-    const qs = params.toString();
-    router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+  };
+
+  // Helper to check if a product belongs to a category (supports multiple categories)
+  const productMatchesCategory = (p: Product, catIdOrName: string): boolean => {
+    if (!catIdOrName) return false;
+    const target = catIdOrName.toLowerCase().trim();
+    if (p.categoryId && p.categoryId.toLowerCase() === target) return true;
+    if (p.categoryName && p.categoryName.toLowerCase() === target) return true;
+    if (p.categoryIds && p.categoryIds.some(cid => cid.toLowerCase() === target)) return true;
+    if (p.categoryNames && p.categoryNames.some(cname => cname.toLowerCase() === target)) return true;
+    return false;
+  };
+
+  // Helper to check if a product belongs to a wellness need (supports multiple wellness needs)
+  const productMatchesWellnessNeed = (p: Product, needIdOrName: string): boolean => {
+    if (!needIdOrName) return false;
+    const target = needIdOrName.toLowerCase().trim();
+    if (p.wellnessNeedId && p.wellnessNeedId.toLowerCase() === target) return true;
+    if (p.wellnessNeedName && p.wellnessNeedName.toLowerCase() === target) return true;
+    if (p.wellnessNeed && p.wellnessNeed.toLowerCase() === target) return true;
+    if (p.wellnessNeedIds && p.wellnessNeedIds.some(wid => wid.toLowerCase() === target)) return true;
+    if (p.wellnessNeedNames && p.wellnessNeedNames.some(wname => wname.toLowerCase() === target)) return true;
+    return false;
+  };
+
+  // Helper to extract all display categories for product cards
+  const getProductCategories = (p: Product): string[] => {
+    const list: string[] = [];
+    if (p.categoryNames && p.categoryNames.length > 0) {
+      p.categoryNames.forEach(c => {
+        if (c && !list.includes(c)) list.push(c);
+      });
+    } else if (p.categoryName) {
+      list.push(p.categoryName);
+    }
+    return list.length > 0 ? list : ['Botanical'];
+  };
+
+  // Helper to extract all display wellness needs for product cards
+  const getProductWellnessNeeds = (p: Product): string[] => {
+    const list: string[] = [];
+    if (p.wellnessNeedNames && p.wellnessNeedNames.length > 0) {
+      p.wellnessNeedNames.forEach(w => {
+        if (w && !list.includes(w)) list.push(w);
+      });
+    } else if (p.wellnessNeedName) {
+      list.push(p.wellnessNeedName);
+    } else if (p.wellnessNeed) {
+      list.push(p.wellnessNeed);
+    }
+    return list;
   };
 
   // Helper to extract a display wellness need for product cards
   const getProductWellnessNeed = (product: Product): string => {
-    return product.wellnessNeedName || product.wellnessNeed || 'General Wellness';
+    return product.wellnessNeedName || product.wellnessNeed || (product.wellnessNeedNames && product.wellnessNeedNames[0]) || 'General Wellness';
   };
 
   // Build category list with item counts
@@ -175,9 +239,7 @@ export default function ShopClient({
 
     categories.forEach((cat) => {
       const count = products.filter(
-        (p) =>
-          (p.categoryId && p.categoryId === cat.id) ||
-          (p.categoryName && p.categoryName.toLowerCase() === cat.name.toLowerCase())
+        (p) => productMatchesCategory(p, cat.id) || productMatchesCategory(p, cat.name)
       ).length;
 
       list.push({
@@ -199,12 +261,11 @@ export default function ShopClient({
 
       const matchingProducts = products.filter(
         (p) =>
-          (p.wellnessNeedId && p.wellnessNeedId === item.id) ||
-          (p.wellnessNeedName && p.wellnessNeedName.toLowerCase() === itemName.toLowerCase()) ||
-          (p.wellnessNeed && p.wellnessNeed.toLowerCase() === itemName.toLowerCase())
+          (item.id && productMatchesWellnessNeed(p, item.id)) ||
+          productMatchesWellnessNeed(p, itemName)
       );
 
-      const count = matchingProducts.length > 0 ? matchingProducts.length : (item.productCount ?? 0);
+      const count = matchingProducts.length;
 
       // STRICT RULE: Only display if it has products assigned (> 0)
       if (count > 0) {
@@ -223,20 +284,24 @@ export default function ShopClient({
     setCurrentPage(1);
     if (categoryName === 'All Products') {
       setSelectedCategories([]);
-      const params = new URLSearchParams(window.location.search);
-      params.delete('category');
-      params.delete('categoryId');
-      const qs = params.toString();
-      router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('category');
+        params.delete('categoryId');
+        const qs = params.toString();
+        window.history.replaceState(null, '', qs ? `/shop?${qs}` : '/shop');
+      }
       return;
     }
 
-    setSelectedCategories((prev) => {
-      const exists = prev.some((c) => c.toLowerCase() === categoryName.toLowerCase());
-      const next = exists
-        ? prev.filter((c) => c.toLowerCase() !== categoryName.toLowerCase())
-        : [...prev, categoryName];
+    const exists = selectedCategories.some((c) => c.toLowerCase() === categoryName.toLowerCase());
+    const next = exists
+      ? selectedCategories.filter((c) => c.toLowerCase() !== categoryName.toLowerCase())
+      : [...selectedCategories, categoryName];
 
+    setSelectedCategories(next);
+
+    if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (next.length === 1) {
         params.set('category', next[0]);
@@ -245,19 +310,53 @@ export default function ShopClient({
         params.delete('categoryId');
       }
       const qs = params.toString();
-      router.replace(qs ? `/shop?${qs}` : '/shop', { scroll: false });
-      return next;
-    });
+      window.history.replaceState(null, '', qs ? `/shop?${qs}` : '/shop');
+    }
   };
 
   const handleCategorySelect = (categoryName: string) => {
     toggleCategory(categoryName);
   };
 
-  // Handle Wellness Need selection
-  const handleWellnessNeedSelect = (needName: string) => {
-    setSelectedWellnessNeed(needName);
+  // Handle Wellness Need selection / toggle (supports multi-select with tick options)
+  const toggleWellnessNeed = (needName: string) => {
     setCurrentPage(1);
+    if (needName === 'All Wellness Needs') {
+      setSelectedWellnessNeeds([]);
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('wellnessNeed');
+        params.delete('need');
+        const qs = params.toString();
+        window.history.replaceState(null, '', qs ? `/shop?${qs}` : '/shop');
+      }
+      return;
+    }
+
+    const exists = selectedWellnessNeeds.some((w) => w.toLowerCase() === needName.toLowerCase());
+    const next = exists
+      ? selectedWellnessNeeds.filter((w) => w.toLowerCase() !== needName.toLowerCase())
+      : [...selectedWellnessNeeds, needName];
+
+    setSelectedWellnessNeeds(next);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (next.length === 1) {
+        params.set('wellnessNeed', next[0]);
+      } else if (next.length > 1) {
+        params.set('wellnessNeed', next.join(','));
+      } else {
+        params.delete('wellnessNeed');
+        params.delete('need');
+      }
+      const qs = params.toString();
+      window.history.replaceState(null, '', qs ? `/shop?${qs}` : '/shop');
+    }
+  };
+
+  const handleWellnessNeedSelect = (needName: string) => {
+    toggleWellnessNeed(needName);
   };
 
   // Handle Rating checkbox toggle
@@ -300,10 +399,13 @@ export default function ShopClient({
         const q = searchQuery.toLowerCase().trim();
         const matchesName = product.name?.toLowerCase().includes(q);
         const matchesDesc = product.description?.toLowerCase().includes(q);
-        const matchesCategory = product.categoryName?.toLowerCase().includes(q);
+        const matchesCategory =
+          (product.categoryName && product.categoryName.toLowerCase().includes(q)) ||
+          (product.categoryNames && product.categoryNames.some(cn => cn.toLowerCase().includes(q)));
         const matchesWellness =
           (product.wellnessNeedName && product.wellnessNeedName.toLowerCase().includes(q)) ||
-          (product.wellnessNeed && product.wellnessNeed.toLowerCase().includes(q));
+          (product.wellnessNeed && product.wellnessNeed.toLowerCase().includes(q)) ||
+          (product.wellnessNeedNames && product.wellnessNeedNames.some(wn => wn.toLowerCase().includes(q)));
         const matchesIngredients = product.ingredients?.toLowerCase().includes(q);
         const matchesBenefits = product.keyBenefits?.toLowerCase().includes(q);
 
@@ -315,18 +417,16 @@ export default function ShopClient({
       // 1. Category filter (supports multiple categories)
       if (selectedCategories.length > 0) {
         const matchesCategory = selectedCategories.some((cat) =>
-          (product.categoryId && product.categoryId.toLowerCase() === cat.toLowerCase()) ||
-          (product.categoryName && product.categoryName.toLowerCase() === cat.toLowerCase())
+          productMatchesCategory(product, cat)
         );
         if (!matchesCategory) return false;
       }
 
-      // 2. Wellness Need filter
-      if (selectedWellnessNeed !== 'All Wellness Needs') {
-        const matchesWellness =
-          (product.wellnessNeedId && product.wellnessNeedId === selectedWellnessNeed) ||
-          (product.wellnessNeedName && product.wellnessNeedName.toLowerCase() === selectedWellnessNeed.toLowerCase()) ||
-          (product.wellnessNeed && product.wellnessNeed.toLowerCase() === selectedWellnessNeed.toLowerCase());
+      // 2. Wellness Need filter (supports multiple wellness needs)
+      if (selectedWellnessNeeds.length > 0) {
+        const matchesWellness = selectedWellnessNeeds.some((need) =>
+          productMatchesWellnessNeed(product, need)
+        );
         if (!matchesWellness) return false;
       }
 
@@ -347,7 +447,7 @@ export default function ShopClient({
 
       return true;
     });
-  }, [products, selectedCategories, selectedWellnessNeed, maxPrice, selectedRatings, searchQuery]);
+  }, [products, selectedCategories, selectedWellnessNeeds, maxPrice, selectedRatings, searchQuery]);
 
   // Sort products
   const sortedProducts = useMemo(() => {
@@ -387,7 +487,7 @@ export default function ShopClient({
     return counts;
   }, [products]);
 
-  const isFiltered = selectedCategories.length > 0 || selectedWellnessNeed !== 'All Wellness Needs' || maxPrice < catalogMaxPrice || selectedRatings.length > 0 || searchQuery.trim().length > 0;
+  const isFiltered = selectedCategories.length > 0 || selectedWellnessNeeds.length > 0 || maxPrice < catalogMaxPrice || selectedRatings.length > 0 || searchQuery.trim().length > 0;
 
   const renderFilterContent = () => (
     <div className="space-y-7">
@@ -446,16 +546,14 @@ export default function ShopClient({
         <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
           <button
             onClick={() => toggleCategory('All Products')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-              selectedCategories.length === 0
-                ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-            }`}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${selectedCategories.length === 0
+              ? 'bg-[#24492d] text-white font-bold shadow-xs'
+              : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+              }`}
           >
             <div className="flex items-center gap-2 truncate">
-              <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
-                selectedCategories.length === 0 ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
-              }`}>
+              <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${selectedCategories.length === 0 ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
+                }`}>
                 {selectedCategories.length === 0 && <Check className="w-2.5 h-2.5 stroke-[3]" />}
               </div>
               <span className="truncate">All Products</span>
@@ -471,16 +569,14 @@ export default function ShopClient({
               <button
                 key={name}
                 onClick={() => toggleCategory(name)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                    : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-                }`}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${isSelected
+                  ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                  : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+                  }`}
               >
                 <div className="flex items-center gap-2 truncate">
-                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
-                    isSelected ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
-                  }`}>
+                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
+                    }`}>
                     {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </div>
                   <span className="truncate">{name}</span>
@@ -501,9 +597,9 @@ export default function ShopClient({
             <h3 className="font-sans text-xs font-bold tracking-[0.15em] text-[#1c3f24] uppercase">
               WELLNESS NEED
             </h3>
-            {selectedWellnessNeed !== 'All Wellness Needs' && (
+            {selectedWellnessNeeds.length > 0 && (
               <button
-                onClick={() => handleWellnessNeedSelect('All Wellness Needs')}
+                onClick={() => toggleWellnessNeed('All Wellness Needs')}
                 className="text-[11px] text-[#557359] hover:text-[#1c3f24] hover:underline cursor-pointer"
               >
                 Reset
@@ -513,36 +609,46 @@ export default function ShopClient({
           <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
             <button
               onClick={() => {
-                handleWellnessNeedSelect('All Wellness Needs');
+                toggleWellnessNeed('All Wellness Needs');
                 setMobileFiltersOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-                selectedWellnessNeed === 'All Wellness Needs'
-                  ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                  : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${selectedWellnessNeeds.length === 0
+                ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+                }`}
             >
-              <span>All Wellness Needs</span>
-              <span className={`text-[10px] ${selectedWellnessNeed === 'All Wellness Needs' ? 'text-white/80' : 'text-[#859c89]'}`}>
+              <div className="flex items-center gap-2 truncate">
+                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${selectedWellnessNeeds.length === 0 ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
+                  }`}>
+                  {selectedWellnessNeeds.length === 0 && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                </div>
+                <span className="truncate">All Wellness Needs</span>
+              </div>
+              <span className={`text-[10px] ${selectedWellnessNeeds.length === 0 ? 'text-white/80' : 'text-[#859c89]'}`}>
                 ({products.length})
               </span>
             </button>
             {wellnessNeedsWithCounts.map(({ name, count }) => {
-              const isSelected = selectedWellnessNeed.toLowerCase() === name.toLowerCase();
+              const isSelected = selectedWellnessNeeds.some(w => w.toLowerCase() === name.toLowerCase());
               return (
                 <button
                   key={name}
                   onClick={() => {
-                    handleWellnessNeedSelect(name);
+                    toggleWellnessNeed(name);
                     setMobileFiltersOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#24492d] text-white font-bold shadow-xs'
-                      : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
-                  }`}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${isSelected
+                    ? 'bg-[#24492d] text-white font-bold shadow-xs'
+                    : 'text-[#4a634f] hover:bg-[#f0f5f0] hover:text-[#1c3f24]'
+                    }`}
                 >
-                  <span className="truncate">{name}</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white border-white text-[#24492d]' : 'border-stone-300 bg-white'
+                      }`}>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                    <span className="truncate">{name}</span>
+                  </div>
                   <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-[#859c89]'}`}>
                     ({count})
                   </span>
@@ -619,11 +725,10 @@ export default function ShopClient({
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
-                        className={`w-3.5 h-3.5 ${
-                          i < stars
-                            ? 'fill-[#24492d] text-[#24492d]'
-                            : 'text-[#d6dfd7]'
-                        }`}
+                        className={`w-3.5 h-3.5 ${i < stars
+                          ? 'fill-[#24492d] text-[#24492d]'
+                          : 'text-[#d6dfd7]'
+                          }`}
                       />
                     ))}
                   </div>
@@ -641,11 +746,11 @@ export default function ShopClient({
 
   return (
     <div className="w-full bg-[#fbfdfb] min-h-screen">
-      
+
       {/* Main Layout Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
         <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
-          
+
           {/* ================= DESKTOP LEFT SIDEBAR (hidden on mobile) ================= */}
           <aside className="hidden md:block w-64 flex-shrink-0 bg-white p-5 rounded-2xl border border-[#e8efe8] shadow-2xs sticky top-28">
             {renderFilterContent()}
@@ -685,7 +790,7 @@ export default function ShopClient({
 
           {/* ================= RIGHT CATALOG AREA ================= */}
           <main className="flex-1 w-full space-y-5">
-            
+
             {/* Mobile Category Dropdown with Multi-Select Options (< md) */}
             <div className="md:hidden relative" ref={mobileCatDropdownRef}>
               <button
@@ -696,11 +801,11 @@ export default function ShopClient({
                 <div className="flex items-center gap-2 truncate">
                   <Filter className="w-3.5 h-3.5 text-[#24492d] flex-shrink-0" />
                   <span className="truncate">
-                    {selectedCategories.length === 0 
-                      ? 'All Categories' 
+                    {selectedCategories.length === 0
+                      ? 'All Categories'
                       : selectedCategories.length === 1
-                      ? `Category: ${selectedCategories[0]}`
-                      : `${selectedCategories.length} Categories Selected`}
+                        ? `Category: ${selectedCategories[0]}`
+                        : `${selectedCategories.length} Categories Selected`}
                   </span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform flex-shrink-0 ${mobileCatDropdownOpen ? 'rotate-180' : ''}`} />
@@ -727,16 +832,14 @@ export default function ShopClient({
                       toggleCategory('All Products');
                       setMobileCatDropdownOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${
-                      selectedCategories.length === 0
-                        ? 'bg-[#edf5ee] text-[#1c3f24] font-bold'
-                        : 'text-stone-700 hover:bg-stone-50'
-                    }`}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${selectedCategories.length === 0
+                      ? 'bg-[#edf5ee] text-[#1c3f24] font-bold'
+                      : 'text-stone-700 hover:bg-stone-50'
+                      }`}
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                        selectedCategories.length === 0 ? 'bg-[#24492d] border-[#24492d] text-white' : 'border-stone-300 bg-white'
-                      }`}>
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${selectedCategories.length === 0 ? 'bg-[#24492d] border-[#24492d] text-white' : 'border-stone-300 bg-white'
+                        }`}>
                         {selectedCategories.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
                       <span className="truncate">All Products</span>
@@ -747,9 +850,7 @@ export default function ShopClient({
                   {categories.map((cat) => {
                     const isSelected = selectedCategories.some(c => c.toLowerCase() === cat.name.toLowerCase());
                     const count = products.filter(
-                      (p) =>
-                        (p.categoryId && p.categoryId === cat.id) ||
-                        (p.categoryName && p.categoryName.toLowerCase() === cat.name.toLowerCase())
+                      (p) => productMatchesCategory(p, cat.id) || productMatchesCategory(p, cat.name)
                     ).length;
 
                     return (
@@ -757,16 +858,14 @@ export default function ShopClient({
                         key={`m_cat_${cat.id}`}
                         type="button"
                         onClick={() => toggleCategory(cat.name)}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#edf5ee] text-[#1c3f24] font-bold'
-                            : 'text-stone-700 hover:bg-stone-50'
-                        }`}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${isSelected
+                          ? 'bg-[#edf5ee] text-[#1c3f24] font-bold'
+                          : 'text-stone-700 hover:bg-stone-50'
+                          }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? 'bg-[#24492d] border-[#24492d] text-white' : 'border-stone-300 bg-white'
-                          }`}>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#24492d] border-[#24492d] text-white' : 'border-stone-300 bg-white'
+                            }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
                           <span className="truncate">{cat.name}</span>
@@ -811,7 +910,7 @@ export default function ShopClient({
                 </button>
               )}
             </div>
-            
+
             {/* Active Filter Banner when search keyword is active */}
             {searchQuery.trim() && (
               <div className="flex items-center justify-between bg-[#edf6ef] border border-[#d2e4d5] px-4 py-2.5 rounded-xl text-xs text-[#1c3f24] animate-fadeIn">
@@ -862,19 +961,21 @@ export default function ShopClient({
             )}
 
             {/* Active Filter Banner when wellness need is selected */}
-            {selectedWellnessNeed !== 'All Wellness Needs' && (
+            {selectedWellnessNeeds.length > 0 && (
               <div className="flex items-center justify-between bg-[#edf6ef] border border-[#d2e4d5] px-4 py-2.5 rounded-xl text-xs text-[#1c3f24] animate-fadeIn">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[#557359]">Filtered by Wellness Need:</span>
-                  <span className="font-bold text-[#1c3f24] px-2.5 py-0.5 rounded-md bg-white border border-[#c4dbc8] shadow-2xs">
-                    {selectedWellnessNeed}
-                  </span>
+                  {selectedWellnessNeeds.map((wn, idx) => (
+                    <span key={idx} className="font-bold text-[#1c3f24] px-2.5 py-0.5 rounded-md bg-white border border-[#c4dbc8] shadow-2xs">
+                      {wn}
+                    </span>
+                  ))}
                   <span className="text-[11px] text-[#557359]">
                     ({filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found)
                   </span>
                 </div>
                 <button
-                  onClick={() => handleWellnessNeedSelect('All Wellness Needs')}
+                  onClick={() => toggleWellnessNeed('All Wellness Needs')}
                   className="font-bold text-[#24492d] hover:text-[#132c19] hover:underline text-xs flex items-center gap-1 cursor-pointer bg-white/70 hover:bg-white px-2.5 py-1 rounded-md transition-all shadow-2xs"
                 >
                   <span>Clear Wellness Filter</span>
@@ -898,8 +999,8 @@ export default function ShopClient({
                 {selectedCategories.length > 0 && (
                   <span className="text-[#516b55]"> in <strong className="text-[#1c3f24]">{selectedCategories.join(', ')}</strong></span>
                 )}
-                {selectedWellnessNeed !== 'All Wellness Needs' && (
-                  <span className="text-[#516b55]"> for <strong className="text-[#1c3f24]">{selectedWellnessNeed}</strong></span>
+                {selectedWellnessNeeds.length > 0 && (
+                  <span className="text-[#516b55]"> for <strong className="text-[#1c3f24]">{selectedWellnessNeeds.join(', ')}</strong></span>
                 )}
               </p>
 
@@ -927,17 +1028,17 @@ export default function ShopClient({
                 <h3 className="font-serif text-lg font-bold text-[#1c3f24]">
                   {searchQuery.trim()
                     ? `No products found matching "${searchQuery}"`
-                    : selectedWellnessNeed !== 'All Wellness Needs'
-                    ? `No products found for "${selectedWellnessNeed}"`
-                    : selectedCategories.length > 0
-                    ? `No products found in "${selectedCategories.join(', ')}"`
-                    : 'No products match your criteria'}
+                    : selectedWellnessNeeds.length > 0
+                      ? `No products found for "${selectedWellnessNeeds.join(', ')}"`
+                      : selectedCategories.length > 0
+                        ? `No products found in "${selectedCategories.join(', ')}"`
+                        : 'No products match your criteria'}
                 </h3>
                 <button
                   onClick={() => {
                     handleClearSearch();
                     toggleCategory('All Products');
-                    handleWellnessNeedSelect('All Wellness Needs');
+                    toggleWellnessNeed('All Wellness Needs');
                     setMaxPrice(catalogMaxPrice);
                     setSelectedRatings([]);
                   }}
@@ -956,7 +1057,7 @@ export default function ShopClient({
                   const lowestVariant = product.variants && product.variants.length > 0
                     ? [...product.variants].sort((a, b) => a.price - b.price)[0]
                     : undefined;
-                  const rawPrice = lowestVariant ? lowestVariant.price : product.price;                  const tiers = parseOfferTiers(product.offerName, Number(product.discountPercentage));
+                  const rawPrice = lowestVariant ? lowestVariant.price : product.price; const tiers = parseOfferTiers(product.offerName, Number(product.discountPercentage));
                   const hasOffers = tiers.length > 0;
                   const displayWeight = lowestVariant ? lowestVariant.weight : product.weight;
 
@@ -1012,11 +1113,10 @@ export default function ShopClient({
                             <button
                               type="button"
                               onClick={(e) => handleAddToCart(e, product.id)}
-                              className={`w-full py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                isAdded 
-                                   ? 'bg-[#15803d] text-white' 
-                                   : 'bg-white text-[#1c3f24] hover:bg-[#24492d] hover:text-white'
-                              }`}
+                              className={`w-full py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${isAdded
+                                ? 'bg-[#15803d] text-white'
+                                : 'bg-white text-[#1c3f24] hover:bg-[#24492d] hover:text-white'
+                                }`}
                             >
                               {isAdded ? (
                                 <>
@@ -1038,7 +1138,7 @@ export default function ShopClient({
                       <Link href={`/shop/${product.id}`} className="block group-hover:opacity-95 min-w-0 overflow-hidden">
                         {/* Category & Wellness Need */}
                         <div className="flex items-center gap-1 text-[10px] text-[#718875] font-medium tracking-wide uppercase truncate mb-0.5 min-w-0">
-                          <span className="truncate">{product.categoryName || 'Botanical'}</span>
+                          <span className="truncate">{product.categoryName || getProductCategories(product)[0] || 'Botanical'}</span>
                           <span>•</span>
                           <span className="text-[#24492d] font-semibold truncate">{getProductWellnessNeed(product)}</span>
                         </div>
@@ -1085,11 +1185,10 @@ export default function ShopClient({
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star
                               key={i}
-                              className={`w-3 h-3 ${
-                                i < ratingVal
-                                  ? 'fill-[#24492d] text-[#24492d]'
-                                  : 'text-[#d6dfd7]'
-                              }`}
+                              className={`w-3 h-3 ${i < ratingVal
+                                ? 'fill-[#24492d] text-[#24492d]'
+                                : 'text-[#d6dfd7]'
+                                }`}
                             />
                           ))}
                         </div>
@@ -1119,11 +1218,10 @@ export default function ShopClient({
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-[#24492d] text-white shadow-xs'
-                          : 'border border-[#ccdacc] text-[#3b5940] hover:bg-[#edf5ee]'
-                      }`}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${isActive
+                        ? 'bg-[#24492d] text-white shadow-xs'
+                        : 'border border-[#ccdacc] text-[#3b5940] hover:bg-[#edf5ee]'
+                        }`}
                     >
                       {pageNum}
                     </button>
@@ -1149,7 +1247,7 @@ export default function ShopClient({
       <section className="bg-[#24492d] text-white py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-center">
-            
+
             {/* 100% Natural */}
             <div className="flex items-center space-x-3 justify-center md:justify-start">
               <div className="p-2.5 rounded-full bg-white/10 flex-shrink-0 text-[#86efac]">
