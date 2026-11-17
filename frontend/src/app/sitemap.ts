@@ -1,6 +1,16 @@
 import { MetadataRoute } from "next";
 import { getProducts, getPublishedBlogs } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
+async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs = 4000, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const rawBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://arboveya.com";
   const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
@@ -58,10 +68,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // 2. Dynamic Product Pages
+  // 2. Dynamic Product Pages (guaranteed timeout fallback)
   let productRoutes: MetadataRoute.Sitemap = [];
   try {
-    const products = await getProducts();
+    const products = await fetchWithTimeout(getProducts(), 4000, []);
     if (Array.isArray(products)) {
       productRoutes = products
         .filter((p) => p && p.id && (!p.approvalStatus || p.approvalStatus === "Approved"))
@@ -82,10 +92,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.warn("Failed to generate dynamic product sitemap entries:", error);
   }
 
-  // 3. Dynamic Blog Pages
+  // 3. Dynamic Blog Pages (guaranteed timeout fallback)
   let blogRoutes: MetadataRoute.Sitemap = [];
   try {
-    const blogs = await getPublishedBlogs();
+    const blogs = await fetchWithTimeout(getPublishedBlogs(), 4000, []);
     if (Array.isArray(blogs)) {
       blogRoutes = blogs
         .filter((b) => b && b.id && (b.isPublished !== false) && (b.isApproved !== false))
